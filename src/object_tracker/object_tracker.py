@@ -21,13 +21,13 @@ class ObjectTracker:
     def __init__(self):
         self.object_db = []
         self.avatar_ids = []
-        self.landmarks_ids = []
+        self.landmark_ids = []
         self.new_obj_pub = rospy.Publisher("new_object", UInt32, queue_size = 10)
-   
+      
     def ARucoCallback(self, msg):
         for m in msg.markers:
             # Check if object is already in database
-            if len(filter(lambda obj: obj.id == m.id, self.object_db)) == 0:
+            if m.id not in [o.ARuco_id for o in self.object_db]:
                 obj = RichObject()
                 obj.ARuco_id = m.id
                 obj.local_pose = m.pose # Actually PoseWithCovariance
@@ -35,11 +35,13 @@ class ObjectTracker:
                 obj.is_avatar = (m.id in self.avatar_ids)
                 obj.is_landmark = (m.id in self.landmark_ids)
                 self.object_db.append(obj)
-                self.new_obj_pub(m.id) # Publish that new object was found
-     
-     def determineColor(self, pose):
+                self.new_obj_pub.publish(m.id) # Publish that new object was found
+                rospy.loginfo("New object %s found!", m.id)
+                print "New object found!"
+                
+    def determineColor(self, pose):
         return (0, 0, 0)
-     
+         
 if __name__ == '__main__':
     rospy.init_node('object_tracker', anonymous=True)
     objectTracker = ObjectTracker()
