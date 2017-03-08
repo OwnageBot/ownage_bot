@@ -1,12 +1,22 @@
-#ifndef __CUBE_PICKER_H__
-#define __CUBE_PICKER_H__
+#ifndef __OBJECT_PICKER_H__
+#define __OBJECT_PICKER_H__
 
-#include <flatpack_furniture/artag_ctrl.h>
+/** 
+ * Modified from CubePicker.h in baxter_collaboration 
+ * Uses Baxter's left arm to pick up and put down objects via suction. 
+ * Inherits from ArmCtrl and ARucoClient, so look there for more method declarations.
+ */
 
-class CubePicker : public ArmCtrl, public ARucoClient
+#include <ros/ros.h>
+#include <std_msgs/UInt32.h>
+
+class ObjectPicker : public ArmCtrl, public ARucoClient
 {
 private:
     double elap_time;
+
+    // Subscriber to the ARuco detector,
+    ros::Subscriber _aruco_sub;
 
     /**
      * [moveObjectTowardHuman description]
@@ -55,16 +65,23 @@ private:
      */
     void setHomeConfiguration();
 
+protected:
+
+    /**
+     * Adds new objects to the object database when notified by the object tracker node
+     */
+    void newObjectCallback(const std_msgs::UInt32 msg);
+
 public:
     /**
      * Constructor
      */
-    CubePicker(std::string _name, std::string _limb, bool _no_robot = false);
+    ObjectPicker(std::string _name, std::string _limb, bool _no_robot = false);
 
     /**
      * Destructor
      */
-    ~CubePicker();
+    ~ObjectPicker();
 
     void setObjectID(int _obj);
 };

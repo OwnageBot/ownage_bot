@@ -1,40 +1,40 @@
-#include "cube_picker.h"
+#include "object_picker.h"
 
 using namespace std;
 using namespace baxter_core_msgs;
 
-CubePicker::CubePicker(std::string _name, std::string _limb, bool _no_robot) :
-                       ArmCtrl(_name,_limb, _no_robot), ARucoClient(_name, _limb), elap_time(0)
+ObjectPicker::ObjectPicker(std::string _name, std::string _limb, bool _no_robot) :
+    ArmCtrl(_name,_limb, _no_robot), ARucoClient(_name, _limb), elap_time(0)
 {
     setHomeConfiguration();
 
     setState(START);
 
-    insertAction(ACTION_GET,       static_cast<f_action>(&CubePicker::pickObject));
-    insertAction(ACTION_PASS,      static_cast<f_action>(&CubePicker::passObject));
-    insertAction(ACTION_GET_PASS,  static_cast<f_action>(&CubePicker::pickPassObject));
-    insertAction("recover_"+string(ACTION_GET_PASS), static_cast<f_action>(&CubePicker::recoverPickPass));
+    insertAction(ACTION_GET,       static_cast<f_action>(&ObjectPicker::pickObject));
+    insertAction(ACTION_PASS,      static_cast<f_action>(&ObjectPicker::passObject));
+    insertAction(ACTION_GET_PASS,  static_cast<f_action>(&ObjectPicker::pickPassObject));
+    insertAction("recover_" + string(ACTION_GET_PASS),
+                 static_cast<f_action>(&ObjectPicker::recoverPickPass));
 
     printActionDB();
 
-    XmlRpc::XmlRpcValue objects_db;
-    if(!_n.getParam("objects_"+getLimb(), objects_db))
-    {
-        ROS_INFO("No objects' database found in the parameter server. "
-                 "Looked up param is %s", ("objects_"+getLimb()).c_str());
-    }
-    else
-    {
-        insertObjects(objects_db);
-        printObjectDB();
-    }
+    _new_obj_sub = _nh.subscribe("/object_tracker/new_object", SUBSCRIBER_BUFFER,
+                                 &ObjectPicker::newObjectCallback, this);
 
     if (_no_robot) return;
 
     if (!callAction(ACTION_HOME)) setState(ERROR);
 }
 
-bool CubePicker::pickObject()
+void ObjectPicker::newObjectCallback(const std_msgs::UInt32 msg)
+{
+    if (!isObjectInDB(msg.data)) {
+        std::string object_name = "object" + std::to_string(msg.data);
+        insertObject(msg.data, object_name);
+    }
+}
+
+bool ObjectPicker::pickObject()
 {
     if (!homePoseStrict())          return false;
     ros::Duration(0.05).sleep();
@@ -46,7 +46,7 @@ bool CubePicker::pickObject()
     return true;
 }
 
-bool CubePicker::passObject()
+bool ObjectPicker::passObject()
 {
     if (getPrevAction() != ACTION_GET)  return false;
     if (!moveObjectTowardHuman())       return false;
@@ -58,7 +58,7 @@ bool CubePicker::passObject()
     return true;
 }
 
-bool CubePicker::pickPassObject()
+bool ObjectPicker::pickPassObject()
 {
     if (!pickObject())      return false;
     setPrevAction(ACTION_GET);
@@ -67,7 +67,7 @@ bool CubePicker::pickPassObject()
     return true;
 }
 
-bool CubePicker::recoverPickPass()
+bool ObjectPicker::recoverPickPass()
 {
     if (!homePoseStrict()) return false;
 
@@ -81,7 +81,7 @@ bool CubePicker::recoverPickPass()
     return true;
 }
 
-void CubePicker::recoverFromError()
+void ObjectPicker::recoverFromError()
 {
     if (getInternalRecovery() == true)
     {
@@ -91,7 +91,7 @@ void CubePicker::recoverFromError()
     }
 }
 
-bool CubePicker::pickARTag()
+bool ObjectPicker::pickARTag()
 {
     ROS_INFO("[%s] Start Picking up tag..", getLimb().c_str());
 
@@ -164,25 +164,25 @@ bool CubePicker::pickARTag()
     return false;
 }
 
-bool CubePicker::moveObjectTowardHuman()
+bool ObjectPicker::moveObjectTowardHuman()
 {
     ROS_INFO("[%s] Moving object toward human..", getLimb().c_str());
     return goToPose(0.80, 0.26, 0.32, VERTICAL_ORI_L);
 }
 
-void CubePicker::setHomeConfiguration()
+void ObjectPicker::setHomeConfiguration()
 {
     setHomeConf(0.7060, -1.2717, 0.3846,  1.5405,
                         -0.1273, 1.3135,  0.3206);
 }
 
-void CubePicker::setObjectID(int _obj)
+void ObjectPicker::setObjectID(int _obj)
 {
     ArmCtrl::setObjectID(_obj);
     ARucoClient::setMarkerID(_obj);
 }
 
-CubePicker::~CubePicker()
+ObjectPicker::~ObjectPicker()
 {
 
 }
