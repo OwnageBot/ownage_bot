@@ -1,0 +1,17 @@
+<launch>
+    <!--
+    <rosparam param = "object_tracker/avatar_ids">
+    </rosparam>
+    
+    <rosparam param = "object_tracker/landmark_ids">
+    </rosparam>
+    -->
+
+    <node pkg="ownage_bot" type="object_tracker" name="object_tracker">
+        <!-- <remap from="new_object" to="/object_tracker/new_object"/> -->
+    </node>
+
+    <node pkg="ownage_bot" type="object_picker" name="object_picker">
+    </node>
+</launch>
+

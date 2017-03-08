@@ -9,6 +9,8 @@
 
 #include <ros/ros.h>
 #include <std_msgs/UInt32.h>
+#include <baxter_collaboration_lib/robot_interface/arm_ctrl.h>
+#include <baxter_collaboration_lib/robot_perception/aruco_client.h>
 
 class ObjectPicker : public ArmCtrl, public ARucoClient
 {

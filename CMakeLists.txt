@@ -5,12 +5,12 @@ project(ownage_bot)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  rospy
   aruco
-  aruco_msgs
   aruco_ros
   baxter_collaboration
+  baxter_collaboration_lib
   geometry_msgs
-  rospy
   std_msgs
 )
 
@@ -106,7 +106,8 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES ownage_bot
-#  CATKIN_DEPENDS aruco aruco_msgs aruco_ros baxter_collaboration geometry_msgs rospy std_msgs
+#  CATKIN_DEPENDS aruco aruco_msgs aruco_ros baxter_collaboration_lib geometry_msgs rospy std_msgs
+  CATKIN_DEPENDS baxter_collaboration_lib
 #  DEPENDS system_lib
 )
 
@@ -133,15 +134,22 @@ include_directories(
 
 ## Declare a C++ executable
 # add_executable(ownage_bot_node src/ownage_bot_node.cpp)
+add_executable(object_picker    src/object_picker/object_picker.h
+                                src/object_picker/object_picker.cpp
+                                src/object_picker/action_provider.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(ownage_bot_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_dependencies(object_picker    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+                                          ${catkin_EXPORTED_TARGETS})
+
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(ownage_bot_node
 #   ${catkin_LIBRARIES}
 # )
+target_link_libraries(object_picker     ${catkin_LIBRARIES} )
 
 #############
 ## Install ##
