@@ -1,16 +1,17 @@
 #ifndef __OBJECT_PICKER_H__
 #define __OBJECT_PICKER_H__
 
-/** 
- * Modified from CubePicker.h in baxter_collaboration 
- * Uses Baxter's left arm to pick up and put down objects via suction. 
+/**
+ * Modified from CubePicker.h in baxter_collaboration
+ * Uses Baxter's left arm to pick up and put down objects via suction.
  * Inherits from ArmCtrl and ARucoClient, so look there for more method declarations.
  */
 
+#include <string>
 #include <ros/ros.h>
 #include <std_msgs/UInt32.h>
-#include <baxter_collaboration_lib/robot_interface/arm_ctrl.h>
-#include <baxter_collaboration_lib/robot_perception/aruco_client.h>
+#include "robot_interface/arm_ctrl.h"
+#include "robot_perception/aruco_client.h"
 
 class ObjectPicker : public ArmCtrl, public ARucoClient
 {
@@ -19,6 +20,9 @@ private:
 
     // Subscriber to the ARuco detector,
     ros::Subscriber _aruco_sub;
+
+    // Subscriber to the object tracker,
+    ros::Subscriber _new_obj_sub;
 
     /**
      * [moveObjectTowardHuman description]

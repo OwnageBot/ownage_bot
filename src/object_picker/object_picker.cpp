@@ -18,8 +18,8 @@ ObjectPicker::ObjectPicker(std::string _name, std::string _limb, bool _no_robot)
 
     printActionDB();
 
-    _new_obj_sub = _nh.subscribe("/object_tracker/new_object", SUBSCRIBER_BUFFER,
-                                 &ObjectPicker::newObjectCallback, this);
+    _new_obj_sub = _n.subscribe("/object_tracker/new_object", SUBSCRIBER_BUFFER,
+                                             &ObjectPicker::newObjectCallback, this);
 
     if (_no_robot) return;
 
@@ -29,8 +29,9 @@ ObjectPicker::ObjectPicker(std::string _name, std::string _limb, bool _no_robot)
 void ObjectPicker::newObjectCallback(const std_msgs::UInt32 msg)
 {
     if (!isObjectInDB(msg.data)) {
-        std::string object_name = "object" + std::to_string(msg.data);
-        insertObject(msg.data, object_name);
+        stringstream object_name;
+        object_name << "object" << msg.data;
+        insertObject(msg.data, object_name.str());
     }
 }
 
