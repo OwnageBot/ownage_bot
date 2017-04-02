@@ -60,7 +60,7 @@ class ObjectTracker:
                 self.new_obj_pub.publish(m.id) # Publish that new object was found
                 rospy.loginfo("New object %s found!", m.id)
                 print "New object found!"
-                print("Obj color: {}".format(self.curr_obj.color))
+                print("Obj color: {}".format(obj.color))
                 print("Color db: {}\n".format(self.object_color_db))
             else if ((rospy.get_rostime()-self.object_db[m.id].last_update) >
                      self.update_period):
