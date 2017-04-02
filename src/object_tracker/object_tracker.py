@@ -10,9 +10,9 @@ class RichObject:
     """Objects with additional properties."""
     def __init__(self):
         self.ARuco_id = -1;
-        self.local_pose = geometry_msgs.msg.PoseWithCovariance()
+        self.pose = geometry_msgs.msg.PoseWithCovariance()
         self.color = (0,0,0)
-        self.last_movement = 0
+        self.last_update = rospy.Time()
         self.forbiddenness = 0
         self.is_avatar = 0
         self.is_landmark = 0
@@ -20,34 +20,55 @@ class RichObject:
 class ObjectTracker:
     """A class for tracking objects."""
 
-    def __init__(self):
-        self.object_db = []
+    def __init__(self, update_period = 0.2):
+        self.update_period = update_period # In seconds
+        self.object_db = dict()
         self.avatar_ids = []
         self.landmark_ids = []
-        self.object_color_db = {} # which colors have we seen?
-        self.curr_obj = None # Whats the object currently being tracked?
+        self.object_color_db = {} # Which colors have we seen?
         self.new_obj_pub = rospy.Publisher("new_object", UInt32, queue_size = 10)
 
+    def insertObject(self, marker):
+        """Insert object into the database using marker information."""
+        # Initialize fields that should be modified only once
+        obj = RichObject()
+        obj.ARuco_id = marker.id
+        obj.is_avatar = (marker.id in self.avatar_ids)
+        obj.is_landmark = (marker.id in self.landmark_ids)
+        self.object_db[marker.id] = obj
+        # Initialize fields which are dynamically changing
+        self.updateObject(marker)
+        return obj
+
+    def updateObject(self, marker):
+        """Updates object database with given marker information."""
+        # Assumes that marker.id is already in the database
+        obj = self.object_db[marker.id]
+        obj.last_update = rospy.get_rostime()
+        # This is like a subscriber except it unsubscribes after first message.
+        image_msg = rospy.wait_for_message("/aruco_marker_publisher/result", Image);
+        obj.color = self.determineColor(image_msg)
+        obj.pose = marker.pose
+        return obj
 
     def ARucoCallback(self, msg):
+        """Callback upon receiving list of markers from ARuco."""
         for m in msg.markers:
             # Check if object is already in database
-            if m.id not in [o.ARuco_id for o in self.object_db]:
-                self.curr_obj = RichObject()
-                # This is like a subscriber except it unsubscribes after first message.
-                self.curr_obj.color = self.determineColor(rospy.wait_for_message("/aruco_marker_publisher/result", Image))
-                self.curr_obj.ARuco_id = m.id
-                self.curr_obj.local_pose = m.pose # Actually PoseWithCovariance
-                self.curr_obj.is_avatar = (m.id in self.avatar_ids)
-                self.curr_obj.is_landmark = (m.id in self.landmark_ids)
-                self.object_db.append(self.curr_obj)
+            if m.id not in self.object_db:
+                obj = self.insertObject(m)
                 self.new_obj_pub.publish(m.id) # Publish that new object was found
                 rospy.loginfo("New object %s found!", m.id)
                 print "New object found!"
                 print("Obj color: {}".format(self.curr_obj.color))
                 print("Color db: {}\n".format(self.object_color_db))
+            else if ((rospy.get_rostime()-self.object_db[m.id].last_update) >
+                     self.update_period):
+                # Update object if update period has lapsed
+                self.updateObject(m)
 
     def determineColor(self, msg):
+        """Determines color of the currently tracked object."""
         rospy.loginfo(" Determining Object Color\n")
         # need to convert ROS images into OpenCV images in order to do analysis
         cv_image =  cv_image = CvBridge().imgmsg_to_cv2(msg, "rgb8")
@@ -95,11 +116,8 @@ class ObjectTracker:
         color =  (avg_r/len(obj_color), avg_g/len(obj_color), avg_b/len(obj_color))
         return self.checkColorDatabase(color)
 
-
-
-    # This will categorize objects based on colors it has alreadys seen,
-    # and will create novel color names if novel colors are encountered.
     def checkColorDatabase(self, rgb_vals):
+        """Categorizes objects based on colors, creates new names from novel colors."""
         # if there color bb is empty, add this color to the database
         if len(self.object_color_db) == 0:
 
@@ -121,9 +139,6 @@ class ObjectTracker:
                 self.object_color_db[new_color] = rgb_vals 
                 return new_color
             
-
-
-
 
 if __name__ == '__main__':
     rospy.init_node('object_tracker')
