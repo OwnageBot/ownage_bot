@@ -2,6 +2,8 @@
 import rospy
 from std_msgs.msg import UInt32
 from aruco_msgs.msg import MarkerArray
+from ownage_bot.msg import RichObject
+from ownage_bot.msg import RichObjectArray
 import geometry_msgs.msg
 
 class ObjectCollector:

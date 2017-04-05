@@ -3,19 +3,10 @@ import rospy
 from std_msgs.msg import UInt32
 from aruco_msgs.msg import MarkerArray
 import geometry_msgs.msg
+from ownage_bot.msg import RichObject
+from ownage_bot.msg import RichObjectArray
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
-
-class RichObject:
-    """Objects with additional properties."""
-    def __init__(self):
-        self.ARuco_id = -1;
-        self.pose = geometry_msgs.msg.PoseWithCovariance()
-        self.color = (0,0,0)
-        self.last_update = rospy.Time()
-        self.forbiddenness = 0
-        self.is_avatar = 0
-        self.is_landmark = 0
 
 class ObjectTracker:
     """A class for tracking objects."""
@@ -28,14 +19,26 @@ class ObjectTracker:
         self.landmark_ids = []
         self.new_obj_pub = rospy.Publisher("new_object",
                                            UInt32, queue_size = 10)
+        self.obj_db_pub = rospy.Publisher("object_db",
+                                          RichObjectArray,
+                                          queue_size = 10)
+
+    def publishDb(self):
+        rate = rospy.Rate(1/latency)
+        while not rospy.is_shutdown():
+          obj_arr = RichObjectArray()
+          obj_arr.objects = self.object_db.values()
+          self.obj_db_pub.publish(obj_arr)
+          rate.sleep()
 
     def insertObject(self, marker):
         """Insert object into the database using marker information."""
         # Initialize fields that should be modified only once
         obj = RichObject()
-        obj.ARuco_id = marker.id
+        obj.id = marker.id
         obj.is_avatar = (marker.id in self.avatar_ids)
         obj.is_landmark = (marker.id in self.landmark_ids)
+        obj.forbiddenness = 0
         self.object_db[marker.id] = obj
         # Initialize fields which are dynamically changing
         self.updateObject(marker)
@@ -59,13 +62,14 @@ class ObjectTracker:
             # Check if object is already in database
             if m.id not in self.object_db:
                 obj = self.insertObject(m)
-                self.new_obj_pub.publish(m.id) # Publish that new object was found
+                # Publish that new object was found
+                self.new_obj_pub.publish(m.id)
                 rospy.loginfo("New object %s found!", m.id)
                 print "New object found!"
                 print("Obj color: {}".format(obj.color))
                 print("Color db: {}\n".format(self.color_db))
-            else if ((rospy.get_rostime()-self.object_db[m.id].last_update) >
-                     self.latency):
+            elif ((rospy.get_rostime()-self.object_db[m.id].last_update) >
+                  rospy.Duration(self.latency)):
                 # Update object if update period has lapsed
                 self.updateObject(m)
 
@@ -147,5 +151,6 @@ if __name__ == '__main__':
     objectTracker = ObjectTracker()
     # published by aruco_ros
     rospy.Subscriber("/aruco_marker_publisher/markers", MarkerArray, objectTracker.ARucoCallback)
+    objectTracker.publishDb()
     rospy.spin()
 
