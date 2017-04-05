@@ -20,13 +20,14 @@ class RichObject:
 class ObjectTracker:
     """A class for tracking objects."""
 
-    def __init__(self, update_period = 0.2):
-        self.update_period = update_period # In seconds
+    def __init__(self, latency = 0.2):
+        self.latency = latency # In seconds
         self.object_db = dict()
+        self.color_db = {} # Which colors have we seen?
         self.avatar_ids = []
         self.landmark_ids = []
-        self.object_color_db = {} # Which colors have we seen?
-        self.new_obj_pub = rospy.Publisher("new_object", UInt32, queue_size = 10)
+        self.new_obj_pub = rospy.Publisher("new_object",
+                                           UInt32, queue_size = 10)
 
     def insertObject(self, marker):
         """Insert object into the database using marker information."""
@@ -45,10 +46,11 @@ class ObjectTracker:
         # Assumes that marker.id is already in the database
         obj = self.object_db[marker.id]
         obj.last_update = rospy.get_rostime()
-        # This is like a subscriber except it unsubscribes after first message.
-        image_msg = rospy.wait_for_message("/aruco_marker_publisher/result", Image);
-        obj.color = self.determineColor(image_msg)
         obj.pose = marker.pose
+        # One-time subscribe for image data
+        image_msg = rospy.wait_for_message(
+            "/aruco_marker_publisher/result", Image);
+        obj.color = self.determineColor(image_msg)
         return obj
 
     def ARucoCallback(self, msg):
@@ -61,9 +63,9 @@ class ObjectTracker:
                 rospy.loginfo("New object %s found!", m.id)
                 print "New object found!"
                 print("Obj color: {}".format(obj.color))
-                print("Color db: {}\n".format(self.object_color_db))
+                print("Color db: {}\n".format(self.color_db))
             else if ((rospy.get_rostime()-self.object_db[m.id].last_update) >
-                     self.update_period):
+                     self.latency):
                 # Update object if update period has lapsed
                 self.updateObject(m)
 
@@ -119,13 +121,13 @@ class ObjectTracker:
     def checkColorDatabase(self, rgb_vals):
         """Categorizes objects based on colors, creates new names from novel colors."""
         # if there color bb is empty, add this color to the database
-        if len(self.object_color_db) == 0:
+        if len(self.color_db) == 0:
 
-            self.object_color_db["Color 1"] = rgb_vals
+            self.color_db["Color 1"] = rgb_vals
         # if the curr obj's color is within a certain range of a previouly seen color
         # than they are the same color
         else: 
-            for (k,v) in self.object_color_db.iteritems():
+            for (k,v) in self.color_db.iteritems():
                 for i in range(0,len(v)):
                     # We should play with this value more; it seems like
                     # there is a lot of noise with these cameras
@@ -135,8 +137,8 @@ class ObjectTracker:
                     return k
             # else, its a novel color and therefore should be added to the db.
             else:
-                new_color = "Color {}".format(len(self.object_color_db) + 1)
-                self.object_color_db[new_color] = rgb_vals 
+                new_color = "Color {}".format(len(self.color_db) + 1)
+                self.color_db[new_color] = rgb_vals 
                 return new_color
             
 
