@@ -3,178 +3,186 @@
 using namespace std;
 using namespace baxter_core_msgs;
 
-ObjectPicker::ObjectPicker(std::string _name, std::string _limb, bool _no_robot) :
-    ArmCtrl(_name,_limb, _no_robot), ARucoClient(_name, _limb), elap_time(0)
+ObjectPicker::ObjectPicker(
+    std::string _name,
+    std::string _limb,
+    bool _no_robot ) :
+    ArmCtrl(_name,_limb, _no_robot),
+    ARucoClient(_name, _limb),
+    elap_time(0)
 {
-    setHomeConfiguration();
+  setHomeConfiguration();
 
-    setState(START);
+  setWorkspaceConfiguration();
+  
+  setState(START);
 
-    insertAction(ACTION_GET,       static_cast<f_action>(&ObjectPicker::pickObject));
-    insertAction(ACTION_PASS,      static_cast<f_action>(&ObjectPicker::passObject));
-    insertAction(ACTION_GET_PASS,  static_cast<f_action>(&ObjectPicker::pickPassObject));
-    insertAction("recover_" + string(ACTION_GET_PASS),
-                 static_cast<f_action>(&ObjectPicker::recoverPickPass));
+  insertAction(ACTION_GET,
+               static_cast<f_action>(&ObjectPicker::pickObject));
+  insertAction(ACTION_SCAN,
+               static_cast<f_action>(&ObjectPicker::scanWorkspace));
 
-    printActionDB();
+  printActionDB();
 
-    _new_obj_sub = _n.subscribe("/object_tracker/new_object", SUBSCRIBER_BUFFER,
-                                             &ObjectPicker::newObjectCallback, this);
+  _new_obj_sub = _n.subscribe("/object_tracker/new_object",
+                              SUBSCRIBER_BUFFER,
+                              &ObjectPicker::newObjectCallback, this);
 
-    if (_no_robot) return;
+  if (_no_robot) return;
 
-    if (!callAction(ACTION_HOME)) setState(ERROR);
+  if (!callAction(ACTION_HOME)) setState(ERROR);
 }
 
 void ObjectPicker::newObjectCallback(const std_msgs::UInt32 msg)
 {
-    if (!isObjectInDB(msg.data)) {
-        stringstream object_name;
-        object_name << "object" << msg.data;
-        insertObject(msg.data, object_name.str());
-    }
+  if (!isObjectInDB(msg.data)) {
+    stringstream object_name;
+    object_name << "object" << msg.data;
+    insertObject(msg.data, object_name.str());
+    ROS_INFO("[%s] ID %d added to database", getLimb().c_str(), msg.data);
+  }
 }
 
 bool ObjectPicker::pickObject()
 {
-    if (!homePoseStrict())          return false;
-    ros::Duration(0.05).sleep();
-    if (!pickARTag())               return false;
-    if (!gripObject())              return false;
-    if (!moveArm("up", 0.3))        return false;
-    if (!hoverAboveTable(Z_LOW))    return false;
+  if (!homePoseStrict())          return false;
+  ros::Duration(0.05).sleep();
+  if (!pickARTag())               return false;
+  if (!gripObject())              return false;
+  if (!moveArm("up", 0.3))        return false;
+  if (!hoverAboveTable(Z_LOW))    return false;
 
-    return true;
+  return true;
 }
 
-bool ObjectPicker::passObject()
+bool ObjectPicker::scanWorkspace()
 {
-    if (getPrevAction() != ACTION_GET)  return false;
-    if (!moveObjectTowardHuman())       return false;
-    ros::Duration(1.0).sleep();
-    if (!waitForForceInteraction())     return false;
-    if (!releaseObject())               return false;
-    if (!homePoseStrict())              return false;
+  ROS_INFO("[%s] Scanning workspace...", getLimb().c_str());
 
-    return true;
-}
-
-bool ObjectPicker::pickPassObject()
-{
-    if (!pickObject())      return false;
-    setPrevAction(ACTION_GET);
-    if (!passObject())      return false;
-
-    return true;
-}
-
-bool ObjectPicker::recoverPickPass()
-{
-    if (!homePoseStrict()) return false;
-
-    if (getPrevAction() == ACTION_GET)
+  ros::Rate r(100);
+  for(int i = 0; i < workspace_conf.size(); i++) {
+    ROS_INFO("[%s] Going to corner %d", getLimb().c_str(), i);
+    while(RobotInterface::ok() &&
+          !isConfigurationReached(workspace_conf[i]))
     {
-        if (!moveArm("left", 0.1)) return false;
-        if (!moveArm("down", 0.3)) return false;
-        if (!releaseObject())      return false;
-        if (!homePoseStrict()) return false;
+      if (disable_coll_av)    suppressCollisionAv();
+      goToJointConfNoCheck(home_conf);
+      r.sleep();
     }
-    return true;
+  }
+
+  return true;
 }
 
 void ObjectPicker::recoverFromError()
 {
-    if (getInternalRecovery() == true)
-    {
-        setState(RECOVER);
-        recoverPickPass();
-        setState(ERROR);
-    }
+  if (getInternalRecovery() == true)
+  {
+    // Release object and go home
+    hoverAboveTable(Z_LOW);
+    releaseObject();
+    goHome();
+  }
 }
 
 bool ObjectPicker::pickARTag()
 {
-    ROS_INFO("[%s] Start Picking up tag..", getLimb().c_str());
+  ROS_INFO("[%s] Start Picking up tag..", getLimb().c_str());
 
-    if (!is_ir_ok())
-    {
-        ROS_ERROR("No callback from the IR sensor! Stopping.");
-        return false;
-    }
+  if (!is_ir_ok())
+  {
+    ROS_ERROR("No callback from the IR sensor! Stopping.");
+    return false;
+  }
 
-    if (!waitForARucoData()) return false;
+  if (!waitForARucoData()) return false;
 
-    geometry_msgs::Quaternion q;
+  geometry_msgs::Quaternion q;
+
+  double x = getMarkerPos().x;
+  double y = getMarkerPos().y + 0.04;
+  double z =       getPos().z;
+
+  ROS_DEBUG("Going to: %g %g %g", x, y, z);
+  if (!goToPose(x, y, z, POOL_ORI_L,"loose"))
+  {
+    return false;
+  }
+
+  if (!waitForARucoData()) return false;
+
+  ros::Time start_time = ros::Time::now();
+  double z_start       =       getPos().z;
+  int cnt_ik_fail      =                0;
+
+  ros::Rate r(100);
+  while(RobotInterface::ok())
+  {
+    double new_elap_time = (ros::Time::now() - start_time).toSec();
 
     double x = getMarkerPos().x;
-    double y = getMarkerPos().y + 0.04;
-    double z =       getPos().z;
+    double y = getMarkerPos().y;
+    double z = z_start - ARM_SPEED * new_elap_time;
 
-    ROS_DEBUG("Going to: %g %g %g", x, y, z);
-    if (!goToPose(x, y, z, POOL_ORI_L,"loose"))
+    ROS_DEBUG("Time %g Going to: %g %g %g", new_elap_time, x, y, z);
+
+    if (goToPoseNoCheck(x,y,z,POOL_ORI_L))
     {
-        return false;
+      cnt_ik_fail = 0;
+      if (new_elap_time - elap_time > 0.02)
+      {
+        ROS_WARN("\t\t\t\t\tTime elapsed: %g", new_elap_time - elap_time);
+      }
+      elap_time = new_elap_time;
+
+      if(hasCollidedIR("strict"))
+      {
+        ROS_DEBUG("Collision!");
+        setSubState(ACTION_GET);
+        return true;
+      }
+
+      r.sleep();
+    }
+    else
+    {
+      cnt_ik_fail++;
     }
 
-    if (!waitForARucoData()) return false;
-
-    ros::Time start_time = ros::Time::now();
-    double z_start       =       getPos().z;
-    int cnt_ik_fail      =                0;
-
-    ros::Rate r(100);
-    while(RobotInterface::ok())
+    if (cnt_ik_fail == 10)
     {
-        double new_elap_time = (ros::Time::now() - start_time).toSec();
-
-        double x = getMarkerPos().x;
-        double y = getMarkerPos().y;
-        double z = z_start - ARM_SPEED * new_elap_time;
-
-        ROS_DEBUG("Time %g Going to: %g %g %g", new_elap_time, x, y, z);
-
-        if (goToPoseNoCheck(x,y,z,POOL_ORI_L))
-        {
-            cnt_ik_fail = 0;
-            if (new_elap_time - elap_time > 0.02)
-            {
-                ROS_WARN("\t\t\t\t\tTime elapsed: %g", new_elap_time - elap_time);
-            }
-            elap_time = new_elap_time;
-
-            if(hasCollidedIR("strict"))
-            {
-                ROS_DEBUG("Collision!");
-                setSubState(ACTION_GET);
-                return true;
-            }
-
-            r.sleep();
-        }
-        else
-        {
-            cnt_ik_fail++;
-        }
-
-        if (cnt_ik_fail == 10)
-        {
-            return false;
-        }
+      return false;
     }
+  }
 
-    return false;
+  return false;
 }
 
-bool ObjectPicker::moveObjectTowardHuman()
-{
-    ROS_INFO("[%s] Moving object toward human..", getLimb().c_str());
-    return goToPose(0.80, 0.26, 0.32, VERTICAL_ORI_L);
-}
 
 void ObjectPicker::setHomeConfiguration()
 {
-    setHomeConf(0.7060, -1.2717, 0.3846,  1.5405,
-                        -0.1273, 1.3135,  0.3206);
+  // Home location at center of the table
+  setHomeConf(0.1967, -0.8702, -1.0531,  1.5578,
+              0.6516,  1.2464, -0.1787);
+}
+
+void ObjectPicker::setWorkspaceConfiguration()
+{
+  workspace_conf.clear();
+  // Hard-coded workspace boundaries, needs to be updated
+  std::vector<double> btm_left = {0.1967, -0.8702, -1.0531,  1.5578,
+                                  0.6516,  1.2464, -0.1787};
+  std::vector<double> btm_right = {0.1967, -0.8702, -1.0531,  1.5578,
+                                  0.6516,  1.2464, -0.1787};
+  std::vector<double> top_left = {0.1967, -0.8702, -1.0531,  1.5578,
+                                  0.6516,  1.2464, -0.1787};
+  std::vector<double> top_right = {0.1967, -0.8702, -1.0531,  1.5578,
+                                  0.6516,  1.2464, -0.1787};
+  // Push in order that robot scans the workspace
+  workspace_conf.push_back(btm_left);
+  workspace_conf.push_back(top_left);
+  workspace_conf.push_back(top_right);
+  workspace_conf.push_back(btm_right);
 }
 
 void ObjectPicker::setObjectID(int _obj)

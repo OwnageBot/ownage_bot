@@ -149,8 +149,9 @@ class ObjectTracker:
 if __name__ == '__main__':
     rospy.init_node('object_tracker')
     objectTracker = ObjectTracker()
-    # published by aruco_ros
-    rospy.Subscriber("/aruco_marker_publisher/markers", MarkerArray, objectTracker.ARucoCallback)
+    # Published by aruco_ros
+    rospy.Subscriber("/aruco_marker_publisher/markers",
+                     MarkerArray, objectTracker.ARucoCallback)
     objectTracker.publishDb()
     rospy.spin()
 

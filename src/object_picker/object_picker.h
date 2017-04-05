@@ -13,22 +13,21 @@
 #include "robot_interface/arm_ctrl.h"
 #include "robot_perception/aruco_client.h"
 
+#define ACTION_SCAN
+
 class ObjectPicker : public ArmCtrl, public ARucoClient
 {
 private:
     double elap_time;
 
+    // Arm pose configurations for corners of physical workspace
+    std::vector<std::vector<double>> workspace_conf;
+    
     // Subscriber to the ARuco detector,
     ros::Subscriber _aruco_sub;
 
     // Subscriber to the object tracker,
     ros::Subscriber _new_obj_sub;
-
-    /**
-     * [moveObjectTowardHuman description]
-     * @return true/false if success/failure
-     */
-    bool moveObjectTowardHuman();
 
     /**
      * [pickARTag description]
@@ -43,38 +42,27 @@ private:
     bool pickObject();
 
     /**
-     * [passObject description]
-     * @return true/false if success/failure
-     */
-    bool passObject();
-
-    /**
-     * [pickObject description]
-     * @return true/false if success/failure
-     */
-    bool pickPassObject();
-
-    /**
-     * [recoverPickPass description]
-     * @return true/false if success/failure
-     */
-    bool recoverPickPass();
-
-    /**
      * Recovers from errors during execution. It provides a basic interface,
      * but it is advised to specialize this function in the ArmCtrl's children.
      */
     void recoverFromError();
 
     /**
-     * Sets the joint-level configuration for the home position
+     * Sets default joint-level configuration for the home position
      */
     void setHomeConfiguration();
 
-protected:
+   /**
+     * Sets default joint-level configuration for the workspace corners
+     */
+    void setWorkspaceConfiguration();
 
+    
+protected:
+    
     /**
-     * Adds new objects to the object database when notified by the object tracker node
+     * Adds new objects to the object database when notified by the object
+     * tracker node.
      */
     void newObjectCallback(const std_msgs::UInt32 msg);
 
