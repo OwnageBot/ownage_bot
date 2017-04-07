@@ -13,7 +13,7 @@
 #include "robot_interface/arm_ctrl.h"
 #include "robot_perception/aruco_client.h"
 
-#define ACTION_SCAN
+#define ACTION_SCAN "scan"
 
 class ObjectPicker : public ArmCtrl, public ARucoClient
 {
@@ -21,7 +21,7 @@ private:
     double elap_time;
 
     // Arm pose configurations for corners of physical workspace
-    std::vector<std::vector<double>> workspace_conf;
+    std::vector< std::vector<double> > workspace_conf;
     
     // Subscriber to the ARuco detector,
     ros::Subscriber _aruco_sub;
@@ -40,6 +40,12 @@ private:
      * @return true/false if success/failure
      */
     bool pickObject();
+
+    /**
+     * [scanWorkspace description]
+     * @return true/false if success/failure
+     */
+    bool scanWorkspace();
 
     /**
      * Recovers from errors during execution. It provides a basic interface,

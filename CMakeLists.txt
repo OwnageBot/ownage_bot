@@ -7,6 +7,7 @@ project(ownage_bot)
 find_package(catkin REQUIRED COMPONENTS
   rospy
   aruco
+  message_generation
   aruco_ros
   baxter_collaboration
   baxter_collaboration_lib
@@ -71,7 +72,7 @@ add_message_files(
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
   DEPENDENCIES
-  aruco_msgs   geometry_msgs   std_msgs
+     geometry_msgs   std_msgs
 )
 
 ################################################

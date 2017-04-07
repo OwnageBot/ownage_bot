@@ -59,16 +59,13 @@ bool ObjectPicker::scanWorkspace()
 {
   ROS_INFO("[%s] Scanning workspace...", getLimb().c_str());
 
-  ros::Rate r(100);
   for(int i = 0; i < workspace_conf.size(); i++) {
     ROS_INFO("[%s] Going to corner %d", getLimb().c_str(), i);
-    while(RobotInterface::ok() &&
-          !isConfigurationReached(workspace_conf[i]))
-    {
-      if (disable_coll_av)    suppressCollisionAv();
-      goToJointConfNoCheck(home_conf);
-      r.sleep();
-    }
+    int r = ArmCtrl::goToPose(
+      workspace_conf[i][0], workspace_conf[i][1], workspace_conf[i][2],
+      workspace_conf[i][3], workspace_conf[i][4],
+      workspace_conf[i][5], workspace_conf[i][6]);
+    if (!r) ROS_ERROR("Could not reach corner %d, continuing", i);
   }
 
   return true;
@@ -170,19 +167,19 @@ void ObjectPicker::setWorkspaceConfiguration()
 {
   workspace_conf.clear();
   // Hard-coded workspace boundaries, needs to be updated
-  std::vector<double> btm_left = {0.1967, -0.8702, -1.0531,  1.5578,
-                                  0.6516,  1.2464, -0.1787};
-  std::vector<double> btm_right = {0.1967, -0.8702, -1.0531,  1.5578,
-                                  0.6516,  1.2464, -0.1787};
-  std::vector<double> top_left = {0.1967, -0.8702, -1.0531,  1.5578,
-                                  0.6516,  1.2464, -0.1787};
-  std::vector<double> top_right = {0.1967, -0.8702, -1.0531,  1.5578,
-                                  0.6516,  1.2464, -0.1787};
+  static const double btm_left[] =    {0.473, 0.506, 0.274,
+                                       0, 1, 0, 0};
+  static const double btm_right[] =   {0.507, -0.303, 0.218,
+                                       0, 1, 0, 0};
+  static const double top_left[] =    {0.731, 0.463, 0.277,
+                                       0, 1, 0, 0};
+  static const double top_right[] =   {0.685, -0.102, 0.221,
+                                       0, 1, 0, 0};
   // Push in order that robot scans the workspace
-  workspace_conf.push_back(btm_left);
-  workspace_conf.push_back(top_left);
-  workspace_conf.push_back(top_right);
-  workspace_conf.push_back(btm_right);
+  workspace_conf.push_back(std::vector<double>(btm_left, btm_left + 7));
+  workspace_conf.push_back(std::vector<double>(top_left, top_left + 7));
+  workspace_conf.push_back(std::vector<double>(top_right, top_right + 7));
+  workspace_conf.push_back(std::vector<double>(btm_right, btm_right + 7));
 }
 
 void ObjectPicker::setObjectID(int _obj)
