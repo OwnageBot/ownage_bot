@@ -52,8 +52,8 @@ class ObjectTracker:
         obj.pose = marker.pose
         # One-time subscribe for image data
         image_msg = rospy.wait_for_message(
-            "/aruco_marker_publisher/result", Image);
-        obj.color = self.determineColor(image_msg)
+            "/aruco_marker_publisher/result", Image)
+        obj.color = self.determineColor(image_msg, marker)
         return obj
 
     def ARucoCallback(self, msg):
@@ -73,7 +73,7 @@ class ObjectTracker:
                 # Update object if update period has lapsed
                 self.updateObject(m)
 
-    def determineColor(self, msg):
+    def determineColor(self, msg, marker):
         """Determines color of the currently tracked object."""
         rospy.loginfo(" Determining Object Color\n")
         # need to convert ROS images into OpenCV images in order to do analysis
@@ -84,22 +84,36 @@ class ObjectTracker:
         avg_g = 0
         avg_b = 0
 
+        # Get the coords of the corner of the marker
+        # and sort x and y parts into diff lists
+        corner_xs = [i.x for i in marker.corners]
+        corner_ys = [i.y for i in marker.corners]
+
+        # Get the coordinate range of the marker
+        x_min = int(min(corner_xs))
+        x_max = int(max(corner_xs))
+
+        y_min = int(min(corner_ys))
+        y_max = int(max(corner_ys))
+
         # Step through each pixel
-        for y in range(0, len(cv_image)):
-            for x in range(0,len(cv_image[y])):
-                r = cv_image[y][x][0]
-                g = cv_image[y][x][1]
-                b = cv_image[y][x][2]
+        # for y in range(0, len(cv_image)):
+        #     for x in range(0,len(cv_image[y])):
+        for y in range(y_min - 5, y_max + 5):
+            for x in range(x_min - 5, y_max + 5):
+                try:
+                    r = cv_image[y][x][0]
+                    g = cv_image[y][x][1]
+                    b = cv_image[y][x][2]
 
                 # detects the bounding box of the QR code, which is blue
-                if r <10 and g < 10 and b > 200:
+                if r < 10 and g < 10 and b > 200:
                     #print(x,y)
-                # Given that the aruco tag can be in any orientation we determine
-                # which pixels belong to the object w a simple heuristic:
-                # pixels to the left and close to the first bounding box pixel
-                # in a given row likely belongs to the object
-                    try:
-                        obj_pixel = cv_image[y][x-3] # 2 is just a guess, feel free to change
+                    # Given that the aruco tag can be in any orientation we determine
+                    # which pixels belong to the object w a simple heuristic:
+                    # pixels to the left and close to the first bounding box pixel
+                    # in a given row likely belongs to the object
+                        obj_pixel = cv_image[y][x-3]  # 2 is just a guess, feel free to change
                         # Another heurisitc: we dont want to count the red and green axes drawn by aruco
                         # either
                         if sum(obj_pixel) != 255:
@@ -108,10 +122,10 @@ class ObjectTracker:
                         else:
                             pass
 
-                    except IndexError:
-                        pass
-                    # we only care about the first blue pixel we see in a given row y
-                    break
+                except IndexError:
+                    pass
+                # we only care about the first blue pixel we see in a given row y
+                break
 
         for p in obj_color:
             avg_r+= p[0]
@@ -119,7 +133,7 @@ class ObjectTracker:
             avg_b+= p[2]
         
         assert(len(obj_color) > 0)
-        color =  (avg_r/len(obj_color), avg_g/len(obj_color), avg_b/len(obj_color))
+        color = (avg_r/len(obj_color), avg_g/len(obj_color), avg_b/len(obj_color))
         return self.checkColorDatabase(color)
 
     def checkColorDatabase(self, rgb_vals):
