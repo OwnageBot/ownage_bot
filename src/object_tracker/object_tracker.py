@@ -24,7 +24,7 @@ class ObjectTracker:
                                           queue_size = 10)
 
     def publishDb(self):
-        rate = rospy.Rate(1/latency)
+        rate = rospy.Rate(1/self.latency)
         while not rospy.is_shutdown():
           obj_arr = RichObjectArray()
           obj_arr.objects = self.object_db.values()
@@ -106,13 +106,13 @@ class ObjectTracker:
                     g = cv_image[y][x][1]
                     b = cv_image[y][x][2]
 
-                # detects the bounding box of the QR code, which is blue
-                if r < 10 and g < 10 and b > 200:
-                    #print(x,y)
-                    # Given that the aruco tag can be in any orientation we determine
-                    # which pixels belong to the object w a simple heuristic:
-                    # pixels to the left and close to the first bounding box pixel
-                    # in a given row likely belongs to the object
+                    # detects the bounding box of the QR code, which is blue
+                    if r < 10 and g < 10 and b > 200:
+                        #print(x,y)
+                        # Given that the aruco tag can be in any orientation we determine
+                        # which pixels belong to the object w a simple heuristic:
+                        # pixels to the left and close to the first bounding box pixel
+                        # in a given row likely belongs to the object
                         obj_pixel = cv_image[y][x-3]  # 2 is just a guess, feel free to change
                         # Another heurisitc: we dont want to count the red and green axes drawn by aruco
                         # either
@@ -121,7 +121,7 @@ class ObjectTracker:
                             obj_color.append(obj_pixel)
                         else:
                             pass
-
+                        
                 except IndexError:
                     pass
                 # we only care about the first blue pixel we see in a given row y

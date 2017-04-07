@@ -1,5 +1,5 @@
 Header header
-uint32 ARuco_id
+uint32 id
 geometry_msgs/PoseWithCovariance pose
 uint32 color
 time last_update
