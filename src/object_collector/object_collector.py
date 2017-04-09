@@ -47,16 +47,16 @@ class ObjectCollector:
     
     def inHomeArea(self, obj):
         loc = obj.pose.pose.position
-        return ((home_area[0].x <= loc.x <= home_area[1].x) and
-                (home_area[0].y <= loc.y <= home_area[1].y))
+        return ((self.home_area[0].x <= loc.x <= self.home_area[1].x) and
+                (self.home_area[0].y <= loc.y <= self.home_area[1].y))
         
     def main(self):
         """Main loop which collects all tracked objects."""
         while not rospy.is_shutdown():
             self.scanWorkspace()
-            object_db = rospy.wait_for_message(
+            msg = rospy.wait_for_message(
                 "/object_tracker/object_db", RichObjectArray)
-            for obj in object_db:
+            for obj in msg.objects:
                 if (not self.inHomeArea(obj) and
                     obj.forbiddenness < self.threshold):
                     self.collect(obj)                    
@@ -64,9 +64,6 @@ class ObjectCollector:
 if __name__ == '__main__':
     rospy.init_node('object_collector')
     objectCollector = ObjectCollector()
-    # Subcribe to database updates from object_tracker
-    rospy.Subscriber("/object_tracker/object_db",
-                     RichObjectArray, objectCollector.objectDbCallback)
     objectCollector.main()
     rospy.spin()
 
