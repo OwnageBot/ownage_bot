@@ -14,6 +14,9 @@
 #include "robot_perception/aruco_client.h"
 
 #define ACTION_SCAN "scan"
+#define ACTION_PUT "put"
+
+#define RELEASE_HEIGHT (0.1)
 
 class ObjectPicker : public ArmCtrl, public ARucoClient
 {
@@ -41,6 +44,12 @@ private:
      */
     bool pickObject();
 
+    /**
+     * [putObject description]
+     * @return true/false if success/failure
+     */
+    bool putObject();
+    
     /**
      * [scanWorkspace description]
      * @return true/false if success/failure

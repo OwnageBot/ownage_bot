@@ -19,6 +19,8 @@ ObjectPicker::ObjectPicker(
 
   insertAction(ACTION_GET,
                static_cast<f_action>(&ObjectPicker::pickObject));
+  insertAction(ACTION_PUT,
+               static_cast<f_action>(&ObjectPicker::putObject));
   insertAction(ACTION_SCAN,
                static_cast<f_action>(&ObjectPicker::scanWorkspace));
 
@@ -55,6 +57,15 @@ bool ObjectPicker::pickObject()
   return true;
 }
 
+bool ObjectPicker::putObject()
+{
+  if (!hoverAboveTable(RELEASE_HEIGHT))      return false;
+  ros::Duration(0.05).sleep();
+  if (!releaseObject())           return false;
+  
+  return true;
+}
+
 bool ObjectPicker::scanWorkspace()
 {
   ROS_INFO("[%s] Scanning workspace...", getLimb().c_str());
@@ -76,9 +87,9 @@ void ObjectPicker::recoverFromError()
   if (getInternalRecovery() == true)
   {
     // Release object and go home
-    hoverAboveTable(Z_LOW);
+    hoverAboveTable(RELEASE_HEIGHT);
     releaseObject();
-    goHome();
+    homePoseStrict();
   }
 }
 
