@@ -4,14 +4,16 @@ from std_msgs.msg import UInt32
 from baxter_collaboration_msgs.srv import DoAction
 from ownage_bot.msg import RichObject
 from ownage_bot.msg import RichObjectArray
-import geometry_msgs.msg
+from geometry_msgs.msg import Point
 
 class ObjectCollector:
     """A class for collecting objects."""
 
-    def __init__(self, latency = 0.2):
-        self.latency = latency # In seconds
-        self.is_searching = 1
+    def __init__(self):
+        # Threshold for forbiddenness
+        self.threshold = 0.8
+        # Rectangle denoting home area
+        self.home_area = (Point(0.45,-0.2, 0), Point(0.55, 0.2, 0))
         self.actionProvider = rospy.ServiceProxy(
             "/action_provider/service_left", DoAction)
 
@@ -21,16 +23,43 @@ class ObjectCollector:
         pass
 
     def scanWorkspace(self):
-        # TODO: call actionProvider with relevant input
+        return self.actionProvider("scan", [])
+
+    def goHome(self):
+        return self.actionProvider("home", [])
+
+    def pickUp(self, obj):
+        return self.actionProvider("get", [obj.id])
+
+    def putDown(self):
+        return self.actionProvider("put", [])
+
+    def collect(self, obj):
+        resp = self.pickUp(obj)
+        if not resp.success:
+            return resp
+        resp = self.goHome()
+        if not resp.success:
+            return resp
+        resp = self.putDown()
+        if not resp.success:
+            return resp        
     
-    def collect(self):
-        """Main loop which collects all tracked objects."""        
-        r = rospy.Rate(1/self.latency)
+    def inHomeArea(self, obj):
+        loc = obj.pose.pose.position
+        return ((home_area[0].x <= loc.x <= home_area[1].x) and
+                (home_area[0].y <= loc.y <= home_area[1].y))
+        
+    def main(self):
+        """Main loop which collects all tracked objects."""
         while not rospy.is_shutdown():
-            # Check if all tracked objects are in home area
-            # Collect tracked objects which are not in home area
-            # Search for new objects
-            r.sleep()
+            self.scanWorkspace()
+            object_db = rospy.wait_for_message(
+                "/object_tracker/object_db", RichObjectArray)
+            for obj in object_db:
+                if (not self.inHomeArea(obj) and
+                    obj.forbiddenness < self.threshold):
+                    self.collect(obj)                    
 
 if __name__ == '__main__':
     rospy.init_node('object_collector')
@@ -38,6 +67,6 @@ if __name__ == '__main__':
     # Subcribe to database updates from object_tracker
     rospy.Subscriber("/object_tracker/object_db",
                      RichObjectArray, objectCollector.objectDbCallback)
-    objectCollector.collect()
+    objectCollector.main()
     rospy.spin()
 
