@@ -83,7 +83,7 @@ class ObjectTracker:
         cv_image =  cv_image = CvBridge().imgmsg_to_cv2(msg, "rgb8")
         obj_color = []  # will store pixels belonging ONLY to the object (hopefully)
         # These will store approx color of the object
-        avg_r = 0 
+        avg_r = 0
         avg_g = 0
         avg_b = 0
 
@@ -99,42 +99,35 @@ class ObjectTracker:
         y_min = int(min(corner_ys))
         y_max = int(max(corner_ys))
 
+        # Store the coords of the pixels within marker
+        # bounding box
+        y_marker_pixels = range(y_min - 5, y_max + 5)
+        x_marker_pixels = range(x_min - 5, x_max + 5)
+
         # Step through each pixel
-        # for y in range(0, len(cv_image)):
-        #     for x in range(0,len(cv_image[y])):
-        for y in range(y_min - 5, y_max + 5):
-            for x in range(x_min - 5, y_max + 5):
+        #for y in range(0, len(cv_image)):
+             #for x in range(0,len(cv_image[y])):
+        for y in range(y_min - 10, y_max + 10):
+            for x in range(x_min - 10, x_max + 10):
                 try:
                     r = cv_image[y][x][0]
                     g = cv_image[y][x][1]
                     b = cv_image[y][x][2]
+                    # Only looks for pixels on peripharies of marker
+                    if x in x_marker_pixels and y in y_marker_pixels:
+                        pass
 
-                    # detects the bounding box of the QR code, which is blue
-                    if r < 10 and g < 10 and b > 200:
-                        #print(x,y)
-                        # Given that the aruco tag can be in any orientation we determine
-                        # which pixels belong to the object w a simple heuristic:
-                        # pixels to the left and close to the first bounding box pixel
-                        # in a given row likely belongs to the object
-                        obj_pixel = cv_image[y][x-3]  # 2 is just a guess, feel free to change
-                        # Another heurisitc: we dont want to count the red and green axes drawn by aruco
-                        # either
-                        if sum(obj_pixel) != 255:
-                            #rospy.loginfo(" approx color of obj: {}".format(obj_pixel))
-                            obj_color.append(obj_pixel)
-                        else:
-                            pass
-                        
+                    else:
+                        obj_color.append(cv_image[y][x])
+
+
                 except IndexError:
                     pass
-                # we only care about the first blue pixel we see in a given row y
-                break
-
         for p in obj_color:
             avg_r+= p[0]
             avg_g+= p[1]
             avg_b+= p[2]
-        
+
         assert(len(obj_color) > 0)
         color = (avg_r/len(obj_color), avg_g/len(obj_color), avg_b/len(obj_color))
         return self.checkColorDatabase(color)
@@ -144,24 +137,24 @@ class ObjectTracker:
         # if there color bb is empty, add this color to the database
         if len(self.color_db) == 0:
 
-            self.color_db["Color 1"] = rgb_vals
+            self.color_db["1"] = rgb_vals
         # if the curr obj's color is within a certain range of a previouly seen color
         # than they are the same color
-        else: 
+        else:
             for (k,v) in self.color_db.iteritems():
                 for i in range(0,len(v)):
                     # We should play with this value more; it seems like
                     # there is a lot of noise with these cameras
-                    if  abs(v[i] - rgb_vals[i]) >= 10:
+                    if  abs(v[i] - rgb_vals[i]) >= 30:
                         break
-                else: 
+                else:
                     return k
             # else, its a novel color and therefore should be added to the db.
             else:
-                new_color = "Color {}".format(len(self.color_db) + 1)
-                self.color_db[new_color] = rgb_vals 
+                new_color = "{}".format(len(self.color_db) + 1)
+                self.color_db[new_color] = rgb_vals
                 return new_color
-            
+
 
 if __name__ == '__main__':
     rospy.init_node('object_tracker')
