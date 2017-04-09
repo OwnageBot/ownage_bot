@@ -6,14 +6,21 @@ from ownage_bot.msg import RichObject
 from ownage_bot.msg import RichObjectArray
 from geometry_msgs.msg import Point
 
+DUMMY_OBJ = -1
+
 class ObjectCollector:
     """A class for collecting objects."""
 
     def __init__(self):
         # Threshold for forbiddenness
-        self.threshold = 0.8
+        self.threshold = (rospy.get_param("collect_threshold") if
+                          rospy.has_param("collect_threshold") else 0.8)
         # Rectangle denoting home area
-        self.home_area = (Point(0.45,-0.2, 0), Point(0.55, 0.2, 0))
+        if rospy.has_param("home_area"):
+            self.home_area = (Point(*rospy.get_param("home_area/lower")),
+                              Point(*rospy.get_param("home_area/upper")))
+        else:
+            self.home_area = (Point(0.45,-0.2, 0), Point(0.55, 0.2, 0))
         self.actionProvider = rospy.ServiceProxy(
             "/action_provider/service_left", DoAction)
 
@@ -23,16 +30,16 @@ class ObjectCollector:
         pass
 
     def scanWorkspace(self):
-        return self.actionProvider("scan", [])
+        return self.actionProvider("scan", [DUMMY_OBJ])
 
     def goHome(self):
-        return self.actionProvider("home", [])
+        return self.actionProvider("home", [DUMMY_OBJ])
 
     def pickUp(self, obj):
         return self.actionProvider("get", [obj.id])
 
     def putDown(self):
-        return self.actionProvider("put", [])
+        return self.actionProvider("put", [DUMMY_OBJ])
 
     def collect(self, obj):
         resp = self.pickUp(obj)
@@ -54,8 +61,7 @@ class ObjectCollector:
         """Main loop which collects all tracked objects."""
         while not rospy.is_shutdown():
             self.scanWorkspace()
-            msg = rospy.wait_for_message(
-                "/object_tracker/object_db", RichObjectArray)
+            msg = rospy.wait_for_message("object_db", RichObjectArray)
             for obj in msg.objects:
                 if (not self.inHomeArea(obj) and
                     obj.forbiddenness < self.threshold):

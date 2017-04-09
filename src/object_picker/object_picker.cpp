@@ -177,7 +177,7 @@ void ObjectPicker::setHomeConfiguration()
 void ObjectPicker::setWorkspaceConfiguration()
 {
   workspace_conf.clear();
-  // Hard-coded workspace boundaries, needs to be updated
+  // TODO: load from parameter server instead
   static const double btm_left[] =    {0.473, 0.506, 0.274,
                                        0, 1, 0, 0};
   static const double btm_right[] =   {0.507, -0.303, 0.218,

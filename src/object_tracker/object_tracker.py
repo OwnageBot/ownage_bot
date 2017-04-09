@@ -11,12 +11,15 @@ from cv_bridge import CvBridge, CvBridgeError
 class ObjectTracker:
     """A class for tracking objects."""
 
-    def __init__(self, latency = 0.2):
-        self.latency = latency # In seconds
+    def __init__(self):
+        self.latency = (rospy.get_param("tracker_latency") if
+                        rospy.has_param("tracker_latency") else 0.1)
         self.object_db = dict()
         self.color_db = {} # Which colors have we seen?
-        self.avatar_ids = []
-        self.landmark_ids = []
+        self.avatar_ids = (rospy.get_param("avatar_ids") if
+                           rospy.has_param("avatar_ids") else [])
+        self.landmark_ids = (rospy.get_param("landmark_ids") if
+                             rospy.has_param("landmark_ids") else [])
         self.new_obj_pub = rospy.Publisher("new_object",
                                            UInt32, queue_size = 10)
         self.obj_db_pub = rospy.Publisher("object_db",

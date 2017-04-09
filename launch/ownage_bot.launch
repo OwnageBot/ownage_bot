@@ -1,20 +1,40 @@
 <launch>
-    <env name="ROSCONSOLE_CONFIG_FILE" value="$(find baxter_collaboration)/rosconsole.conf"/>
+  <env name="ROSCONSOLE_CONFIG_FILE"
+       value="$(find baxter_collaboration)/rosconsole.conf"/>
     <!-- <include file="$(find baxter_collaboration)/launch/baxter_marker_publisher.launch" /> -->
 
-    <!--
-    <rosparam param = "object_tracker/avatar_ids">
-    </rosparam>
-    
-    <rosparam param = "object_tracker/landmark_ids">
-    </rosparam>
-    -->
+    <arg name="avatar_ids" default="[1, 2, 3, 4]"/>
+    <arg name="landmark_ids" default="[]"/>
+     
+    <group ns="ownage_bot">
+      <param name="collect_threshold" type="double" value="0.8" />
+      <param name="tracker_latency" type="double" value="0.2" />
+      
+      <rosparam param="home_area" subst_value="True">
+	lower: [0.45, -0.2, 0]
+	upper: [0.55, 0.2, 0]
+      </rosparam>
 
-    <node pkg="ownage_bot" type="object_tracker.py" name="object_tracker">
-        <!-- <remap from="new_object" to="/object_tracker/new_object"/> -->
-    </node>
+      <rosparam param="avatar_ids" subst_value="True">
+	$(arg avatar_ids)
+      </rosparam>
+      
+      <rosparam param="landmark_ids">
+	$(arg landmark_ids)
+      </rosparam>
 
+      <node pkg="ownage_bot" type="object_tracker.py"
+	    name="object_tracker">
+      </node>
+
+      <node pkg="ownage_bot" type="object_collector.py"
+	    name="object_collector">
+      </node>
+    </group>
+
+    <!-- provides actions on left arm -->
     <node pkg="ownage_bot" type="object_picker" name="object_picker">
     </node>
+
 </launch>
 
