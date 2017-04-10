@@ -4,6 +4,7 @@ from std_msgs.msg import UInt32
 from baxter_collaboration_msgs.srv import DoAction
 from ownage_bot.msg import RichObject
 from ownage_bot.msg import RichObjectArray
+from ownage_bot.srv import ClassifyObjects
 from geometry_msgs.msg import Point
 
 DUMMY_OBJ = -1
@@ -24,7 +25,11 @@ class ObjectCollector:
             self.home_area = (Point(0.45,-0.2, 0), Point(0.55, 0.2, 0))
         self.actionProvider = rospy.ServiceProxy(
             "/action_provider/service_left", DoAction)
-
+        self.objectClassifier = rospy.ServiceProxy(
+            "classifyObjects", ClassifyObjects)
+        self.blacklist_pub = rospy.Publisher("blacklist", RichObject,
+                                             queue_size = 10)
+        
     def scanWorkspace(self):
         return self.actionProvider("scan", [DUMMY_OBJ])
 
@@ -57,11 +62,11 @@ class ObjectCollector:
 
     def classify(self, objects):
         """Requests ObjectClassifier to determine if objects are owned."""
-        return objects
+        return self.objectClassifier(objects)
 
     def blacklist(self, obj):
         """Tells classifier to blacklist given object and update ownership."""
-        pass
+        self.blacklist_pub.publish(obj)
     
     def main(self):
         """Main loop which collects all tracked objects."""
