@@ -5,23 +5,19 @@
 
     <arg name="avatar_ids" default="[1, 2, 3, 4]"/>
     <arg name="landmark_ids" default="[]"/>
-     
+
     <group ns="ownage_bot">
       <param name="collect_threshold" type="double" value="0.8" />
       <param name="tracker_latency" type="double" value="0.2" />
-      
+
       <rosparam param="home_area" subst_value="True">
-	lower: [0.45, -0.2, 0]
-	upper: [0.55, 0.2, 0]
+        lower: [0.45, -0.2, 0]
+        upper: [0.55, 0.2, 0]
       </rosparam>
 
-      <rosparam param="avatar_ids" subst_value="True">
-	$(arg avatar_ids)
-      </rosparam>
-      
-      <rosparam param="landmark_ids">
-	$(arg landmark_ids)
-      </rosparam>
+      <rosparam param="avatar_ids" subst_value="True">$(arg avatar_ids)</rosparam>
+
+      <rosparam param="landmark_ids">$(arg landmark_ids)</rosparam>
 
       <node pkg="ownage_bot" type="object_tracker.py"
 	    name="object_tracker">
@@ -30,10 +26,14 @@
       <node pkg="ownage_bot" type="object_collector.py"
 	    name="object_collector">
       </node>
+
+      <node pkg="ownage_bot" type="object_classifier.py"
+      name="object_classifier">
+      </node>
     </group>
 
     <!-- provides actions on left arm -->
-    <node pkg="ownage_bot" type="object_picker" name="object_picker">
+    <node pkg="ownage_bot" type="object_picker" name="object_picker" output="screen">
     </node>
 
 </launch>

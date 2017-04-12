@@ -2,6 +2,8 @@
 
 using namespace std;
 using namespace baxter_core_msgs;
+using namespace baxter_collaboration_msgs;
+using namespace ownage_bot;
 
 ObjectPicker::ObjectPicker(
     std::string _name,
@@ -17,6 +19,8 @@ ObjectPicker::ObjectPicker(
   
   setState(START);
 
+  insertAction(ACTION_FIND,
+               static_cast<f_action>(&ObjectPicker::findObject));
   insertAction(ACTION_GET,
                static_cast<f_action>(&ObjectPicker::pickObject));
   insertAction(ACTION_PUT,
@@ -29,6 +33,9 @@ ObjectPicker::ObjectPicker(
   _new_obj_sub = _n.subscribe("/object_tracker/new_object",
                               SUBSCRIBER_BUFFER,
                               &ObjectPicker::newObjectCallback, this);
+
+  _loc_obj_client =
+    _n.serviceClient<LocateObject>("/object_tracker/locate_object");
 
   if (_no_robot) return;
 
@@ -43,6 +50,23 @@ void ObjectPicker::newObjectCallback(const std_msgs::UInt32 msg)
     insertObject(msg.data, object_name.str());
     ROS_INFO("[%s] ID %d added to database", getLimb().c_str(), msg.data);
   }
+}
+
+bool ObjectPicker::findObject()
+{
+  // Request location of object to be found from ObjectTracker node
+  LocateObject srv;
+  srv.request.id = getObjectID();
+  if (!_loc_obj_client.call(srv)) {
+    ROS_ERROR("[%s] Failed to call service locate_object!", getLimb().c_str());
+    return false;
+  }
+  geometry_msgs::Point p = srv.response.pose.position;
+  if (!homePoseStrict())          return false;
+  ros::Duration(0.05).sleep();
+  if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI_L)) return false;
+  
+  return true;
 }
 
 bool ObjectPicker::pickObject()
@@ -61,8 +85,8 @@ bool ObjectPicker::putObject()
 {
   if (!hoverAboveTable(RELEASE_HEIGHT))      return false;
   ros::Duration(0.05).sleep();
-  if (!releaseObject())           return false;
-  
+  releaseObject();
+    
   return true;
 }
 
@@ -166,6 +190,112 @@ bool ObjectPicker::pickARTag()
   return false;
 }
 
+bool ObjectPicker::serviceCb(DoAction::Request  &req, DoAction::Response &res)
+{
+    // Let's read the requested action and object to act upon
+    setSubState("");
+    object_ids.clear();
+    setObjectID(-1);
+
+    string action = req.action;
+    std::vector<int> object_ids;
+    std::string objs_str = "";
+
+    for (size_t i = 0; i < req.objects.size(); ++i)
+    {
+        object_ids.push_back(req.objects[i]);
+        objs_str += toString(req.objects[i]) + ", ";
+    }
+    objs_str = objs_str.substr(0, objs_str.size()-2); // Remove the last ", "
+
+    ROS_INFO("[%s] Service request received. Action: %s Objects: %s",
+             getLimb().c_str(), action.c_str(), objs_str.c_str());
+
+    // Print the action or object DB if requested by the user
+    if (action == LIST_ACTIONS)
+    {
+        printActionDB();
+        res.success  = true;
+        res.response = actionDBToString();
+        return true;
+    }
+    else if (action == LIST_OBJECTS)
+    {
+        printObjectDB();
+        res.success  = true;
+        res.response = objectDBToString();
+        return true;
+    }
+
+    res.success = false;
+
+    setAction(action);
+
+    // Only pickObject needs to know the object id
+    if (action == ACTION_GET)
+    {
+        setObjectIDs(areObjectsInDB(object_ids));
+
+        if (object_ids.size() == 0)
+        {
+            res.response = OBJ_NOT_IN_DB;
+            ROS_ERROR("[%s] Requested object(s) are not in the database!",
+                                                       getLimb().c_str());
+            return true;
+        }
+        else if (object_ids.size() == 1)
+        {
+            setObjectID(object_ids[0]);
+        }
+        else if (object_ids.size() >  1)
+        {
+            // Defaults to first object in list, ignores others
+            setObjectID(chooseObjectID(object_ids));
+        }
+    }
+
+    startInternalThread();
+
+    // This is there for the current thread to avoid overlapping
+    // with the internal thread that just started
+    ros::Duration(0.5).sleep();
+
+    ros::Rate r(THREAD_FREQ);
+    while( ros::ok() && ( int(getState()) != START   &&
+                          int(getState()) != ERROR   &&
+                          int(getState()) != DONE      ))
+    {
+        if (ros::isShuttingDown())
+        {
+            setState(KILLED);
+            return true;
+        }
+
+        if (getState() == KILLED)
+        {
+            // Send ACT_CANCELLED if cuff button is pressed
+            res.response = ACT_CANCELLED;
+            recoverFromError();
+        }
+
+        r.sleep();
+    }
+
+    if ( int(getState()) == START   ||
+         int(getState()) == DONE      )
+    {
+        res.success = true;
+    }
+
+    if (getState() == ERROR)
+    {
+        res.response = getSubState();
+    }
+
+    ROS_INFO("[%s] Service reply with success: %s\n",
+             getLimb().c_str(), res.success?"true":"false");
+    return true;
+}
 
 void ObjectPicker::setHomeConfiguration()
 {

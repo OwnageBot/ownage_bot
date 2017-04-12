@@ -40,7 +40,7 @@ class ObjectTracker:
         obj = RichObject()
         obj.id = marker.id
         obj.is_avatar = (marker.id in self.avatar_ids)
-        obj.is_landmark = (marker.id in self.landmark_ids)
+        obj.is_landmark = (str(marker.id) in self.landmark_ids)
         obj.forbiddenness = 0
         self.object_db[marker.id] = obj
         # Initialize fields which are dynamically changing
@@ -137,7 +137,7 @@ class ObjectTracker:
         # if there color bb is empty, add this color to the database
         if len(self.color_db) == 0:
 
-            self.color_db["1"] = rgb_vals
+            self.color_db[1] = rgb_vals
         # if the curr obj's color is within a certain range of a previouly seen color
         # than they are the same color
         else:
@@ -151,7 +151,7 @@ class ObjectTracker:
                     return k
             # else, its a novel color and therefore should be added to the db.
             else:
-                new_color = "{}".format(len(self.color_db) + 1)
+                new_color = len(self.color_db) + 1
                 self.color_db[new_color] = rgb_vals
                 return new_color
 

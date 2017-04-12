@@ -4,6 +4,7 @@ from std_msgs.msg import UInt32
 import geometry_msgs.msg
 from ownage_bot.msg import RichObject
 from ownage_bot.srv import ClassifyObjects
+from ownage_bot.srv import ClassifyObjectsResponse
 
 class ObjectClassifier:
     """A class for classifying objects into ownership categories."""
@@ -20,7 +21,7 @@ class ObjectClassifier:
     def handleClassify(self, req):
         objects = req.unclassified
         return ClassifyObjectsResponse(objects)
-        
+
     def blacklistCallback(self, msg):
         """Callback upon receiving blacklisted object."""
         pass

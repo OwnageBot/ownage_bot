@@ -12,9 +12,14 @@
 #include <std_msgs/UInt32.h>
 #include "robot_interface/arm_ctrl.h"
 #include "robot_perception/aruco_client.h"
+#include "ownage_bot/LocateObject.h"
+#include "ownage_bot/RichObject.h"
 
+#define ACTION_FIND "find"
 #define ACTION_SCAN "scan"
 #define ACTION_PUT "put"
+
+#define ACT_CANCELLED "Action cancelled by user"
 
 #define RELEASE_HEIGHT (0.1)
 
@@ -29,36 +34,49 @@ private:
     // Subscriber to the ARuco detector,
     ros::Subscriber _aruco_sub;
 
-    // Subscriber to the object tracker,
+    // Subscriber to the new object topic,
     ros::Subscriber _new_obj_sub;
 
+    // Client for LocateObject service
+    ros::ServiceClient _loc_obj_client;
+
     /**
-     * [pickARTag description]
+     * Picks up object with ARuco tag, where the id is first set
+     * by calling setObjectID
      * @return true/false if success/failure
      */
     bool pickARTag();
 
     /**
-     * [pickObject description]
+     * Finds the object with id specified by setObjectID by checking
+     * the ObjectTracker node for its location, then moving the arm
+     * such that the object is within camera view
+     * @return true/false if success/failure
+     */
+    bool findObject();
+
+    /**
+     * Moves to home pose to reset inverse kinematics, calls pickARTag
+     * then moves arm up slightly while holding the picked object
      * @return true/false if success/failure
      */
     bool pickObject();
 
     /**
-     * [putObject description]
+     * Moves arm down close to the table, then releases object in place
      * @return true/false if success/failure
      */
     bool putObject();
     
     /**
-     * [scanWorkspace description]
+     * Moves arm around the workspace so that the camera can gather data
      * @return true/false if success/failure
      */
     bool scanWorkspace();
 
     /**
-     * Recovers from errors during execution. It provides a basic interface,
-     * but it is advised to specialize this function in the ArmCtrl's children.
+     * Recovers from errors during execution. Releases object then moves
+     * back to the home position
      */
     void recoverFromError();
 
@@ -82,6 +100,7 @@ protected:
     void newObjectCallback(const std_msgs::UInt32 msg);
 
 public:
+
     /**
      * Constructor
      */
@@ -92,6 +111,17 @@ public:
      */
     ~ObjectPicker();
 
+    /**
+     * Callback function for service. Two main changes from ArmCtrl:
+     * - Only requires objects to be specified for the 'get' action
+     * - Sends ACT_CANCELLED instead if the action is stopped by the human
+     */
+    bool serviceCb(baxter_collaboration_msgs::DoAction::Request  &req,
+                   baxter_collaboration_msgs::DoAction::Response &res);
+
+    /**
+     * Sets current object ID to be picked up and manipulated
+     */
     void setObjectID(int _obj);
 };
 
