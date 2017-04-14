@@ -16,7 +16,7 @@ ObjectPicker::ObjectPicker(
   setHomeConfiguration();
 
   setWorkspaceConfiguration();
-  
+
   setState(START);
 
   insertAction(ACTION_FIND,
@@ -29,6 +29,8 @@ ObjectPicker::ObjectPicker(
                static_cast<f_action>(&ObjectPicker::scanWorkspace));
 
   printActionDB();
+
+  ros::ServiceServer tempService = _n.advertiseService("object_picker", &ArmCtrl::serviceCb);
 
   _new_obj_sub = _n.subscribe("/object_tracker/new_object",
                               SUBSCRIBER_BUFFER,
@@ -57,15 +59,18 @@ bool ObjectPicker::findObject()
   // Request location of object to be found from ObjectTracker node
   LocateObject srv;
   srv.request.id = getObjectID();
+  printf("Finding obj: %d\n", srv.request.id);
   if (!_loc_obj_client.call(srv)) {
     ROS_ERROR("[%s] Failed to call service locate_object!", getLimb().c_str());
     return false;
   }
+  printf(" Got srv response!\n");
   geometry_msgs::Point p = srv.response.pose.position;
-  if (!homePoseStrict())          return false;
+  printf("x: %g y: %g z:%g\n", p.x,p.y,p.z);
+  // if (!homePoseStrict())          return false;
   ros::Duration(0.05).sleep();
   if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI_L)) return false;
-  
+
   return true;
 }
 
@@ -86,7 +91,7 @@ bool ObjectPicker::putObject()
   if (!hoverAboveTable(RELEASE_HEIGHT))      return false;
   ros::Duration(0.05).sleep();
   releaseObject();
-    
+
   return true;
 }
 
@@ -194,7 +199,7 @@ bool ObjectPicker::serviceCb(DoAction::Request  &req, DoAction::Response &res)
 {
     // Let's read the requested action and object to act upon
     setSubState("");
-    object_ids.clear();
+    //object_ids.clear();
     setObjectID(-1);
 
     string action = req.action;
@@ -208,7 +213,7 @@ bool ObjectPicker::serviceCb(DoAction::Request  &req, DoAction::Response &res)
     }
     objs_str = objs_str.substr(0, objs_str.size()-2); // Remove the last ", "
 
-    ROS_INFO("[%s] Service request received. Action: %s Objects: %s",
+    printf("[%s] Service request received. Action: %s Objects: %s",
              getLimb().c_str(), action.c_str(), objs_str.c_str());
 
     // Print the action or object DB if requested by the user

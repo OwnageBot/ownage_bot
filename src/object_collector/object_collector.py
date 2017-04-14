@@ -47,8 +47,18 @@ class ObjectCollector:
     def putDown(self):
         return self.actionProvider("put", [DUMMY_OBJ])
 
+    def find(self, obj):
+        return self.actionProvider("find", [obj.id])
+
     def collect(self, obj):
         """Attempts to bring object to home area."""
+        ret = self.find(obj)
+        if not ret.success:
+            print("Failed finding obj!\n")
+
+            return ret
+        else:
+            print("Successfully finding obj!\n")
         ret = self.pickUp(obj)
         if not ret.success:
             return ret
@@ -86,6 +96,7 @@ class ObjectCollector:
             for obj in resp.classified:
                 if (not self.inHomeArea(obj) and
                     obj.forbiddenness < self.threshold):
+                    rospy.loginfo("Collecting Object {}\n".format(obj.id))
                     ret = self.collect(obj)
                     if ret.response == DoActionResponse.ACT_FAILED:
                         # Update ownership rules and reclassify

@@ -20,12 +20,12 @@
       <rosparam param="landmark_ids">$(arg landmark_ids)</rosparam>
 
       <node pkg="ownage_bot" type="object_tracker.py"
-	    name="object_tracker">
+	    name="object_tracker" >
       </node>
 
-      <node pkg="ownage_bot" type="object_collector.py"
-	    name="object_collector">
-      </node>
+      <!-- node pkg="ownage_bot" type="object_collector.py"
+	    name="object_collector" output="screen">
+      </node> -->
 
       <node pkg="ownage_bot" type="object_classifier.py"
       name="object_classifier">

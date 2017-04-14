@@ -2,7 +2,9 @@
 import rospy
 from std_msgs.msg import UInt32
 from aruco_msgs.msg import MarkerArray
-import geometry_msgs.msg
+from geometry_msgs.msg import Pose
+from ownage_bot.srv import LocateObject
+from ownage_bot.srv import LocateObjectResponse
 from ownage_bot.msg import RichObject
 from ownage_bot.msg import RichObjectArray
 from sensor_msgs.msg import Image
@@ -105,14 +107,12 @@ class ObjectTracker:
         x_marker_pixels = range(x_min - 5, x_max + 5)
 
         # Step through each pixel
-        #for y in range(0, len(cv_image)):
-             #for x in range(0,len(cv_image[y])):
         for y in range(y_min - 10, y_max + 10):
             for x in range(x_min - 10, x_max + 10):
                 try:
-                    r = cv_image[y][x][0]
-                    g = cv_image[y][x][1]
-                    b = cv_image[y][x][2]
+                    #r = cv_image[y][x][0]
+                    #g = cv_image[y][x][1]
+                    #b = cv_image[y][x][2]
                     # Only looks for pixels on peripharies of marker
                     if x in x_marker_pixels and y in y_marker_pixels:
                         pass
@@ -155,13 +155,26 @@ class ObjectTracker:
                 self.color_db[new_color] = rgb_vals
                 return new_color
 
+    """ Service callback: returns position of particular object"""
+    def locateObject(self,req):
+        p = self.object_db[req.id].pose.pose
+
+
+
+        return LocateObjectResponse(p)
+
+
 
 if __name__ == '__main__':
     rospy.init_node('object_tracker')
+
     objectTracker = ObjectTracker()
+    s = rospy.Service("/object_tracker/locate_object", LocateObject, objectTracker.locateObject)
+
     # Published by aruco_ros
     rospy.Subscriber("/aruco_marker_publisher/markers",
                      MarkerArray, objectTracker.ARucoCallback)
     objectTracker.publishDb()
+
     rospy.spin()
 
