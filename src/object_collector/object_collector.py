@@ -8,7 +8,6 @@ from ownage_bot.msg import RichObjectArray
 from ownage_bot.srv import ClassifyObjects
 from geometry_msgs.msg import Point
 
-DUMMY_OBJ = -1
 ACT_CANCELLED = "Action cancelled by user"
 
 class ObjectCollector:
@@ -36,16 +35,16 @@ class ObjectCollector:
                                              queue_size = 10)
 
     def scanWorkspace(self):
-        return self.actionProvider("scan", [DUMMY_OBJ])
+        return self.actionProvider("scan", [])
 
     def goHome(self):
-        return self.actionProvider("home", [DUMMY_OBJ])
+        return self.actionProvider("home", [])
 
     def pickUp(self, obj):
         return self.actionProvider("get", [obj.id])
 
     def putDown(self):
-        return self.actionProvider("put", [DUMMY_OBJ])
+        return self.actionProvider("put", [])
 
     def find(self, obj):
         return self.actionProvider("find", [obj.id])
@@ -55,10 +54,8 @@ class ObjectCollector:
         ret = self.find(obj)
         if not ret.success:
             print("Failed finding obj!\n")
-
             return ret
-        else:
-            print("Successfully finding obj!\n")
+        print("Found obj!\n")         
         ret = self.pickUp(obj)
         if not ret.success:
             return ret

@@ -30,8 +30,6 @@ ObjectPicker::ObjectPicker(
 
   printActionDB();
 
-  ros::ServiceServer tempService = _n.advertiseService("object_picker", &ArmCtrl::serviceCb);
-
   _new_obj_sub = _n.subscribe("/object_tracker/new_object",
                               SUBSCRIBER_BUFFER,
                               &ObjectPicker::newObjectCallback, this);
@@ -56,19 +54,26 @@ void ObjectPicker::newObjectCallback(const std_msgs::UInt32 msg)
 
 bool ObjectPicker::findObject()
 {
-  // Request location of object to be found from ObjectTracker node
+  // Request last-remembered location of object from ObjectTracker node
   LocateObject srv;
   srv.request.id = getObjectID();
-  printf("Finding obj: %d\n", srv.request.id);
   if (!_loc_obj_client.call(srv)) {
     ROS_ERROR("[%s] Failed to call service locate_object!", getLimb().c_str());
     return false;
   }
-  printf(" Got srv response!\n");
   geometry_msgs::Point p = srv.response.pose.position;
-  printf("x: %g y: %g z:%g\n", p.x,p.y,p.z);
-  // if (!homePoseStrict())          return false;
   ros::Duration(0.05).sleep();
+  // Hover above last-remembered location
+  if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI_L)) return false;
+  // Check if object is indeed there, return false otherwise
+  if (!waitForARucoData()) return false;
+  // Request again just in case object shifted slightly
+  if (!_loc_obj_client.call(srv)) {
+    ROS_ERROR("[%s] Failed to call service locate_object!", getLimb().c_str());
+    return false;
+  }
+  p = srv.response.pose.position;
+  // Hover above new location
   if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI_L)) return false;
 
   return true;
@@ -76,20 +81,21 @@ bool ObjectPicker::findObject()
 
 bool ObjectPicker::pickObject()
 {
-  if (!homePoseStrict())          return false;
-  ros::Duration(0.05).sleep();
   if (!pickARTag())               return false;
   if (!gripObject())              return false;
-  if (!moveArm("up", 0.3))        return false;
-  if (!hoverAboveTable(Z_LOW))    return false;
+  // Move up from current position to Z_LOW
+  geometry_msgs::Point p = getPos();
+  if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI_L)) return false;
 
   return true;
 }
 
 bool ObjectPicker::putObject()
 {
-  if (!hoverAboveTable(RELEASE_HEIGHT))      return false;
-  ros::Duration(0.05).sleep();
+  // Move down from current position to Z_RELEASE
+  geometry_msgs::Point p = getPos();
+  if (!goToPose(p.x, p.y, Z_RELEASE, VERTICAL_ORI_L)) return false;
+  ros::Duration(0.5).sleep();
   releaseObject();
 
   return true;
@@ -106,6 +112,7 @@ bool ObjectPicker::scanWorkspace()
       workspace_conf[i][3], workspace_conf[i][4],
       workspace_conf[i][5], workspace_conf[i][6]);
     if (!r) ROS_ERROR("Could not reach corner %d, continuing", i);
+    ros::Duration(0.25).sleep();
   }
 
   return true;
@@ -116,7 +123,7 @@ void ObjectPicker::recoverFromError()
   if (getInternalRecovery() == true)
   {
     // Release object and go home
-    hoverAboveTable(RELEASE_HEIGHT);
+    hoverAboveTable(Z_RELEASE);
     releaseObject();
     homePoseStrict();
   }
@@ -172,6 +179,7 @@ bool ObjectPicker::pickARTag()
       }
       elap_time = new_elap_time;
 
+      // Use loose collision detection to avoid over-pushing
       if(hasCollidedIR("strict"))
       {
         ROS_DEBUG("Collision!");
@@ -237,7 +245,7 @@ bool ObjectPicker::serviceCb(DoAction::Request  &req, DoAction::Response &res)
     setAction(action);
 
     // Only pickObject needs to know the object id
-    if (action == ACTION_GET)
+    if (action == ACTION_GET || action == ACTION_FIND)
     {
         setObjectIDs(areObjectsInDB(object_ids));
 

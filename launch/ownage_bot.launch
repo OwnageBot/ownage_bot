@@ -23,9 +23,9 @@
 	    name="object_tracker" >
       </node>
 
-      <!-- node pkg="ownage_bot" type="object_collector.py"
+      <node pkg="ownage_bot" type="object_collector.py"
 	    name="object_collector" output="screen">
-      </node> -->
+      </node>
 
       <node pkg="ownage_bot" type="object_classifier.py"
       name="object_classifier">

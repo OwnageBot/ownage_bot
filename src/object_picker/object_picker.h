@@ -21,7 +21,7 @@
 
 #define ACT_CANCELLED "Action cancelled by user"
 
-#define RELEASE_HEIGHT (0.1)
+#define Z_RELEASE (-0.05)
 
 class ObjectPicker : public ArmCtrl, public ARucoClient
 {
@@ -30,7 +30,7 @@ private:
 
     // Arm pose configurations for corners of physical workspace
     std::vector< std::vector<double> > workspace_conf;
-    
+
     // Subscriber to the ARuco detector,
     ros::Subscriber _aruco_sub;
 
@@ -67,7 +67,7 @@ private:
      * @return true/false if success/failure
      */
     bool putObject();
-    
+
     /**
      * Moves arm around the workspace so that the camera can gather data
      * @return true/false if success/failure
@@ -90,9 +90,9 @@ private:
      */
     void setWorkspaceConfiguration();
 
-    
+
 protected:
-    
+
     /**
      * Adds new objects to the object database when notified by the object
      * tracker node.
