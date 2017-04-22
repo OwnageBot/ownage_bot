@@ -21,6 +21,8 @@ ObjectPicker::ObjectPicker(
 
   insertAction(ACTION_FIND,
                static_cast<f_action>(&ObjectPicker::findObject));
+  insertAction(ACTION_OFFER,
+               static_cast<f_action>(&ObjectPicker::offerObject));
   insertAction(ACTION_GET,
                static_cast<f_action>(&ObjectPicker::pickObject));
   insertAction(ACTION_PUT,
@@ -62,20 +64,56 @@ bool ObjectPicker::findObject()
     return false;
   }
   geometry_msgs::Point p = srv.response.pose.position;
+  ROS_DEBUG("Finding object at x=%g, y=%g...", p.x, p.y);
+  // if (!homePoseStrict()) return false;
   ros::Duration(0.05).sleep();
   // Hover above last-remembered location
-  if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI_L)) return false;
+  if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI_L)) {
+    ROS_ERROR("[%s] Failed to go to object location!\n", getLimb().c_str());
+    return false;
+  }
   // Check if object is indeed there, return false otherwise
   if (!waitForARucoData()) return false;
   // Request again just in case object shifted slightly
   if (!_loc_obj_client.call(srv)) {
-    ROS_ERROR("[%s] Failed to call service locate_object!", getLimb().c_str());
+    ROS_ERROR("[%s] Failed to call service locate_object!\n", getLimb().c_str());
     return false;
   }
   p = srv.response.pose.position;
   // Hover above new location
   if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI_L)) return false;
 
+  return true;
+}
+
+bool ObjectPicker::offerObject()
+{
+ // Request last-remembered location of object from ObjectTracker node
+  LocateObject srv;
+  srv.request.id = getObjectID();
+  if (!_loc_obj_client.call(srv)) {
+    ROS_ERROR("[%s] Failed to call service locate_object!", getLimb().c_str());
+    return false;
+  }
+  geometry_msgs::Point p = srv.response.pose.position;
+  // if (!homePoseStrict()) return false;
+  ros::Duration(0.05).sleep();
+  // Hover above last-remembered location and offer obj
+  if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI_L)) {
+    ROS_ERROR("[%s] Failed to go to object location!\n", getLimb().c_str());
+    return false;
+  }
+  // Slowly rotate arm to face human
+  sensor_msgs::JointState j = getJointStates();
+  j.position[5] = -0.5;
+  ros::Rate r(100);
+  while(RobotInterface::ok() && !isConfigurationReached(j.position))
+  {
+    goToJointConfNoChoeiuaoueeck(j.position);
+    r.sleep();
+  }
+  // Sleep and wait for user input
+  ros::Duration(3).sleep();
   return true;
 }
 
@@ -94,8 +132,9 @@ bool ObjectPicker::putObject()
 {
   // Move down from current position to Z_RELEASE
   geometry_msgs::Point p = getPos();
+  ros::Duration(0.05).sleep();
   if (!goToPose(p.x, p.y, Z_RELEASE, VERTICAL_ORI_L)) return false;
-  ros::Duration(0.5).sleep();
+  ros::Duration(1).sleep();
   releaseObject();
 
   return true;
@@ -133,11 +172,13 @@ bool ObjectPicker::pickARTag()
 {
   ROS_INFO("[%s] Start Picking up tag..", getLimb().c_str());
 
-  if (!is_ir_ok())
+//For some reason the compiler was complaining about this
+
+  /*if (!is_ir_ok())
   {
     ROS_ERROR("No callback from the IR sensor! Stopping.");
     return false;
-  }
+  }*/
 
   if (!waitForARucoData()) return false;
 
@@ -147,7 +188,7 @@ bool ObjectPicker::pickARTag()
   double y = getMarkerPos().y + 0.04;
   double z =       getPos().z;
 
-  ROS_DEBUG("Going to: %g %g %g", x, y, z);
+  printf("Going to: %g %g %g", x, y, z);
   if (!goToPose(x, y, z, POOL_ORI_L,"loose"))
   {
     return false;
@@ -244,8 +285,8 @@ bool ObjectPicker::serviceCb(DoAction::Request  &req, DoAction::Response &res)
 
     setAction(action);
 
-    // Only pickObject needs to know the object id
-    if (action == ACTION_GET || action == ACTION_FIND)
+    // Only getting, finding and offering require object id
+    if (action == ACTION_GET || action == ACTION_FIND || action == ACTION_OFFER)
     {
         setObjectIDs(areObjectsInDB(object_ids));
 
@@ -300,10 +341,10 @@ bool ObjectPicker::serviceCb(DoAction::Request  &req, DoAction::Response &res)
         res.success = true;
     }
 
-    if (getState() == ERROR)
-    {
-        res.response = getSubState();
-    }
+    // if (getState() == ERROR)
+    // {
+    //     res.response = getSubState();
+    // }
 
     ROS_INFO("[%s] Service reply with success: %s\n",
              getLimb().c_str(), res.success?"true":"false");

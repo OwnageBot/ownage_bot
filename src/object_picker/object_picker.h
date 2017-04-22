@@ -18,6 +18,8 @@
 #define ACTION_FIND "find"
 #define ACTION_SCAN "scan"
 #define ACTION_PUT "put"
+#define ACTION_OFFER "offer"
+
 
 #define ACT_CANCELLED "Action cancelled by user"
 
@@ -54,6 +56,13 @@ private:
      * @return true/false if success/failure
      */
     bool findObject();
+
+    /**
+     * Nearly identical to findObject, except that baxter
+     * Turns hand up so as to offer an avtar the object
+     * its holding
+     */
+    bool offerObject();
 
     /**
      * Moves to home pose to reset inverse kinematics, calls pickARTag

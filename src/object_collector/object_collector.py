@@ -49,22 +49,49 @@ class ObjectCollector:
     def find(self, obj):
         return self.actionProvider("find", [obj.id])
 
+    def offer(self, obj):
+        return self.actionProvider("offer", [obj.id])
+
     def collect(self, obj):
         """Attempts to bring object to home area."""
         ret = self.find(obj)
         if not ret.success:
             print("Failed finding obj!\n")
             return ret
-        print("Found obj!\n")         
+        print("Found obj!\n")
         ret = self.pickUp(obj)
         if not ret.success:
+            print("Failed picking up object!\n")
             return ret
         ret = self.goHome()
         if not ret.success:
+            print("Failed going home!!\n")
             return ret
         ret = self.putDown()
         if not ret.success:
+            print("Failed putting down object!\n")
             return ret
+        return ret
+
+    def collectAndOffer(self, obj):
+        """Attempts to offer objects to other agents."""
+        avatars = rospy.get_param("avatar_ids")
+        ret = self.find(obj)
+        if not ret.success:
+            print("Failed finding obj!\n")
+            return ret
+        print("Found obj!\n")
+        ret = self.pickUp(obj)
+        if not ret.success:
+            print("Failed picking up object!\n")
+            return ret
+        # try and give each avatar the obj
+        for a in avatars:
+            ret = self.offer(a)
+            if not ret.success:
+                rospy.logerr("Failed to offer avatar {} object {}!\n".format(a,obj))
+
+
 
     def inHomeArea(self, obj):
         """Checks if object is in home area."""
@@ -82,6 +109,7 @@ class ObjectCollector:
 
     def main(self):
         """Main loop which collects all tracked objects."""
+        self.goHome()
         while not rospy.is_shutdown():
             if self.skipScan:
                 self.skipScan = False
@@ -95,7 +123,7 @@ class ObjectCollector:
                     obj.forbiddenness < self.threshold):
                     rospy.loginfo("Collecting Object {}\n".format(obj.id))
                     ret = self.collect(obj)
-                    if ret.response == DoActionResponse.ACT_FAILED:
+                    if ret.response == ACT_CANCELLED:
                         # Update ownership rules and reclassify
                         self.blacklist(obj)
                         self.skipScan = True
