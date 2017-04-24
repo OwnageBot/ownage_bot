@@ -17,7 +17,12 @@ class ObjectTracker:
         self.latency = (rospy.get_param("tracker_latency") if
                         rospy.has_param("tracker_latency") else 0.1)
         self.object_db = dict()
-        self.color_db = {} # Which colors have we seen?
+        self.color_db = dict() # Which colors have we seen?
+        # Margins around ARuco tag for color determination
+        self.in_offset = (rospy.get_param("in_offset") if
+                        rospy.has_param("in_offset") else 2)
+        self.out_offset = (rospy.get_param("in_offset") if
+                        rospy.has_param("in_offset") else 4)
         self.avatar_ids = (rospy.get_param("avatar_ids") if
                            rospy.has_param("avatar_ids") else [])
         self.landmark_ids = (rospy.get_param("landmark_ids") if
@@ -79,6 +84,7 @@ class ObjectTracker:
                 self.updateObject(m)
 
     def determineColor(self, msg, marker):
+
         """Determines color of the currently tracked object."""
         rospy.loginfo(" Determining Object Color\n")
         # need to convert ROS images into OpenCV images in order to do analysis
@@ -103,23 +109,19 @@ class ObjectTracker:
 
         # Store the coords of the pixels within marker
         # bounding box
-        y_marker_pixels = range(y_min - 5, y_max + 5)
-        x_marker_pixels = range(x_min - 5, x_max + 5)
+        y_marker_pixels = range(y_min - self.in_offset, y_max + self.in_offset)
+        x_marker_pixels = range(x_min - self.in_offset, x_max + self.in_offset)
 
         # Step through each pixel
-        for y in range(y_min - 10, y_max + 10):
-            for x in range(x_min - 10, x_max + 10):
+        for y in range(y_min - self.out_offset, y_max + self.out_offset):
+            for x in range(x_min - self.out_offset, x_max + self.out_offset):
                 try:
-                    #r = cv_image[y][x][0]
-                    #g = cv_image[y][x][1]
-                    #b = cv_image[y][x][2]
                     # Only looks for pixels on peripharies of marker
                     if x in x_marker_pixels and y in y_marker_pixels:
                         pass
-
                     else:
                         obj_color.append(cv_image[y][x])
-
+                        # print(cv_image[y][x])
 
                 except IndexError:
                     pass

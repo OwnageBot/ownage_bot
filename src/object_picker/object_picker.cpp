@@ -109,7 +109,7 @@ bool ObjectPicker::offerObject()
   ros::Rate r(100);
   while(RobotInterface::ok() && !isConfigurationReached(j.position))
   {
-    goToJointConfNoChoeiuaoueeck(j.position);
+    goToJointConfNoCheck(j.position);
     r.sleep();
   }
   // Sleep and wait for user input
@@ -184,12 +184,12 @@ bool ObjectPicker::pickARTag()
 
   geometry_msgs::Quaternion q;
 
-  double x = getMarkerPos().x;
-  double y = getMarkerPos().y + 0.04;
+  double x = getMarkerPos().x + IR_OFFSET;
+  double y = getMarkerPos().y;
   double z =       getPos().z;
 
   printf("Going to: %g %g %g", x, y, z);
-  if (!goToPose(x, y, z, POOL_ORI_L,"loose"))
+  if (!goToPose(x, y, z, VERTICAL_ORI_L,"loose"))
   {
     return false;
   }
@@ -205,13 +205,13 @@ bool ObjectPicker::pickARTag()
   {
     double new_elap_time = (ros::Time::now() - start_time).toSec();
 
-    double x = getMarkerPos().x;
+    double x = getMarkerPos().x + IR_OFFSET;
     double y = getMarkerPos().y;
-    double z = z_start - ARM_SPEED * new_elap_time;
+    double z = z_start - 0.8 * ARM_SPEED * new_elap_time;
 
     ROS_DEBUG("Time %g Going to: %g %g %g", new_elap_time, x, y, z);
 
-    if (goToPoseNoCheck(x,y,z,POOL_ORI_L))
+    if (goToPoseNoCheck(x,y,z,VERTICAL_ORI_L))
     {
       cnt_ik_fail = 0;
       if (new_elap_time - elap_time > 0.02)
@@ -221,7 +221,7 @@ bool ObjectPicker::pickARTag()
       elap_time = new_elap_time;
 
       // Use loose collision detection to avoid over-pushing
-      if(hasCollidedIR("strict"))
+      if(hasCollidedIR("loose"))
       {
         ROS_DEBUG("Collision!");
         setSubState(ACTION_GET);

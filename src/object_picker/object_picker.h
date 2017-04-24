@@ -20,10 +20,11 @@
 #define ACTION_PUT "put"
 #define ACTION_OFFER "offer"
 
-
 #define ACT_CANCELLED "Action cancelled by user"
 
-#define Z_RELEASE (-0.05)
+#define Z_RELEASE (-0.1)
+
+#define IR_OFFSET (0.015)
 
 class ObjectPicker : public ArmCtrl, public ARucoClient
 {
