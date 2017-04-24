@@ -35,7 +35,13 @@ class ObjectClassifier:
 
     def classifyObject(self, obj):
         """Modifies the owners and ownership probabilities in place."""
-        pass
+        sum_of_weights = []
+        owners = []
+        for i in self.interaction_log:
+            # Compute distance between i and obj
+            # Apply Gaussian weighting to the interaction
+            # Compute running sum of weights for each avatar id (including 0)
+        # Normalize weights to get probabilities
 
 
 if __name__ == '__main__':
