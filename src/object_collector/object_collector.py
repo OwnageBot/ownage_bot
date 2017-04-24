@@ -24,14 +24,16 @@ class ObjectCollector:
                               Point(*rospy.get_param("home_area/upper")))
         else:
             self.home_area = (Point(0.45,-0.2, 0), Point(0.55, 0.2, 0))
+        self.avatar_ids = (rospy.get_param("avatar_ids") if
+                           rospy.has_param("avatar_ids") else [])
         self.actionProvider = rospy.ServiceProxy(
             "/action_provider/service_left", DoAction)
         try:
             self.objectClassifier = rospy.ServiceProxy(
                 "classifyObjects", ClassifyObjects)
         except rospy.service.ServiceException:
-            print(" ClassifyObject service call failed\n")
-        self.blacklist_pub = rospy.Publisher("blacklist", RichObject,
+            print("ClassifyObject service call failed\n")
+        self.feedback_pub = rospy.Publisher("feedback", RichObject,
                                              queue_size = 10)
 
     def scanWorkspace(self):
@@ -51,48 +53,74 @@ class ObjectCollector:
 
     def offer(self, obj):
         return self.actionProvider("offer", [obj.id])
+    
+    def waitForFeedback(self):
+        return self.actionProvider("wait", [obj.id])
 
-    def collect(self, obj):
-        """Attempts to bring object to home area."""
-        ret = self.find(obj)
-        if not ret.success:
-            print("Failed finding obj!\n")
-            return ret
-        print("Found obj!\n")
-        ret = self.pickUp(obj)
-        if not ret.success:
-            print("Failed picking up object!\n")
-            return ret
-        ret = self.goHome()
-        if not ret.success:
-            print("Failed going home!!\n")
-            return ret
-        ret = self.putDown()
-        if not ret.success:
-            print("Failed putting down object!\n")
-            return ret
-        return ret
+    def replace(self, obj):
+        """Replaces held object in original location, obj.pose."""
+        p = obj.pose.pose.position
+        # self.goToLoc(p.x, p.y)
+        return self.putDown()
+    
+    def offerInTurn(self, obj):
+        """Offers held object to each avatar in turn.
 
-    def collectAndOffer(self, obj):
-        """Attempts to offer objects to other agents."""
-        avatars = rospy.get_param("avatar_ids")
-        ret = self.find(obj)
-        if not ret.success:
-            print("Failed finding obj!\n")
-            return ret
-        print("Found obj!\n")
-        ret = self.pickUp(obj)
-        if not ret.success:
-            print("Failed picking up object!\n")
-            return ret
-        # try and give each avatar the obj
-        for a in avatars:
+        Returns 0 if all avatars reject object (object is unowned).
+        Returns avatar id of owner if object is claimed.
+        Returns -1 if some fatal error occurs.
+        """
+        for a in self.avatar_ids:
             ret = self.offer(a)
-            if not ret.success:
-                rospy.logerr("Failed to offer avatar {} object {}!\n".format(a,obj))
+            if ret.success:
+                # If offer is successful, replace object
+                self.replace(obj)
+                return a
+            else if ret.response == ACT_CANCELLED:
+                # Continue on to next possible owner if rejected
+                print("Object {} rejected by avatar {}\n".
+                      format(obj, a))
+            else:
+                # Error out upon some other kind of failure
+                print("Failed to offer avatar {} object {}!\n".
+                      format(a, obj))
+            # Return to home position before making next offer
+            self.goHome()
+            print("Continuing to next avatar...\n")
+        # Claim object for self and return 0 if everyone else rejects it
+        if not self.putDown().success:
+            print("Failed putting down object!\n")
+            return -1
+        return 0
+    
+    def collect(self, obj):
+        """Attempts to bring object to home area.
 
-
-
+        Returns 0 on success (object is unowned).
+        Returns avatar id of owner if object is claimed.
+        Returns -1 if some other error occurs.
+        """
+        if not self.find(obj).success:
+            print("Failed finding obj!\n")
+            return -1
+        if not self.pickUp(obj).success:
+            print("Failed picking up object!\n")
+            return -1
+        if not self.goHome().success:
+            print("Failed going home!\n")
+            return -1
+        ret = self.waitForFeedback()
+        if not ret.success:
+            if ret.response == ACT_CANCELLED:
+                return self.offerInTurn(obj)
+            else:
+                print("Failed waiting for feedback!\n")
+                return -1
+        if not self.putDown().success:
+            print("Failed putting down object!\n")
+            return -1
+        return 0
+                
     def inHomeArea(self, obj):
         """Checks if object is in home area."""
         loc = obj.pose.pose.position
@@ -103,8 +131,8 @@ class ObjectCollector:
         """Requests ObjectClassifier to determine if objects are owned."""
         return self.objectClassifier(objects)
 
-    def blacklist(self, obj):
-        """Tells classifier to blacklist given object and update ownership."""
+    def feedback(self, obj, label):
+        """Gives label feedback to classifier."""
         self.blacklist_pub.publish(obj)
 
     def main(self):
@@ -122,10 +150,10 @@ class ObjectCollector:
                 if (not self.inHomeArea(obj) and
                     obj.forbiddenness < self.threshold):
                     rospy.loginfo("Collecting Object {}\n".format(obj.id))
-                    ret = self.collect(obj)
-                    if ret.response == ACT_CANCELLED:
-                        # Update ownership rules and reclassify
-                        self.blacklist(obj)
+                    label = self.collect(obj)
+                    # Update ownership rules and reclassify
+                    if label != -1:
+                        self.feedback(obj, label)
                         self.skipScan = True
                         break
 
