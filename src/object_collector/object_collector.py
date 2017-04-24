@@ -142,7 +142,7 @@ class ObjectCollector:
             if self.skipScan:
                 self.skipScan = False
             else:
-                self.scanWorkspace()
+                 self.scanWorkspace()
             # Get list of objects and classify their ownership
             msg = rospy.wait_for_message("object_db", RichObjectArray)
             resp = self.classify(msg.objects)

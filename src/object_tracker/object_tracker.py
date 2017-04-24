@@ -9,6 +9,9 @@ from ownage_bot.msg import RichObject
 from ownage_bot.msg import RichObjectArray
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
+from collections import deque
+
+
 
 class ObjectTracker:
     """A class for tracking objects."""
@@ -17,7 +20,12 @@ class ObjectTracker:
         self.latency = (rospy.get_param("tracker_latency") if
                         rospy.has_param("tracker_latency") else 0.1)
         self.object_db = dict()
-        self.color_db = {} # Which colors have we seen?
+        self.color_db = dict() # Which colors have we seen?
+        # Margins around ARuco tag for color determination
+        self.in_offset = (rospy.get_param("in_offset") if
+                        rospy.has_param("in_offset") else 3)
+        self.out_offset = (rospy.get_param("out_offset") if
+                        rospy.has_param("out_offset") else 6)
         self.avatar_ids = (rospy.get_param("avatar_ids") if
                            rospy.has_param("avatar_ids") else [])
         self.landmark_ids = (rospy.get_param("landmark_ids") if
@@ -79,6 +87,7 @@ class ObjectTracker:
                 self.updateObject(m)
 
     def determineColor(self, msg, marker):
+
         """Determines color of the currently tracked object."""
         rospy.loginfo(" Determining Object Color\n")
         # need to convert ROS images into OpenCV images in order to do analysis
@@ -103,23 +112,19 @@ class ObjectTracker:
 
         # Store the coords of the pixels within marker
         # bounding box
-        y_marker_pixels = range(y_min - 5, y_max + 5)
-        x_marker_pixels = range(x_min - 5, x_max + 5)
+        y_marker_pixels = range(y_min - self.in_offset, y_max + self.in_offset)
+        x_marker_pixels = range(x_min - self.in_offset, x_max + self.in_offset)
 
         # Step through each pixel
-        for y in range(y_min - 10, y_max + 10):
-            for x in range(x_min - 10, x_max + 10):
+        for y in range(y_min - self.out_offset, y_max + self.out_offset):
+            for x in range(x_min - self.out_offset, x_max + self.out_offset):
                 try:
-                    #r = cv_image[y][x][0]
-                    #g = cv_image[y][x][1]
-                    #b = cv_image[y][x][2]
                     # Only looks for pixels on peripharies of marker
                     if x in x_marker_pixels and y in y_marker_pixels:
                         pass
-
                     else:
                         obj_color.append(cv_image[y][x])
-
+                        # print(cv_image[y][x])
 
                 except IndexError:
                     pass
@@ -130,7 +135,19 @@ class ObjectTracker:
 
         assert(len(obj_color) > 0)
         color = (avg_r/len(obj_color), avg_g/len(obj_color), avg_b/len(obj_color))
-        return self.checkColorDatabase(color)
+        color_index = color.index(max(color))
+
+        print("Color is {}:{}\n".format(color, color_index))
+
+        if marker.id in self.color_db:
+            self.color_db[marker.id].append(color_index)
+        else:
+            self.color_db[marker.id] = deque([color_index],20)
+
+        mode = max(set(self.color_db[marker.id]), key=self.color_db[marker.id].count)
+
+        print("Obj: {}, Color: {}, Past colors: {}\n".format(marker.id, mode, self.color_db[marker.id]))
+        return mode
 
     def checkColorDatabase(self, rgb_vals):
         """Categorizes objects based on colors, creates new names from novel colors."""

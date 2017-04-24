@@ -20,11 +20,11 @@
       <rosparam param="landmark_ids">$(arg landmark_ids)</rosparam>
 
       <node pkg="ownage_bot" type="object_tracker.py"
-	    name="object_tracker" >
+	    name="object_tracker" output="screen">
       </node>
 
       <node pkg="ownage_bot" type="object_collector.py"
-	    name="object_collector" output="screen">
+	    name="object_collector" >
       </node>
 
       <node pkg="ownage_bot" type="object_classifier.py"
@@ -33,8 +33,7 @@
     </group>
 
     <!-- provides actions on left arm -->
-    <node pkg="ownage_bot" type="object_picker" name="object_picker" output="screen">
-    </node>
+    <node pkg="ownage_bot" type="object_picker" name="object_picker" output="screen"> </node>
 
     <!-- show image from camera -->
     <node name="image_view_AR" pkg="image_view" type="image_view" respawn="false"> <!-- output="log" -->
@@ -43,7 +42,7 @@
     </node>
 
     <!-- ARUCO ROS -->
-    <arg name="markerSize"      default="0.05"/>    <!-- in m -->
+    <arg name="markerSize"      default="0.0381"/>    <!-- in m -->
     <arg name="ref_frame"       default="/base"/>  <!-- leave empty and the pose will be published wrt param parent_name -->
 
     <param name="aruco_marker_publisher/image_is_rectified" value="True"/>
@@ -56,7 +55,7 @@
         <remap from="camera_info" to="/cameras/left_hand_camera/camera_info"/>
     </node>
 
-    <include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"/>
+    <!--include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"/-->
 
 </launch>
 
