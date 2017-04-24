@@ -11,8 +11,6 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from collections import deque
 
-
-
 class ObjectTracker:
     """A class for tracking objects."""
 
@@ -64,6 +62,12 @@ class ObjectTracker:
         obj = self.object_db[marker.id]
         obj.last_update = rospy.get_rostime()
         obj.pose = marker.pose
+        # Proxmities are -1 if avatar cannot be found
+        obj.proximities = [-1] * len(self.avatar_ids)
+        for (i, k) in enumerate(self.avatar_ids):
+            if k in self.object_db:
+                avatar = self.object_db[k]
+                obj.proximities[i] = self.computeProximity(obj, avatar)
         # One-time subscribe for image data
         image_msg = rospy.wait_for_message(
             "/aruco_marker_publisher/result", Image)
@@ -87,6 +91,12 @@ class ObjectTracker:
                 # Update object if update period has lapsed
                 self.updateObject(m)
 
+    def computeProximity(self, obj1, obj2):
+        """Computes 2D squared Euclidean distance between two objects."""
+        p1 = obj1.pose.pose.position
+        p2 = obj2.pose.pose.position
+        return (p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y)
+                
     def determineColor(self, msg, marker):
 
         """Determines color of the currently tracked object."""

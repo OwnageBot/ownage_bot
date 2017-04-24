@@ -1,12 +1,14 @@
 Header header
 # ARuco ID of the object
 uint32 id
-# Absolute position and orientation of the object
-geometry_msgs/PoseWithCovariance pose
-# Color category (0=R, 1=G, 2=B)
-uint32 color
 # Last time these object properties were updated
 time last_update
+# Absolute position and orientation of the object
+geometry_msgs/PoseWithCovariance pose
+# Relative distances to avatars
+float32[] proximities
+# Color category (0=R, 1=G, 2=B)
+uint32 color
 # List of possible owners, with 0 (unowned) always the first
 uint32[] owners
 # List of (possibly non-exclusive) ownership probabilities

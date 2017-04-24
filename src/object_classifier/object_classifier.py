@@ -10,6 +10,7 @@ class ObjectClassifier:
 
     def __init__(self):
         self.object_db = dict()
+        self.interaction_log = []
         self.avatar_ids = (rospy.get_param("avatar_ids") if
                            rospy.has_param("avatar_ids") else [])
         self.landmark_ids = (rospy.get_param("landmark_ids") if
