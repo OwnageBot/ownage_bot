@@ -18,6 +18,8 @@
       <rosparam param="avatar_ids" subst_value="True">$(arg avatar_ids)</rosparam>
 
       <rosparam param="landmark_ids">$(arg landmark_ids)</rosparam>
+      
+      <param name="is_simulation" value="False" type="bool"/>
 
       <node pkg="ownage_bot" type="object_tracker.py"
 	    name="object_tracker" output="screen">

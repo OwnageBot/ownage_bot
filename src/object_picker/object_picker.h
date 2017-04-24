@@ -31,6 +31,12 @@ class ObjectPicker : public ArmCtrl, public ARucoClient
 private:
     double elap_time;
 
+    // Stores info from param server detailing
+    // whether it's running on simulated data
+    // or not
+    ros::NodeHandle nh;
+    std::string IS_SIMULATION;
+
     // Arm pose configurations for corners of physical workspace
     std::vector< std::vector<double> > workspace_conf;
 
@@ -42,6 +48,7 @@ private:
 
     // Client for LocateObject service
     ros::ServiceClient _loc_obj_client;
+
 
     /**
      * Picks up object with ARuco tag, where the id is first set

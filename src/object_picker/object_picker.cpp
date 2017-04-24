@@ -13,6 +13,8 @@ ObjectPicker::ObjectPicker(
     ARucoClient(_name, _limb),
     elap_time(0)
 {
+  nh.getParam("is_simulation",IS_SIMULATION);
+
   setHomeConfiguration();
 
   setWorkspaceConfiguration();
@@ -32,16 +34,20 @@ ObjectPicker::ObjectPicker(
 
   printActionDB();
 
-  _new_obj_sub = _n.subscribe("/object_tracker/new_object",
-                              SUBSCRIBER_BUFFER,
-                              &ObjectPicker::newObjectCallback, this);
 
-  _loc_obj_client =
-    _n.serviceClient<LocateObject>("/object_tracker/locate_object");
+  if(!IS_SIMULATION){
+    _new_obj_sub = _n.subscribe("/object_tracker/new_object",
+                                SUBSCRIBER_BUFFER,
+                                &ObjectPicker::newObjectCallback, this);
 
-  if (_no_robot) return;
+    _loc_obj_client =
+      _n.serviceClient<LocateObject>("/object_tracker/locate_object");
 
-  if (!callAction(ACTION_HOME)) setState(ERROR);
+
+    if (_no_robot) return;
+
+    if (!callAction(ACTION_HOME)) setState(ERROR);
+  }
 }
 
 void ObjectPicker::newObjectCallback(const std_msgs::UInt32 msg)
