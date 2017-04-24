@@ -22,12 +22,19 @@ class ObjectClassifier:
         rospy.Service("classifyObjects", ClassifyObjects, self.handleClassify)
 
     def handleClassify(self, req):
+        """Classifies each object and returns the list with updated ownership."""
         msg = rospy.wait_for_message("object_db", RichObjectArray)
         objects = msg.objects
+        for obj in objects:
+            self.classifyObject(obj)
         return ClassifyObjectsResponse(objects)
 
     def feedbackCallback(self, msg):
-        """Callback upon receiving blacklisted object."""
+        """Callback upon receiving feedback from ObjectCollector."""
+        self.interaction_log.append(msg)
+
+    def classifyObject(self, obj):
+        """Modifies the owners and ownership probabilities in place."""
         pass
 
 
