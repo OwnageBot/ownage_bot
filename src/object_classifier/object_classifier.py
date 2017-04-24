@@ -4,6 +4,10 @@ from std_msgs.msg import UInt32
 import geometry_msgs.msg
 from ownage_bot.msg import *
 from ownage_bot.srv import *
+import sys
+
+bool IS_SIMULATION = rospy.get_param("is_simulation")
+
 
 class ObjectClassifier:
     """A class for classifying objects into ownership categories."""
@@ -26,11 +30,20 @@ class ObjectClassifier:
         """Callback upon receiving blacklisted object."""
         pass
 
+
 if __name__ == '__main__':
     rospy.init_node('object_classifier')
     objectClassifier = ObjectClassifier()
-    # Subscribe to feedback from ObjectCollector
-    rospy.Subscriber("feedback", RichFeedback,
-                     objectClassifier.feedbackCallback)
-    rospy.spin()
+    # Are we running a simulation?
+    if(IS_SIMULATION):
+        # Subscribe to feedback from ObjectCollector
+        rospy.Subscriber("feedback", RichFeedback,
+                         objectClassifier.feedbackCallback)
+    # if so, read fake data from file and do computations
 
+    else:
+        data_file = sys.argv[1]
+        with open(data_file) as f:
+            pass
+
+    rospy.spin()
