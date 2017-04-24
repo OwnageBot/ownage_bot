@@ -6,7 +6,7 @@ from ownage_bot.msg import *
 from ownage_bot.srv import *
 import sys
 
-bool IS_SIMULATION = rospy.get_param("is_simulation")
+IS_SIMULATION = rospy.get_param("is_simulation")
 
 
 class ObjectClassifier:
@@ -35,7 +35,7 @@ if __name__ == '__main__':
     rospy.init_node('object_classifier')
     objectClassifier = ObjectClassifier()
     # Are we running a simulation?
-    if(IS_SIMULATION):
+    if(!IS_SIMULATION):
         # Subscribe to feedback from ObjectCollector
         rospy.Subscriber("feedback", RichFeedback,
                          objectClassifier.feedbackCallback)
