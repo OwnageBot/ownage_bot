@@ -9,6 +9,9 @@ from ownage_bot.msg import RichObject
 from ownage_bot.msg import RichObjectArray
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
+from collections import deque
+
+
 
 class ObjectTracker:
     """A class for tracking objects."""
@@ -20,9 +23,9 @@ class ObjectTracker:
         self.color_db = dict() # Which colors have we seen?
         # Margins around ARuco tag for color determination
         self.in_offset = (rospy.get_param("in_offset") if
-                        rospy.has_param("in_offset") else 2)
-        self.out_offset = (rospy.get_param("in_offset") if
-                        rospy.has_param("in_offset") else 4)
+                        rospy.has_param("in_offset") else 3)
+        self.out_offset = (rospy.get_param("out_offset") if
+                        rospy.has_param("out_offset") else 6)
         self.avatar_ids = (rospy.get_param("avatar_ids") if
                            rospy.has_param("avatar_ids") else [])
         self.landmark_ids = (rospy.get_param("landmark_ids") if
@@ -132,7 +135,19 @@ class ObjectTracker:
 
         assert(len(obj_color) > 0)
         color = (avg_r/len(obj_color), avg_g/len(obj_color), avg_b/len(obj_color))
-        return self.checkColorDatabase(color)
+        color_index = color.index(max(color))
+
+        print("Color is {}:{}\n".format(color, color_index))
+
+        if marker.id in self.color_db:
+            self.color_db[marker.id].append(color_index)
+        else:
+            self.color_db[marker.id] = deque([color_index],20)
+
+        mode = max(set(self.color_db[marker.id]), key=self.color_db[marker.id].count)
+
+        print("Obj: {}, Color: {}, Past colors: {}\n".format(marker.id, mode, self.color_db[marker.id]))
+        return mode
 
     def checkColorDatabase(self, rgb_vals):
         """Categorizes objects based on colors, creates new names from novel colors."""
