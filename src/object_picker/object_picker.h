@@ -15,10 +15,13 @@
 #include "ownage_bot/LocateObject.h"
 #include "ownage_bot/RichObject.h"
 
-#define ACTION_FIND "find"
 #define ACTION_SCAN "scan"
+#define ACTION_FIND "find"
 #define ACTION_PUT "put"
 #define ACTION_OFFER "offer"
+#define ACTION_REPLACE "replace"
+#define ACTION_WAIT "wait
+"
 
 #define ACT_CANCELLED "Action cancelled by user"
 
@@ -30,6 +33,9 @@ class ObjectPicker : public ArmCtrl, public ARucoClient
 {
 private:
     double elap_time;
+
+    // Location of last picked object
+    geometry_msgs::Point _last_pick_loc;
 
     // Arm pose configurations for corners of physical workspace
     std::vector< std::vector<double> > workspace_conf;
@@ -80,10 +86,22 @@ private:
     bool putObject();
 
     /**
+     * Replace currently held object in location it was picked up from
+     * @return true/false if success/failure
+     */
+    bool replaceObject();
+
+    /**
      * Moves arm around the workspace so that the camera can gather data
      * @return true/false if success/failure
      */
     bool scanWorkspace();
+
+    /**
+     * Waits a set amount of time for negative feedback before returning
+     * @return true/false if success/failure
+     */
+    bool waitForFeedback();
 
     /**
      * Recovers from errors during execution. Releases object then moves

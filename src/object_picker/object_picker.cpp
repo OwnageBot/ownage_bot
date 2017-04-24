@@ -19,16 +19,21 @@ ObjectPicker::ObjectPicker(
 
   setState(START);
 
+  insertAction(ACTION_SCAN,
+               static_cast<f_action>(&ObjectPicker::scanWorkspace));
   insertAction(ACTION_FIND,
                static_cast<f_action>(&ObjectPicker::findObject));
-  insertAction(ACTION_OFFER,
-               static_cast<f_action>(&ObjectPicker::offerObject));
   insertAction(ACTION_GET,
                static_cast<f_action>(&ObjectPicker::pickObject));
   insertAction(ACTION_PUT,
                static_cast<f_action>(&ObjectPicker::putObject));
-  insertAction(ACTION_SCAN,
-               static_cast<f_action>(&ObjectPicker::scanWorkspace));
+  insertAction(ACTION_OFFER,
+               static_cast<f_action>(&ObjectPicker::offerObject));
+  insertAction(ACTION_REPLACE,
+               static_cast<f_action>(&ObjectPicker::replaceObject));
+  insertAction(ACTION_WAIT,
+               static_cast<f_action>(&ObjectPicker::waitForFeedback));
+
 
   printActionDB();
 
@@ -120,6 +125,9 @@ bool ObjectPicker::offerObject()
 
 bool ObjectPicker::pickObject()
 {
+  // Save position of object before picking up
+  if (!waitForARucoData()) return false;
+  _last_pick_loc = getMarkerPos();
   if (!pickARTag())               return false;
   if (!gripObject())              return false;
   // Move up from current position to Z_LOW
@@ -135,6 +143,17 @@ bool ObjectPicker::putObject()
   geometry_msgs::Point p = getPos();
   ros::Duration(0.05).sleep();
   if (!goToPose(p.x, p.y, Z_RELEASE, VERTICAL_ORI_L)) return false;
+  ros::Duration(1).sleep();
+  releaseObject();
+
+  return true;
+}
+
+bool ObjectPicker::replaceObject()
+{
+  // Move to location of last picked object and release
+  if (!goToPose(_last_pick_loc.x, _last_pick_loc.y,
+                Z_RELEASE, VERTICAL_ORI_L)) return false;
   ros::Duration(1).sleep();
   releaseObject();
 
@@ -157,6 +176,14 @@ bool ObjectPicker::scanWorkspace()
 
   return true;
 }
+
+bool ObjectPicker::waitForFeedback()
+{
+  ROS_INFO("[%s] Waiting for feedback...", getLimb().c_str());
+  ros::Duration(3).sleep();
+  return true;
+}
+
 
 void ObjectPicker::recoverFromError()
 {
