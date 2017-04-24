@@ -53,6 +53,7 @@ add_message_files(
   FILES
   RichObject.msg
   RichObjectArray.msg
+  RichFeedback.msg
 )
 
 ## Generate services in the 'srv' folder

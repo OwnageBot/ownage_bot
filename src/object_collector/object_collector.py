@@ -3,8 +3,7 @@ import rospy
 from std_msgs.msg import UInt32
 from baxter_collaboration_msgs.srv import DoAction
 from baxter_collaboration_msgs.srv import DoActionResponse
-from ownage_bot.msg import RichObject
-from ownage_bot.msg import RichObjectArray
+from ownage_bot.msg import *
 from ownage_bot.srv import ClassifyObjects
 from geometry_msgs.msg import Point
 
@@ -28,12 +27,9 @@ class ObjectCollector:
                            rospy.has_param("avatar_ids") else [])
         self.actionProvider = rospy.ServiceProxy(
             "/action_provider/service_left", DoAction)
-        try:
-            self.objectClassifier = rospy.ServiceProxy(
-                "classifyObjects", ClassifyObjects)
-        except rospy.service.ServiceException:
-            print("ClassifyObject service call failed\n")
-        self.feedback_pub = rospy.Publisher("feedback", RichObject,
+        self.objectClassifier = rospy.ServiceProxy(
+            "classifyObjects", ClassifyObjects)
+        self.feedback_pub = rospy.Publisher("feedback", RichFeedback,
                                              queue_size = 10)
 
     def scanWorkspace(self):
@@ -127,13 +123,22 @@ class ObjectCollector:
         return ((self.home_area[0].x <= loc.x <= self.home_area[1].x) and
                 (self.home_area[0].y <= loc.y <= self.home_area[1].y))
 
-    def classify(self, objects):
+    def classify(self):
         """Requests ObjectClassifier to determine if objects are owned."""
-        return self.objectClassifier(objects)
+        try:
+            resp = self.objectClassifier(objects)
+            return resp.objects
+        except rospy.service.ServiceException:
+            print("ClassifyObject service call failed!\n")
+            return []
 
     def feedback(self, obj, label):
         """Gives label feedback to classifier."""
-        self.blacklist_pub.publish(obj)
+        msg = RichFeedback()
+        msg.stamp = rospy.Time.Now()
+        msg.label = label
+        msg.object = obj
+        self.feedback_pub.publish(msg)
 
     def main(self):
         """Main loop which collects all tracked objects."""
@@ -143,15 +148,15 @@ class ObjectCollector:
                 self.skipScan = False
             else:
                  self.scanWorkspace()
-            # Get list of objects and classify their ownership
-            msg = rospy.wait_for_message("object_db", RichObjectArray)
-            resp = self.classify(msg.objects)
-            for obj in resp.classified:
+            # Get list of classified objects
+            objects = self.classify()
+            for obj in objects:
+                # Pick up if object is outside home area and unowned
                 if (not self.inHomeArea(obj) and
-                    obj.forbiddenness < self.threshold):
+                    obj.ownership[0] < self.threshold):
                     rospy.loginfo("Collecting Object {}\n".format(obj.id))
                     label = self.collect(obj)
-                    # Update ownership rules and reclassify
+                    # Update ownership rules and reclassify if no fatal error
                     if label != -1:
                         self.feedback(obj, label)
                         self.skipScan = True

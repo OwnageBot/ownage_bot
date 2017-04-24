@@ -50,8 +50,9 @@ class ObjectTracker:
         obj = RichObject()
         obj.id = marker.id
         obj.is_avatar = (marker.id in self.avatar_ids)
-        obj.is_landmark = (str(marker.id) in self.landmark_ids)
-        obj.forbiddenness = 0
+        obj.is_landmark = (marker.id in self.landmark_ids)
+        obj.owners = [0] # Default to unowned
+        obj.ownership = [1.0] # With probability 1
         self.object_db[marker.id] = obj
         # Initialize fields which are dynamically changing
         self.updateObject(marker)
