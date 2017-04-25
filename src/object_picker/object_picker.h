@@ -15,24 +15,32 @@
 #include "ownage_bot/LocateObject.h"
 #include "ownage_bot/RichObject.h"
 
+// The names of the actions provided
 #define ACTION_SCAN "scan"
 #define ACTION_FIND "find"
 #define ACTION_PUT "put"
 #define ACTION_OFFER "offer"
 #define ACTION_REPLACE "replace"
-#define ACTION_WAIT "wait
-"
+#define ACTION_WAIT "wait"
 
+// Additional error messages that the service can report
 #define ACT_CANCELLED "Action cancelled by user"
+#define OBJECT_HELD "An object is already being held"
+#define NO_OBJECT_HELD "No object is currently being held"
 
+// Height at which objects are released when put down
 #define Z_RELEASE (-0.1)
 
+// Offset between gripper and IR sensor so that picking up works
 #define IR_OFFSET (0.015)
 
 class ObjectPicker : public ArmCtrl, public ARucoClient
 {
 private:
     double elap_time;
+
+    // True if object is currently held
+    bool is_holding;
 
     // Location of last picked object
     geometry_msgs::Point _last_pick_loc;
@@ -127,6 +135,13 @@ protected:
      * tracker node.
      */
     void newObjectCallback(const std_msgs::UInt32 msg);
+
+    /**
+     * Goes to the home position
+     *
+     * @return        true/false if success/failure
+     */
+    bool goHome();
 
 public:
 

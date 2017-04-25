@@ -41,14 +41,16 @@ class ObjectClassifier:
             # Compute distance between i and obj
             # Apply Gaussian weighting to the interaction
             # Compute running sum of weights for each avatar id (including 0)
+            pass
         # Normalize weights to get probabilities
+        pass
 
 
 if __name__ == '__main__':
     rospy.init_node('object_classifier')
     objectClassifier = ObjectClassifier()
     # Are we running a simulation?
-    if(!IS_SIMULATION):
+    if not IS_SIMULATION:
         # Subscribe to feedback from ObjectCollector
         rospy.Subscriber("feedback", RichFeedback,
                          objectClassifier.feedbackCallback)

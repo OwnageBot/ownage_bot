@@ -32,6 +32,7 @@ class ObjectCollector:
         self.feedback_pub = rospy.Publisher("feedback", RichFeedback,
                                              queue_size = 10)
 
+    # Python wrappers for the actions defined in object_picker.h
     def scanWorkspace(self):
         return self.actionProvider("scan", [])
 
@@ -49,16 +50,13 @@ class ObjectCollector:
 
     def offer(self, obj):
         return self.actionProvider("offer", [obj.id])
-    
-    def waitForFeedback(self):
-        return self.actionProvider("wait", [obj.id])
 
-    def replace(self, obj):
-        """Replaces held object in original location, obj.pose."""
-        p = obj.pose.pose.position
-        # self.goToLoc(p.x, p.y)
-        return self.putDown()
-    
+    def waitForFeedback(self):
+        return self.actionProvider("wait", [])
+
+    def replace(self):
+        return self.actionProvider("replace", [])
+
     def offerInTurn(self, obj):
         """Offers held object to each avatar in turn.
 
@@ -88,7 +86,7 @@ class ObjectCollector:
             print("Failed putting down object!\n")
             return -1
         return 0
-    
+
     def collect(self, obj):
         """Attempts to bring object to home area.
 
@@ -116,7 +114,7 @@ class ObjectCollector:
             print("Failed putting down object!\n")
             return -1
         return 0
-                
+
     def inHomeArea(self, obj):
         """Checks if object is in home area."""
         loc = obj.pose.pose.position

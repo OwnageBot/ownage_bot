@@ -37,6 +37,7 @@ ObjectPicker::ObjectPicker(
 
   printActionDB();
 
+  is_holding = false;
 
   _new_obj_sub = _n.subscribe("/object_tracker/new_object",
                               SUBSCRIBER_BUFFER,
@@ -125,37 +126,56 @@ bool ObjectPicker::offerObject()
 
 bool ObjectPicker::pickObject()
 {
+  // Check if object is currently held
+  if (is_holding) {
+    setSubState(OBJECT_HELD);
+    return false;
+  }
   // Save position of object before picking up
   if (!waitForARucoData()) return false;
   _last_pick_loc = getMarkerPos();
   if (!pickARTag())               return false;
   if (!gripObject())              return false;
+  is_holding = true;
   // Move up from current position to Z_LOW
   geometry_msgs::Point p = getPos();
   if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI_L)) return false;
+
 
   return true;
 }
 
 bool ObjectPicker::putObject()
 {
+  // Check if object is currently held
+  if (!is_holding) {
+    setSubState(NO_OBJECT_HELD);
+    return false;
+  }
   // Move down from current position to Z_RELEASE
   geometry_msgs::Point p = getPos();
   ros::Duration(0.05).sleep();
   if (!goToPose(p.x, p.y, Z_RELEASE, VERTICAL_ORI_L)) return false;
   ros::Duration(1).sleep();
   releaseObject();
+  is_holding = false;
 
   return true;
 }
 
 bool ObjectPicker::replaceObject()
 {
+  // Check if object is currently held
+  if (!is_holding) {
+    setSubState(NO_OBJECT_HELD);
+    return false;
+  }
   // Move to location of last picked object and release
   if (!goToPose(_last_pick_loc.x, _last_pick_loc.y,
                 Z_RELEASE, VERTICAL_ORI_L)) return false;
   ros::Duration(1).sleep();
   releaseObject();
+  is_holding = false;
 
   return true;
 }
@@ -184,6 +204,11 @@ bool ObjectPicker::waitForFeedback()
   return true;
 }
 
+bool ObjectPicker::goHome()
+{
+    bool res = homePoseStrict();
+    return res;
+}
 
 void ObjectPicker::recoverFromError()
 {
@@ -192,6 +217,7 @@ void ObjectPicker::recoverFromError()
     // Release object and go home
     hoverAboveTable(Z_RELEASE);
     releaseObject();
+    is_holding = false;
     homePoseStrict();
   }
 }
