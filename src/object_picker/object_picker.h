@@ -34,6 +34,9 @@
 // Offset between gripper and IR sensor so that picking up works
 #define IR_OFFSET (0.015)
 
+// Force threshold for releasing object
+#define RELEASE_THRESHOLD (-15)
+
 class ObjectPicker : public ArmCtrl, public ARucoClient
 {
 private:
@@ -60,6 +63,13 @@ private:
     // Client for LocateObject service
     ros::ServiceClient _loc_obj_client;
 
+protected:
+
+    /**
+     * Adds new objects to the object database when notified by the object
+     * tracker node.
+     */
+    void newObjectCallback(const std_msgs::UInt32 msg);
 
     /**
      * Picks up object with ARuco tag, where the id is first set
@@ -115,6 +125,13 @@ private:
     bool waitForFeedback();
 
     /**
+     * Goes to the home position
+     *
+     * @return        true/false if success/failure
+     */
+    bool goHome();
+
+    /**
      * Recovers from errors during execution. Releases object then moves
      * back to the home position
      */
@@ -130,21 +147,16 @@ private:
      */
     void setWorkspaceConfiguration();
 
-
-protected:
-
-    /**
-     * Adds new objects to the object database when notified by the object
-     * tracker node.
-     */
-    void newObjectCallback(const std_msgs::UInt32 msg);
-
-    /**
-     * Goes to the home position
+    /*
+     * Releases currently held object at pose, or upon collision (high wrench)
      *
-     * @return        true/false if success/failure
+     * @param  requested pose (3D position + 4D quaternion for the orientation)
+     * @param  mode (either loose or strict, it checks for the final desired position)
+     * @return true/false if success/failure
      */
-    bool goHome();
+    bool releaseAtPose(double px, double py, double pz,
+                       double ox, double oy, double oz, double ow,
+                       std::string mode="loose");
 
 public:
 

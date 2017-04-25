@@ -172,7 +172,7 @@ bool ObjectPicker::replaceObject()
   }
   // Move to location of last picked object and release
   if (!goToPose(_last_pick_loc.x, _last_pick_loc.y,
-                Z_RELEASE, VERTICAL_ORI_L)) return false;
+                     Z_RELEASE, VERTICAL_ORI_L)) return false;
   ros::Duration(1).sleep();
   releaseObject();
   is_holding = false;
@@ -206,20 +206,14 @@ bool ObjectPicker::waitForFeedback()
 
 bool ObjectPicker::goHome()
 {
-    bool res = goToPose(home_loc.x, home_loc.y, home_loc.z, VERTICAL_ORI_L);
-    return res;
+    if (!homePoseStrict()) return true;
+    if (!goToPose(home_loc.x, home_loc.y, home_loc.z, VERTICAL_ORI_L)) return false;
+    return true;
 }
 
 void ObjectPicker::recoverFromError()
 {
-  if (getInternalRecovery() == true)
-  {
-    // Release object and go home
-    hoverAboveTable(Z_RELEASE);
-    releaseObject();
-    is_holding = false;
-    homePoseStrict();
-  }
+  ROS_INFO("[%s] Recovering from error", getLimb().c_str());
 }
 
 bool ObjectPicker::pickARTag()
@@ -275,7 +269,7 @@ bool ObjectPicker::pickARTag()
       elap_time = new_elap_time;
 
       // Use loose collision detection to avoid over-pushing
-      if(hasCollidedIR("loose"))
+      if(hasCollidedIR("strict"))
       {
         ROS_DEBUG("Collision!");
         setSubState(ACTION_GET);
@@ -298,6 +292,60 @@ bool ObjectPicker::pickARTag()
   return false;
 }
 
+bool ObjectPicker::releaseAtPose(double px, double py, double pz,
+                                 double ox, double oy, double oz, double ow,
+                                 std::string mode)
+{
+  ros::Time start_time = ros::Time::now();
+  double z_start       =       getPos().z;
+  int cnt_ik_fail      =                0;
+
+  ros::Rate r(100);
+  while(RobotInterface::ok())
+  {
+    double new_elap_time = (ros::Time::now() - start_time).toSec();
+
+    // Move to release point bit by bit, make sure z does not exceed
+    double x = px;
+    double y = py;
+    double z = (z < pz) ? pz : z_start - ARM_SPEED * new_elap_time;
+
+    ROS_DEBUG("Time %g Going to: %g %g %g", new_elap_time, px, py, z);
+
+    if (goToPoseNoCheck(x,y,z,VERTICAL_ORI_L))
+    {
+      cnt_ik_fail = 0;
+      if (new_elap_time - elap_time > 0.02)
+      {
+        ROS_WARN("\t\t\t\t\tTime elapsed: %g", new_elap_time - elap_time);
+      }
+      elap_time = new_elap_time;
+
+      // Release object upon reaching pose, or collision
+      if(z == pz ||
+         isPoseReached(px, py, pz, ox, oy, oz, ow, mode) ||
+         getWrench().force.z < RELEASE_THRESHOLD)
+      {
+        ros::Duration(1).sleep();
+        releaseObject();
+        is_holding = false;
+        return true;
+      }
+
+      r.sleep();
+    }
+    else
+    {
+      cnt_ik_fail++;
+    }
+
+    if (cnt_ik_fail == 10)
+    {
+      return false;
+    }
+  }
+}
+
 bool ObjectPicker::serviceCb(DoAction::Request  &req, DoAction::Response &res)
 {
     // Let's read the requested action and object to act upon
@@ -316,7 +364,7 @@ bool ObjectPicker::serviceCb(DoAction::Request  &req, DoAction::Response &res)
     }
     objs_str = objs_str.substr(0, objs_str.size()-2); // Remove the last ", "
 
-    printf("[%s] Service request received. Action: %s Objects: %s",
+    printf("[%s] Service request received. Action: %s Objects: %s\n",
              getLimb().c_str(), action.c_str(), objs_str.c_str());
 
     // Print the action or object DB if requested by the user
@@ -383,7 +431,7 @@ bool ObjectPicker::serviceCb(DoAction::Request  &req, DoAction::Response &res)
         {
             // Send ACT_CANCELLED if cuff button is pressed
             res.response = ACT_CANCELLED;
-            recoverFromError();
+            return true;
         }
 
         r.sleep();
@@ -395,10 +443,10 @@ bool ObjectPicker::serviceCb(DoAction::Request  &req, DoAction::Response &res)
         res.success = true;
     }
 
-    // if (getState() == ERROR)
-    // {
-    //     res.response = getSubState();
-    // }
+    if (getState() == ERROR)
+    {
+        res.response = getSubState();
+    }
 
     ROS_INFO("[%s] Service reply with success: %s\n",
              getLimb().c_str(), res.success?"true":"false");
@@ -408,8 +456,8 @@ bool ObjectPicker::serviceCb(DoAction::Request  &req, DoAction::Response &res)
 void ObjectPicker::setHomeConfiguration()
 {
   // Home location at center of the table
-  setHomeConf(0.1967, -0.8702, -1.0531,  1.5578,
-              0.6516,  1.2464, -0.1787);
+  setHomeConf(0.109, -0.930, -1.507, 2.070,
+              0.735, 1.150, -0.956);
   home_loc.x = 0.50;  home_loc.y = 0.176;  home_loc.z = Z_LOW;
 }
 

@@ -48,8 +48,8 @@ class ObjectCollector:
     def find(self, obj):
         return self.actionProvider("find", [obj.id])
 
-    def offer(self, obj):
-        return self.actionProvider("offer", [obj.id])
+    def offer(self, a):
+        return self.actionProvider("offer", [a])
 
     def waitForFeedback(self):
         return self.actionProvider("wait", [])
@@ -68,16 +68,17 @@ class ObjectCollector:
             ret = self.offer(a)
             if ret.success:
                 # If offer is successful, replace object
-                self.replace(obj)
+                self.replace()
                 return a
-            else if ret.response == ACT_CANCELLED:
+            elif ret.response == ACT_CANCELLED:
                 # Continue on to next possible owner if rejected
                 print("Object {} rejected by avatar {}\n".
-                      format(obj, a))
+                      format(obj.id, a))
+                rospy.sleep(3)
             else:
                 # Error out upon some other kind of failure
                 print("Failed to offer avatar {} object {}!\n".
-                      format(a, obj))
+                      format(a, obj.id))
             # Return to home position before making next offer
             self.goHome()
             print("Continuing to next avatar...\n")
@@ -106,6 +107,11 @@ class ObjectCollector:
         ret = self.waitForFeedback()
         if not ret.success:
             if ret.response == ACT_CANCELLED:
+                # Sleep to prevent double cancellation
+                rospy.sleep(3)
+                if not self.goHome().success:
+                    print("Failed going home!\n")
+                    return -1
                 return self.offerInTurn(obj)
             else:
                 print("Failed waiting for feedback!\n")
@@ -124,7 +130,7 @@ class ObjectCollector:
     def classify(self):
         """Requests ObjectClassifier to determine if objects are owned."""
         try:
-            resp = self.objectClassifier(objects)
+            resp = self.objectClassifier()
             return resp.objects
         except rospy.service.ServiceException:
             print("ClassifyObject service call failed!\n")
@@ -133,32 +139,45 @@ class ObjectCollector:
     def feedback(self, obj, label):
         """Gives label feedback to classifier."""
         msg = RichFeedback()
-        msg.stamp = rospy.Time.Now()
+        msg.stamp = rospy.Time.now()
         msg.label = label
         msg.object = obj
         self.feedback_pub.publish(msg)
 
     def main(self):
         """Main loop which collects all tracked objects."""
+
+        # Wait for other nodes to start, then go home
+        rospy.sleep(4)
         self.goHome()
+
+        # Keep scanning for objects until shutdown
         while not rospy.is_shutdown():
             if self.skipScan:
                 self.skipScan = False
             else:
-                 self.scanWorkspace()
+                self.goHome()
+                self.scanWorkspace()
             # Get list of classified objects
             objects = self.classify()
             for obj in objects:
                 # Pick up if object is outside home area and unowned
                 if (not self.inHomeArea(obj) and
-                    obj.ownership[0] < self.threshold):
-                    rospy.loginfo("Collecting Object {}\n".format(obj.id))
+                    obj.ownership[0] > self.threshold and
+                    not obj.is_avatar):
+                    rospy.loginfo("Collecting object {}\n".format(obj.id))
                     label = self.collect(obj)
                     # Update ownership rules and reclassify if no fatal error
                     if label != -1:
+                        if label > 0:
+                            rospy.loginfo("Object {} was labeled as {}\n".format(obj.id, label))
+                        else:
+                            rospy.loginfo("Object {} was unclaimed\n".format(obj.id))
                         self.feedback(obj, label)
                         self.skipScan = True
                         break
+                    else:
+                        rospy.loginfo("Error collecting object {}\n".format(obj.id))
 
 if __name__ == '__main__':
     rospy.init_node('object_collector')

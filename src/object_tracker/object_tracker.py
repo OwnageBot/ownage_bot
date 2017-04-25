@@ -96,11 +96,11 @@ class ObjectTracker:
         p1 = obj1.pose.pose.position
         p2 = obj2.pose.pose.position
         return (p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y)
-                
+
     def determineColor(self, msg, marker):
 
         """Determines color of the currently tracked object."""
-        rospy.loginfo(" Determining Object Color\n")
+        rospy.logdebug(" Determining Object Color\n")
         # need to convert ROS images into OpenCV images in order to do analysis
         cv_image =  cv_image = CvBridge().imgmsg_to_cv2(msg, "rgb8")
         obj_color = []  # will store pixels belonging ONLY to the object (hopefully)
@@ -148,8 +148,6 @@ class ObjectTracker:
         color = (avg_r/len(obj_color), avg_g/len(obj_color), avg_b/len(obj_color))
         color_index = color.index(max(color))
 
-        print("Color is {}:{}\n".format(color, color_index))
-
         if marker.id in self.color_db:
             self.color_db[marker.id].append(color_index)
         else:
@@ -157,7 +155,7 @@ class ObjectTracker:
 
         mode = max(set(self.color_db[marker.id]), key=self.color_db[marker.id].count)
 
-        print("Obj: {}, Color: {}, Past colors: {}\n".format(marker.id, mode, self.color_db[marker.id]))
+        rospy.logdebug("Obj: {}, Color: {}, Past colors: {}\n".format(marker.id, mode, self.color_db[marker.id]))
         return mode
 
     def checkColorDatabase(self, rgb_vals):
