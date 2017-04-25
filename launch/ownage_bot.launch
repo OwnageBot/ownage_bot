@@ -68,5 +68,10 @@
           if="$(is_simulation)">
     </node>
 
+    <node pkg="ownage_bot" type="objecter_tester.py"
+          name="object_tester"
+          if ="$(is_simulation)">
+    </node>
+
 </launch>
 
