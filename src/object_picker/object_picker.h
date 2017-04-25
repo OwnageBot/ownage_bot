@@ -45,7 +45,10 @@ private:
     // Location of last picked object
     geometry_msgs::Point _last_pick_loc;
 
-    // Arm pose configurations for corners of physical workspace
+    // Endpoint position for home location
+    geometry_msgs::Point home_loc;
+
+    // Endpoint positions for corners of physical workspace
     std::vector< std::vector<double> > workspace_conf;
 
     // Subscriber to the ARuco detector,

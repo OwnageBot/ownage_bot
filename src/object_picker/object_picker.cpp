@@ -206,7 +206,7 @@ bool ObjectPicker::waitForFeedback()
 
 bool ObjectPicker::goHome()
 {
-    bool res = homePoseStrict();
+    bool res = goToPose(home_loc.x, home_loc.y, home_loc.z, VERTICAL_ORI_L);
     return res;
 }
 
@@ -410,6 +410,7 @@ void ObjectPicker::setHomeConfiguration()
   // Home location at center of the table
   setHomeConf(0.1967, -0.8702, -1.0531,  1.5578,
               0.6516,  1.2464, -0.1787);
+  home_loc.x = 0.50;  home_loc.y = 0.176;  home_loc.z = Z_LOW;
 }
 
 void ObjectPicker::setWorkspaceConfiguration()

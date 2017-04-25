@@ -16,8 +16,8 @@
       <param name="tracker_latency" type="double" value="0.2" />
 
       <rosparam param="home_area" subst_value="True">
-        lower: [0.45, -0.2, 0]
-        upper: [0.55, 0.2, 0]
+        lower: [0.39, 0.07, 0]
+        upper: [0.62, 0.29, 0]
       </rosparam>
 
       <rosparam param="avatar_ids" subst_value="True">$(arg avatar_ids)</rosparam>
