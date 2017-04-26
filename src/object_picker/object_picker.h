@@ -30,6 +30,7 @@
 
 // Height at which objects are released when put down
 #define Z_RELEASE (-0.1)
+#define Z_FIND (0.07)
 
 // Offset between gripper and IR sensor so that picking up works
 #define IR_OFFSET (0.015)

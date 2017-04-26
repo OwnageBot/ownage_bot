@@ -39,12 +39,12 @@ ObjectPicker::ObjectPicker(
 
   is_holding = false;
 
-  _new_obj_sub = _n.subscribe("/object_tracker/new_object",
+  _new_obj_sub = _n.subscribe("/ownage_bot/new_object",
                               SUBSCRIBER_BUFFER,
                               &ObjectPicker::newObjectCallback, this);
 
   _loc_obj_client =
-    _n.serviceClient<LocateObject>("/object_tracker/locate_object");
+    _n.serviceClient<LocateObject>("/ownage_bot/locate_object");
 
   if (_no_robot) return;
 
@@ -75,7 +75,7 @@ bool ObjectPicker::findObject()
   // if (!homePoseStrict()) return false;
   ros::Duration(0.05).sleep();
   // Hover above last-remembered location
-  if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI_L)) {
+  if (!goToPose(p.x, p.y, Z_FIND, VERTICAL_ORI_L)) {
     ROS_ERROR("[%s] Failed to go to object location!\n", getLimb().c_str());
     return false;
   }
@@ -88,7 +88,7 @@ bool ObjectPicker::findObject()
   }
   p = srv.response.pose.position;
   // Hover above new location
-  if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI_L)) return false;
+  if (!goToPose(p.x, p.y, Z_FIND, VERTICAL_ORI_L)) return false;
 
   return true;
 }
@@ -100,6 +100,10 @@ bool ObjectPicker::offerObject()
   srv.request.id = getObjectID();
   if (!_loc_obj_client.call(srv)) {
     ROS_ERROR("[%s] Failed to call service locate_object!", getLimb().c_str());
+    return false;
+  }
+  if (!srv.response.success) {
+    ROS_ERROR("[%s] Object %d not tracked!\n", getLimb().c_str(), srv.request.id);
     return false;
   }
   geometry_msgs::Point p = srv.response.pose.position;
@@ -199,7 +203,8 @@ bool ObjectPicker::scanWorkspace()
 
 bool ObjectPicker::waitForFeedback()
 {
-  ROS_INFO("[%s] Waiting for feedback...", getLimb().c_str());
+  printf("[%s] Waiting for feedback...\n", getLimb().c_str());
+  setState(WORKING);
   ros::Duration(3).sleep();
   return true;
 }
@@ -431,7 +436,7 @@ bool ObjectPicker::serviceCb(DoAction::Request  &req, DoAction::Response &res)
         {
             // Send ACT_CANCELLED if cuff button is pressed
             res.response = ACT_CANCELLED;
-            return true;
+            break;
         }
 
         r.sleep();

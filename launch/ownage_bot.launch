@@ -3,25 +3,28 @@
        value="$(find baxter_collaboration)/rosconsole.conf"/>
     <!-- <include file="$(find baxter_collaboration)/launch/baxter_marker_publisher.launch" /> -->
 
-    <arg name="avatar_ids" default="[100, 101, 102]"/>
+    <arg name="is_simulation" default="false"/>
+
+    <arg name="avatar_ids" default="[200,152]"/>
     <arg name="landmark_ids" default="[0]"/>
     <arg name="data_file" default="PATH/TO/FILE.txt"/>
-    <arg name="is_simulation" default="true"/>
-
-    <param name="is_simulation" type="bool" value="$(arg is_simulation)"/>
 
     <group unless="$(arg is_simulation)">
 
-      <param name="collect_threshold" type="double" value="0.8" />
+    <group ns="ownage_bot">
+
+      <param name="is_simulation" type="bool" value="$(arg is_simulation)"/>
+
+      <param name="collect_threshold" type="double" value="0.2" />
       <param name="tracker_latency" type="double" value="0.2" />
 
-      <rosparam param="home_area" subst_value="True">
+      <rosparam param="home_area" subst_value="true">
         lower: [0.39, 0.07, 0]
         upper: [0.62, 0.29, 0]
       </rosparam>
 
-      <rosparam param="avatar_ids" subst_value="True">$(arg avatar_ids)</rosparam>
-      <rosparam param="landmark_ids" subst_value="True">$(arg landmark_ids)</rosparam>
+      <rosparam param="avatar_ids" subst_value="true">$(arg avatar_ids)</rosparam>
+      <rosparam param="landmark_ids" subst_value="true">$(arg landmark_ids)</rosparam>
 
       <node pkg="ownage_bot" type="object_tracker.py"
 	          name="object_tracker">
@@ -31,44 +34,63 @@
 	          name="object_collector" output="screen">
       </node>
 
-
-    <!-- provides actions on left arm -->
-      <node pkg="ownage_bot" type="object_picker" name="object_picker" output="screen"> </node>
-
-      <!-- show image from camera -->
-      <node name="image_view_AR" pkg="image_view" type="image_view" respawn="false"> <!-- output="log" -->
-          <remap from="image" to="/aruco_marker_publisher/result"/>
-          <param name="autosize" value="true" />
-      </node>
-
-      <!-- ARUCO ROS -->
-      <arg name="markerSize"      default="0.0381"/>    <!-- in m -->
-      <arg name="ref_frame"       default="/base"/>  <!-- leave empty and the pose will be published wrt param parent_name -->
-
-      <param name="aruco_marker_publisher/image_is_rectified" value="True"/>
-      <param name="aruco_marker_publisher/marker_size"        value="$(arg markerSize)"/>
-      <param name="aruco_marker_publisher/reference_frame"    value="$(arg ref_frame)"/>
-      <param name="aruco_marker_publisher/camera_frame"       value="/left_hand_camera"/>
-
-      <node pkg="aruco_ros" type="marker_publisher" name="aruco_marker_publisher" respawn="true">
-          <remap from="image" to="/cameras/left_hand_camera/image"/>
-          <remap from="camera_info" to="/cameras/left_hand_camera/camera_info"/>
-      </node>
-
-
-    <!--include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"/-->
-    </group>
-
-    <node pkg="ownage_bot" type="object_classifier.py"
+      <node pkg="ownage_bot" type="object_classifier.py"
             name="object_classifier" output="screen">
       </node>
+    </group>
 
+    <!-- provides actions on left arm -->
+    <node pkg="ownage_bot" type="object_picker" name="object_picker" output="screen"> </node>
 
-    <node pkg="ownage_bot" type="object_tester.py"
-          name="object_tester"
-          output="screen"
-          if ="$(arg is_simulation)">
+    <!-- show image from camera -->
+    <node name="image_view_AR" pkg="image_view" type="image_view" respawn="false"> <!-- output="log" -->
+        <remap from="image" to="/aruco_marker_publisher/result"/>
+        <param name="autosize" value="true" />
     </node>
+
+    <!-- ARUCO ROS -->
+    <arg name="markerSize"      default="0.0381"/>    <!-- in m -->
+    <arg name="ref_frame"       default="/base"/>  <!-- leave empty and the pose will be published wrt param parent_name -->
+
+    <param name="aruco_marker_publisher/image_is_rectified" value="True"/>
+    <param name="aruco_marker_publisher/marker_size"        value="$(arg markerSize)"/>
+    <param name="aruco_marker_publisher/reference_frame"    value="$(arg ref_frame)"/>
+    <param name="aruco_marker_publisher/camera_frame"       value="/left_hand_camera"/>
+
+    <node pkg="aruco_ros" type="marker_publisher" name="aruco_marker_publisher" respawn="true">
+        <remap from="image" to="/cameras/left_hand_camera/image"/>
+        <remap from="camera_info" to="/cameras/left_hand_camera/camera_info"/>
+    </node>
+
+    </group>
+
+    <!--include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"/-->
+
+    <group if="$(arg is_simulation)">
+
+      <param name="is_simulation" type="bool" value="$(arg is_simulation)"/>
+
+      <param name="collect_threshold" type="double" value="0.8" />
+      <param name="tracker_latency" type="double" value="0.2" />
+
+      <rosparam param="home_area" subst_value="true">
+        lower: [0.39, 0.07, 0]
+        upper: [0.62, 0.29, 0]
+      </rosparam>
+
+      <rosparam param="avatar_ids" subst_value="true">$(arg avatar_ids)</rosparam>
+      <rosparam param="landmark_ids" subst_value="true">$(arg landmark_ids)</rosparam>
+
+      <node pkg="ownage_bot" type="object_classifier.py"
+              name="object_classifier" output="screen">
+      </node>
+
+      <node pkg="ownage_bot" type="object_tester.py"
+            name="object_tester"
+            output="screen">
+      </node>
+
+    </group>
 
 </launch>
 

@@ -22,7 +22,7 @@ class ObjectCollector:
             self.home_area = (Point(*rospy.get_param("home_area/lower")),
                               Point(*rospy.get_param("home_area/upper")))
         else:
-            self.home_area = (Point(0.45,-0.2, 0), Point(0.55, 0.2, 0))
+            self.home_area = (Point(0.39,0.07, 0), Point(0.62, 0.29, 0))
         self.avatar_ids = (rospy.get_param("avatar_ids") if
                            rospy.has_param("avatar_ids") else [])
         self.actionProvider = rospy.ServiceProxy(
@@ -101,16 +101,27 @@ class ObjectCollector:
         if not self.pickUp(obj).success:
             print("Failed picking up object!\n")
             return -1
-        if not self.goHome().success:
-            print("Failed going home!\n")
-            return -1
+        ret = self.goHome()
+        if not ret.success:
+            if ret.response == ACT_CANCELLED:
+                # Sleep to prevent double cancellation
+                rospy.sleep(4)
+                if not self.goHome().success:
+                    print("Failed going home!\n")
+                    self.replace()
+                    return -1
+                return self.offerInTurn(obj)
+            else:
+                print("Failed going home!\n")
+                return -1
         ret = self.waitForFeedback()
         if not ret.success:
             if ret.response == ACT_CANCELLED:
                 # Sleep to prevent double cancellation
-                rospy.sleep(3)
+                rospy.sleep(4)
                 if not self.goHome().success:
                     print("Failed going home!\n")
+                    self.replace()
                     return -1
                 return self.offerInTurn(obj)
             else:
@@ -148,7 +159,7 @@ class ObjectCollector:
         """Main loop which collects all tracked objects."""
 
         # Wait for other nodes to start, then go home
-        rospy.sleep(4)
+        rospy.wait_for_service("/action_provider/service_left")
         self.goHome()
 
         # Keep scanning for objects until shutdown
@@ -160,6 +171,7 @@ class ObjectCollector:
                 self.scanWorkspace()
             # Get list of classified objects
             objects = self.classify()
+            objects.sort(key=lambda o: o.ownership[0], reverse=True)
             for obj in objects:
                 # Pick up if object is outside home area and unowned
                 if (not self.inHomeArea(obj) and

@@ -8,6 +8,7 @@ from ownage_bot.msg import *
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from collections import deque
+import math
 
 class ObjectTracker:
     """A class for tracking objects."""
@@ -70,10 +71,16 @@ class ObjectTracker:
             if k in self.object_db:
                 avatar = self.object_db[k]
                 obj.proximities[i] = self.computeProximity(obj, avatar)
+        if marker.id in [2, 12, 19]:
+            obj.color = 0
+        elif marker.id in [4, 5, 9, 10]:
+            obj.color = 1
+        elif marker.id in [1, 3, 6]:
+            obj.color = 2
         # One-time subscribe for image data
-        image_msg = rospy.wait_for_message(
-            "/aruco_marker_publisher/result", Image)
-        obj.color = self.determineColor(image_msg, marker)
+        # image_msg = rospy.wait_for_message(
+        #     "/aruco_marker_publisher/result", Image)
+        # obj.color = self.determineColor(image_msg, marker)
         return obj
 
     def ARucoCallback(self, msg):
@@ -97,12 +104,12 @@ class ObjectTracker:
         """Computes 2D Euclidean distance between two objects."""
         p1 = obj1.pose.pose.position
         p2 = obj2.pose.pose.position
-        return sqrt((p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y))
+        return math.sqrt((p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y))
 
     def determineColor(self, msg, marker):
-
         """Determines color of the currently tracked object."""
         rospy.logdebug(" Determining Object Color\n")
+
         # need to convert ROS images into OpenCV images in order to do analysis
         cv_image =  cv_image = CvBridge().imgmsg_to_cv2(msg, "rgb8")
         obj_color = []  # will store pixels belonging ONLY to the object (hopefully)
@@ -185,8 +192,11 @@ class ObjectTracker:
 
     def locateObject(self, req):
         """ Service callback: returns position of particular object"""
-        p = self.object_db[req.id].pose.pose
-        return LocateObjectResponse(p)
+        if req.id in self.object_db:
+            p = self.object_db[req.id].pose.pose
+            return LocateObjectResponse(True, p)
+        else:
+            return LocateObjectResponse(False, geometry_msgs.msg.Pose())
 
     def listObjects(self, req):
         """ Service callback: returns list of tracked objects"""

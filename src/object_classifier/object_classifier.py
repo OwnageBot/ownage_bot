@@ -6,8 +6,7 @@ from ownage_bot.msg import *
 from ownage_bot.srv import *
 import math
 import sys
-
-IS_SIMULATION = rospy.get_param("is_simulation")
+import copy
 
 class ObjectClassifier:
     """A class for classifying objects into ownership categories."""
@@ -28,10 +27,11 @@ class ObjectClassifier:
 
     def handleClassify(self, req):
         """Classifies each object and returns the list with updated ownership."""
-        rospy.loginfo("Waiting for objects...\n")
+        rospy.loginfo("Classifying objects...\n")
         resp = self.listObjects()
-
-        rospy.loginfo("Objects recieved\n")
+        if len(self.object_db) == 0:
+            object_ids = [obj.id for obj in resp.objects]
+            self.object_db = dict(zip(object_ids, copy.deepcopy(resp.objects)))
 
         objects = resp.objects
         if self.interaction_log:
@@ -42,12 +42,18 @@ class ObjectClassifier:
 
     def feedbackCallback(self, msg):
         """Callback upon receiving feedback from ObjectCollector."""
+        # if len(self.interaction_log) == 0:
+        #     resp = self.listObjects()
+        #     for o in resp.objects:
+        #         for a in [0] + self.avatar_ids:
+        #             fb = RichFeedback()
+        #             fb.object = o
+        #             fb.label = a
+        #             self.interaction_log.append(fb)
         self.interaction_log.append(msg)
 
     def classifyObject(self, obj):
         """Modifies the owners and ownership probabilities in place."""
-        rospy.loginfo("Classifying objects!")
-
         obj.owners = list(obj.owners)
         obj.ownership = list(obj.ownership)
 
@@ -78,8 +84,6 @@ class ObjectClassifier:
                 sum_of_weights[label] = gauss(dist, sigma)
 
         total_weight_sum = sum(sum_of_weights.values())
-        print(sum_of_weights)
-        print(total_weight_sum)
 
         if total_weight_sum:
             for k in sum_of_weights.keys():
@@ -92,6 +96,26 @@ class ObjectClassifier:
             obj.ownership[0] = 1.0
 
         ownerDict = dict(zip(obj.owners, obj.ownership))
+
+        # Average between old and new ownership
+        if obj.id in self.object_db:
+            old_owners = self.object_db[obj.id].owners
+            old_ownership = self.object_db[obj.id].ownership
+
+            oldOwnerDict = dict(zip(old_owners, old_ownership))
+
+            for k in ownerDict:
+                if k in oldOwnerDict:
+                    ownerDict[k] = ownerDict[k] + oldOwnerDict[k]
+            for k in ownerDict:
+                ownerDict[k] = ownerDict[k] / 2.0
+
+            obj.owners = ownerDict.keys()
+            obj.ownership = ownerDict.values()
+
+        self.object_db[obj.id] = obj
+
+        print "Object id: %s" % obj.id
         for key in sorted(ownerDict):
            print "%s: %s" % (key, ownerDict[key])
         print(obj.proximities)
