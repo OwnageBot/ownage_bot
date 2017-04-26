@@ -9,7 +9,6 @@ import sys
 
 IS_SIMULATION = rospy.get_param("is_simulation")
 
-
 class ObjectClassifier:
     """A class for classifying objects into ownership categories."""
 
@@ -20,22 +19,26 @@ class ObjectClassifier:
                            if rospy.has_param("avatar_ids") else [])
         self.landmark_ids = (rospy.get_param("landmark_ids")
                              if rospy.has_param("landmark_ids") else [])
-        self.w_color = 1
+        self.w_color = 5
         self.w_pos = 1
-        self.w_proxs = [1]*len(self.landmark_ids)
+        self.w_proxs = [1] *  len(self.avatar_ids)
 
-        rospy.Service("classifyObjects", ClassifyObjects, self.handleClassify)
+        self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
+        rospy.Service("classifyObjects", ListObjects, self.handleClassify)
 
     def handleClassify(self, req):
         """Classifies each object and returns the list with updated ownership."""
-        msg = rospy.wait_for_message("object_db", RichObjectArray)
-        objects = msg.objects
+        rospy.loginfo("Waiting for objects...\n")
+        resp = self.listObjects()
+
+        rospy.loginfo("Objects recieved\n")
+
+        objects = resp.objects
         if self.interaction_log:
             for obj in objects:
-                self.classifyObject(obj)
-        else: return False
-
-        return ClassifyObjectsResponse(objects)
+                if not obj.is_avatar:
+                    self.classifyObject(obj)
+        return ListObjectsResponse(objects)
 
     def feedbackCallback(self, msg):
         """Callback upon receiving feedback from ObjectCollector."""
@@ -43,10 +46,21 @@ class ObjectClassifier:
 
     def classifyObject(self, obj):
         """Modifies the owners and ownership probabilities in place."""
+        rospy.loginfo("Classifying objects!")
+
+        obj.owners = list(obj.owners)
+        obj.ownership = list(obj.ownership)
+
         sigma = 1  # Need to figure out a good value for this
         total_weight_sum = 0
 
-        sum_of_weights = {}
+        sum_of_weights = dict(zip(obj.owners, [0] * len(obj.owners)))
+        rospy.loginfo("Received obj {} with owners {}\n".
+            format(obj.id,obj.owners))
+
+        def gauss(dist, sigma):
+            sqr = lambda x: x*x
+            return math.exp(-.5 * sqr(dist / sigma))
 
         for f in self.interaction_log:
             label = f.label
@@ -59,19 +73,32 @@ class ObjectClassifier:
             # Apply Gaussian weighting to the interaction
             # Compute running sum of weights for each avatar id (including 0)
             if label in sum_of_weights:
-                sum_of_weights[label] += self.gauss(dist, sigma)
+                sum_of_weights[label] += gauss(dist, sigma)
             else:
-                sum_of_weights[label] = self.gauss(dist, sigma)
+                sum_of_weights[label] = gauss(dist, sigma)
 
         total_weight_sum = sum(sum_of_weights.values())
+        print(sum_of_weights)
+        print(total_weight_sum)
 
-        for k in sum_of_weights.keys():
-            # Compute running sum of weights for each avatar id (including 0)
-            # Normalize weights to get probabilities
-            obj.ownership[obj.ownership.index(k)] = (sum_of_weights[k] /
-                                                     total_weight_sum)
+        if total_weight_sum:
+            for k in sum_of_weights.keys():
+                # Compute running sum of weights for each avatar id (including 0)
+                # Normalize weights to get probabilities
+                obj.ownership[obj.owners.index(k)] = (sum_of_weights[k] /
+                                                      total_weight_sum)
+        else:
+            obj.ownership = [0] * len(sum_of_weights)
+            obj.ownership[0] = 1.0
 
-    def norm(o, f):
+        ownerDict = dict(zip(obj.owners, obj.ownership))
+        for key in sorted(ownerDict):
+           print "%s: %s" % (key, ownerDict[key])
+        print(obj.proximities)
+        print("Color: {}".format(obj.color))
+
+
+    def norm(self, o, f):
         """Determines the squared L2 norm of two objects"""
         o_color = o.color
         f_color = f.object.color
@@ -86,33 +113,26 @@ class ObjectClassifier:
             sum_sqr_proxs +=  self.w_proxs[i] * sqr(
                 o.proximities[i] - f.object.proximities[i])
 
+        pos = lambda o : o.pose.pose.position
 
         sum_sqr_pos = (
-            sqr(o.pose.pose.x - f.object.pose.pose.x) +
-            sqr(o.pose.pose.y - f.object.pose.pose.y) +
-            sqr(o.pose.pose.z - f.object.pose.pose.z))
+            sqr(pos(o).x - pos(f.object).x) +
+            sqr(pos(o).y - pos(f.object).y) +
+            sqr(pos(o).z - pos(f.object).z))
 
         return (self.w_color * color_dist +
                 sum_sqr_proxs +
                 self.w_pos * sum_sqr_pos)
 
-    def gauss(dist, sigma):
-        sqr = lambda x: x*x
-        return math.exp(-.5 * sqr(dist / sigma))
-
 if __name__ == '__main__':
     rospy.init_node('object_classifier')
     objectClassifier = ObjectClassifier()
     # Are we running a simulation?
-    if not IS_SIMULATION:
-        # Subscribe to feedback from ObjectCollector
-        rospy.Subscriber("feedback", RichFeedback,
-                         objectClassifier.feedbackCallback)
+
+    # Subscribe to feedback from ObjectCollector
+    rospy.Subscriber("feedback", RichFeedback,
+                     objectClassifier.feedbackCallback)
     # if so, read fake data from file and do computations
 
-    else:
-        data_file = sys.argv[1]
-        with open(data_file) as f:
-            pass
 
     rospy.spin()

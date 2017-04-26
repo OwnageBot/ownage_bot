@@ -4,7 +4,7 @@ from std_msgs.msg import UInt32
 from baxter_collaboration_msgs.srv import DoAction
 from baxter_collaboration_msgs.srv import DoActionResponse
 from ownage_bot.msg import *
-from ownage_bot.srv import ClassifyObjects
+from ownage_bot.srv import *
 from geometry_msgs.msg import Point
 
 ACT_CANCELLED = "Action cancelled by user"
@@ -28,7 +28,7 @@ class ObjectCollector:
         self.actionProvider = rospy.ServiceProxy(
             "/action_provider/service_left", DoAction)
         self.objectClassifier = rospy.ServiceProxy(
-            "classifyObjects", ClassifyObjects)
+            "classifyObjects", ListObjects)
         self.feedback_pub = rospy.Publisher("feedback", RichFeedback,
                                              queue_size = 10)
 

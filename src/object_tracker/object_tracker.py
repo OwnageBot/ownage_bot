@@ -3,10 +3,8 @@ import rospy
 from std_msgs.msg import UInt32
 from aruco_msgs.msg import MarkerArray
 from geometry_msgs.msg import Pose
-from ownage_bot.srv import LocateObject
-from ownage_bot.srv import LocateObjectResponse
-from ownage_bot.msg import RichObject
-from ownage_bot.msg import RichObjectArray
+from ownage_bot.srv import *
+from ownage_bot.msg import *
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from collections import deque
@@ -33,6 +31,10 @@ class ObjectTracker:
         self.obj_db_pub = rospy.Publisher("object_db",
                                           RichObjectArray,
                                           queue_size = 10)
+        self.loc_obj_srv = rospy.Service("locate_object", LocateObject,
+                                         self.locateObject)
+        self.lst_obj_srv = rospy.Service("list_objects", ListObjects,
+                                         self.listObjects)
 
     def publishDb(self):
         rate = rospy.Rate(1/self.latency)
@@ -92,10 +94,10 @@ class ObjectTracker:
                 self.updateObject(m)
 
     def computeProximity(self, obj1, obj2):
-        """Computes 2D squared Euclidean distance between two objects."""
+        """Computes 2D Euclidean distance between two objects."""
         p1 = obj1.pose.pose.position
         p2 = obj2.pose.pose.position
-        return (p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y)
+        return sqrt((p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y))
 
     def determineColor(self, msg, marker):
 
@@ -181,26 +183,24 @@ class ObjectTracker:
                 self.color_db[new_color] = rgb_vals
                 return new_color
 
-    """ Service callback: returns position of particular object"""
-    def locateObject(self,req):
+    def locateObject(self, req):
+        """ Service callback: returns position of particular object"""
         p = self.object_db[req.id].pose.pose
-
-
-
         return LocateObjectResponse(p)
 
-
+    def listObjects(self, req):
+        """ Service callback: returns list of tracked objects"""
+        return ListObjectsResponse(self.object_db.values())
 
 if __name__ == '__main__':
     rospy.init_node('object_tracker')
 
     objectTracker = ObjectTracker()
-    s = rospy.Service("/object_tracker/locate_object", LocateObject, objectTracker.locateObject)
 
     # Published by aruco_ros
     rospy.Subscriber("/aruco_marker_publisher/markers",
                      MarkerArray, objectTracker.ARucoCallback)
-    objectTracker.publishDb()
+    # objectTracker.publishDb()
 
     rospy.spin()
 

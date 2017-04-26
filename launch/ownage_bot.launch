@@ -3,10 +3,10 @@
        value="$(find baxter_collaboration)/rosconsole.conf"/>
     <!-- <include file="$(find baxter_collaboration)/launch/baxter_marker_publisher.launch" /> -->
 
-    <arg name="avatar_ids" default="[200, 152]"/>
+    <arg name="avatar_ids" default="[100, 101, 102]"/>
     <arg name="landmark_ids" default="[0]"/>
     <arg name="data_file" default="PATH/TO/FILE.txt"/>
-    <arg name="is_simulation" default="false"/>
+    <arg name="is_simulation" default="true"/>
 
     <param name="is_simulation" type="bool" value="$(arg is_simulation)"/>
 
@@ -55,22 +55,19 @@
           <remap from="camera_info" to="/cameras/left_hand_camera/camera_info"/>
       </node>
 
-      <node pkg="ownage_bot" type="object_classifier.py"
-            name="object_classifier">
-      </node>
 
     <!--include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"/-->
     </group>
 
-
     <node pkg="ownage_bot" type="object_classifier.py"
-          name="object_classifier" args="$(arg data_file)"
-          if="$(arg is_simulation)">
-    </node>
+            name="object_classifier" output="screen">
+      </node>
 
-    <node pkg="ownage_bot" type="objecter_tester.py"
+
+    <node pkg="ownage_bot" type="object_tester.py"
           name="object_tester"
-          if ="$(is_simulation)">
+          output="screen"
+          if ="$(arg is_simulation)">
     </node>
 
 </launch>
