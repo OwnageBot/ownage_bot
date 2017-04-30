@@ -43,7 +43,7 @@ For testing and debugging the arm control services provided by `object_picker'
 1. Run `roslaunch ownage_bot.launch is_manual:=true`
 2. Call service: `rosservice call /action_provider/service_left "{action: 'action_name', objects: [list of object ids]}"`
 
-### List of supported actions (left arm only)
+#### List of supported actions (left arm only)
 
 * `list_actions`: returns a list of supported actions
 * `home`: moves the arm to a position above its home area
