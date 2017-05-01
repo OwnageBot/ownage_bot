@@ -94,12 +94,17 @@ When using `ownage_bot.launch`, these topic and service names are contained with
   * Client(s): `object_picker`
   * Used when `object_picker` is performing the `find` action to locate an object that is currently out of the camera view.
 * `list_objects` (service)
-  * Type: [`ListObjects'](https://github.com/OwnageBot/ownage_bot/blob/master/srv/ListObjects.srv)
+  * Type: [`ListObjects`](https://github.com/OwnageBot/ownage_bot/blob/master/srv/ListObjects.srv)
   * Server(s): `object_tracker`, `object_tester` (in simulation)
   * Client(s): `object_classifier`
   * Returns, without input, the list of objects currently tracked by `object_tracker`, with their most recently known properties.
 * `classify_objects` (service)
-  * Type: [`ListObjects'](https://github.com/OwnageBot/ownage_bot/blob/master/srv/ListObjects.srv)
+  * Type: [`ListObjects`](https://github.com/OwnageBot/ownage_bot/blob/master/srv/ListObjects.srv)
   * Server(s): `object_classifier`
   * Client(s): `object_collector`, `object_tester` (in simulation)
   * Returns, without input, a list of all currently tracked objects classified according to ownership. More precisely, each object is returned together with a list of possible owners and corresponding ownership probabilities.
+* `/action_provider/service_left` (service, *not in `ownage_bot` namespace*)
+  * Type: [`DoAction`](https://github.com/ScazLab/baxter_collaboration/blob/master/baxter_collaboration_msgs/srv/DoAction.srv)
+  * Server(s): `object_picker`
+  * Client(s): `object_collector`
+  * Used to perform various high-level actions using Baxter's left arm. Takes the action name and a list of objects as input, returns whether the action was successful along with a response string (e.g. an error message). See above for a list of supported actions.
