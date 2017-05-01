@@ -10,16 +10,23 @@ import random as r
 METRIC = "proximity"
 
 class ObjectTester():
-    def __init__(self, num_landmarks, num_avatars, num_objs):
+    """Generates a simulated environment of objects and avatars
+       to test and train the learning algorithm in ObjectClassifier."""
+    
+    def __init__(self, n_objs, n_avatars, n_examples):
 
-        self.num_landmarks = num_landmarks # Not used yet
-        self.num_avatars = num_avatars
-        self.num_objs = num_objs
+        self.n_avatars = n_avatars
+        self.n_objs = n_objs
+        self.n_examples = n_examples
 
-        self.object_db = []
+        self.objects = []
         self.labels = []
 
-        self.pub_fb = rospy.Publisher("feedback",
+        # Set up service call to ObjectClassifier as in-class method
+        self.classify = rospy.ServiceProxy("classifyObjects", ListObjects)
+
+        # Create feedback publisher and object lister service
+        self.fb_pub = rospy.Publisher("feedback",
                                       RichFeedback,
                                       queue_size=10)
         self.lst_obj_srv = rospy.Service("list_objects", ListObjects,
@@ -31,14 +38,14 @@ class ObjectTester():
         fb_array = []
         avatars = []
         centers = []
-        obj_array = []
+        self.objects = []
 
         home = geometry_msgs.msg.Point()
         home.x = 0.0
         home.y = 0.0
         home.z = 2.0
 
-        for i in range(self.num_avatars):
+        for i in range(self.n_avatars):
             av = RichObject()
             av.id = 100 + i
             av.is_avatar = True
@@ -48,9 +55,9 @@ class ObjectTester():
             av.pose.pose.position.z = 2.0
 
             avatars.append(av)
-            obj_array.append(av)
+            self.objects.append(av)
 
-        for i in range(self.num_avatars + 1):
+        for i in range(self.n_avatars + 1):
             c = geometry_msgs.msg.Point()
 
             c.x = r.uniform(-1.0, 1.0)
@@ -59,12 +66,11 @@ class ObjectTester():
 
             centers.append(c)
 
-        ids = range(10, 10 + self.num_objs)
+        ids = range(10, 10 + self.n_objs)
 
-        for i in range(self.num_objs):
+        for i in range(self.n_objs):
 
             obj = RichObject()
-
             obj.id = ids.pop()
 
             category = r.choice(range(len(avatars) + 1))
@@ -105,51 +111,39 @@ class ObjectTester():
 
             obj.is_avatar = False
 
-            if i < self.num_landmarks:
-
+            if i < self.n_examples:
                 fb = RichFeedback()
                 fb.object = obj
                 fb.label = label
+                rospy.loginfo("There are {} examples!\n".format(i + 1))
+                rospy.sleep(0.1)
+                self.fb_pub.publish(fb)
 
-                rospy.loginfo("There are {} landmarks!\n".format(i + 1))
-                rospy.sleep(.1)
-                self.pub_fb.publish(fb)
-
-            obj_array.append(obj)
+            self.objects.append(obj)
             self.labels.append(label)
-
-        self.object_db = obj_array
 
     def listObjects(self, req):
         """ Service callback: returns list of tracked objects"""
         return ListObjectsResponse(self.object_db)
 
     def trainClassifier(self):
-        rospy.wait_for_service('classifyObjects')
-        try:
-            classify = rospy.ServiceProxy("classifyObjects", ListObjects)
-            resp = classify()
+        resp = self.classify()
 
-            predictions = []
+        predictions = []
+        
+        for o in resp.objects:
+            if o.is_avatar:
+                continue
+            predicted = o.owners[o.ownership.index(max(o.ownership))]
+            predictions.append(predicted)
 
-            for o in resp.objects:
-                if o.is_avatar:
-                    continue
-                predicted = o.owners[o.ownership.index(max(o.ownership))]
-                predictions.append(predicted)
+        correct = 0
+        for (actual, predicted) in zip(self.labels, predictions):
+            print actual, predicted
+            if actual == predicted:
+                correct += 1
 
-            correct = 0
-
-            for (actual, predicted) in zip(self.labels, predictions):
-                print actual, predicted
-                if actual == predicted:
-                    correct += 1
-
-            print("TOTAL FRACTION CORRECT: {}".format(correct /float(self.num_objs)))
-
-        except rospy.ServiceException,e:
-            rospy.logerr("Classify Objects srv failed! {}".format(e))
-
+        print("TOTAL FRACTION CORRECT: {}".format(correct /float(self.n_objs)))
 
 
     def dist(self, av, obj):
@@ -163,14 +157,15 @@ class ObjectTester():
 
         sqr = lambda x: x * x
 
-        return float(sqr(av_x - obj_x) + sqr(av_y - obj_y) + sqr(av_z - obj_z))
+        return float(sqr(av_x-obj_x) + sqr(av_y-obj_y) + sqr(av_z-obj_z))
 
 if __name__ == '__main__':
     rospy.init_node('object_tester')
 
-    tester = ObjectTester(3, 2, 10)
+    tester = ObjectTester(10, 2, 3)
     tester.generateClusters()
 
+    rospy.wait_for_service('classifyObjects')
     tester.trainClassifier()
 
     rospy.spin()
