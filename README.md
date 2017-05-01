@@ -38,10 +38,10 @@ Intended mode of behavior, where Baxter repeatedly tries to pick up all objects 
 
 ### Manual arm control
 
-For testing and debugging the arm control services provided by `object_picker'
+For testing and debugging the arm control services provided by [`object_picker`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_picker)
 
 1. Run `roslaunch ownage_bot.launch is_manual:=true`
-2. Call service: `rosservice call /action_provider/service_left "{action: 'action_name', objects: [list of object ids]}"`
+2. Request an action by calling `rosservice call /action_provider/service_left "{action: 'action_name', objects: [list of ids]}"`
 
 #### List of supported actions (left arm only)
 
@@ -57,7 +57,21 @@ For testing and debugging the arm control services provided by `object_picker'
 
 ### Simulated learning
 
-For simulated training and testing of `object_classifier`
+For simulated training and testing of [`object_classifier`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_classifier)
 
 1. Run `roslaunch ownage_bot.launch is_simulation:=true`
 2. Wait for the results to be printed in the terminal
+
+## Architecture
+
+OwnageBot is comprised by five different modules, each of which runs as a ROS node to provide a certain functionality:
+
+* [`object_tracker`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_tracker) tracks all ARuco QR-tagged objects in the workspace, determining their absolute position (relative to Baxter's base frame), color, and proximity to avatars.
+
+* [`object_picker`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_picker) provides high-level arm control as ROS services by inheriting the ArmCtrl interface in [`baxter_collaboration_lib`](https://github.com/ScazLab/baxter_collaboration/tree/master/baxter_collaboration_lib).
+
+* [`object_collector`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_collector) contains the main autonomous loop, repeatedly calling services provided by `object_picker` in order to scan the workspace and collect any unowned objects (where ownership is determined by `object_classifier`).
+
+* [`object_classifier`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_classifier) receives labelled example data from `object_collector` whenever an object thought to be unowned is claimed by another agent, which is then used to train the classifier.
+
+* [`object_tester`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_tester) generates virtual objects, avatars and examples, in order to train and test the learning algorithm in `object_classifier`
