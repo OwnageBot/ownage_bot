@@ -14,9 +14,9 @@ class ObjectCollector:
 
     def __init__(self):
         self.skipScan = False
-        # Threshold for forbiddenness
+        # Threshold for object collection
         self.threshold = (rospy.get_param("collect_threshold") if
-                          rospy.has_param("collect_threshold") else 0.8)
+                          rospy.has_param("collect_threshold") else 0.2)
         # Rectangle denoting home area
         if rospy.has_param("home_area"):
             self.home_area = (Point(*rospy.get_param("home_area/lower")),
@@ -25,37 +25,37 @@ class ObjectCollector:
             self.home_area = (Point(0.39,0.07, 0), Point(0.62, 0.29, 0))
         self.avatar_ids = (rospy.get_param("avatar_ids") if
                            rospy.has_param("avatar_ids") else [])
-        self.actionProvider = rospy.ServiceProxy(
+        self.pickerProxy = rospy.ServiceProxy(
             "/action_provider/service_left", DoAction)
-        self.objectClassifier = rospy.ServiceProxy(
-            "classifyObjects", ListObjects)
+        self.classifyProxy = rospy.ServiceProxy(
+            "classify_objects", ListObjects)
         self.feedback_pub = rospy.Publisher("feedback", RichFeedback,
                                              queue_size = 10)
 
     # Python wrappers for the actions defined in object_picker.h
     def scanWorkspace(self):
-        return self.actionProvider("scan", [])
+        return self.pickerProxy("scan", [])
 
     def goHome(self):
-        return self.actionProvider("home", [])
+        return self.pickerProxy("home", [])
 
     def pickUp(self, obj):
-        return self.actionProvider("get", [obj.id])
+        return self.pickerProxy("get", [obj.id])
 
     def putDown(self):
-        return self.actionProvider("put", [])
+        return self.pickerProxy("put", [])
 
     def find(self, obj):
-        return self.actionProvider("find", [obj.id])
+        return self.pickerProxy("find", [obj.id])
 
     def offer(self, a):
-        return self.actionProvider("offer", [a])
+        return self.pickerProxy("offer", [a])
 
     def waitForFeedback(self):
-        return self.actionProvider("wait", [])
+        return self.pickerProxy("wait", [])
 
     def replace(self):
-        return self.actionProvider("replace", [])
+        return self.pickerProxy("replace", [])
 
     def offerInTurn(self, obj):
         """Offers held object to each avatar in turn.
@@ -141,10 +141,10 @@ class ObjectCollector:
     def classify(self):
         """Requests ObjectClassifier to determine if objects are owned."""
         try:
-            resp = self.objectClassifier()
+            resp = self.classifyProxy()
             return resp.objects
         except rospy.service.ServiceException:
-            print("ClassifyObject service call failed!\n")
+            print("ListObject service call failed!\n")
             return []
 
     def feedback(self, obj, label):
@@ -157,7 +157,7 @@ class ObjectCollector:
 
     def main(self):
         """Main loop which collects all tracked objects."""
-
+        
         # Wait for other nodes to start, then go home
         rospy.wait_for_service("/action_provider/service_left")
         self.goHome()
@@ -169,27 +169,32 @@ class ObjectCollector:
             else:
                 self.goHome()
                 self.scanWorkspace()
-            # Get list of classified objects
+                
+            # Get list of classified objects and sort by ownership probability
             objects = self.classify()
             objects.sort(key=lambda o: o.ownership[0], reverse=True)
             for obj in objects:
-                # Pick up if object is outside home area and unowned
-                if (not self.inHomeArea(obj) and
-                    obj.ownership[0] > self.threshold and
-                    not obj.is_avatar):
-                    rospy.loginfo("Collecting object {}\n".format(obj.id))
-                    label = self.collect(obj)
-                    # Update ownership rules and reclassify if no fatal error
-                    if label != -1:
-                        if label > 0:
-                            rospy.loginfo("Object {} was labeled as {}\n".format(obj.id, label))
-                        else:
-                            rospy.loginfo("Object {} was unclaimed\n".format(obj.id))
-                        self.feedback(obj, label)
-                        self.skipScan = True
-                        break
-                    else:
-                        rospy.loginfo("Error collecting object {}\n".format(obj.id))
+                # Pick up only if object is outside home area and unowned
+                if (obj.is_avatar or self.inHomeArea(obj) or
+                    obj.ownership[0] <= self.threshold):
+                    continue
+                rospy.loginfo("Collecting object {}\n".format(obj.id))
+                label = self.collect(obj)
+                # Continue to next object if there was an error in collection
+                if label == -1:
+                    rospy.loginfo("Error collecting object {}\n".
+                                  format(obj.id))
+                    continue
+                # Update ownership rules and reclassify if no fatal error
+                if label > 0:
+                    rospy.loginfo("Object {} was labeled as {}\n".
+                                  format(obj.id, label))
+                else:
+                    rospy.loginfo("Object {} was unclaimed\n".
+                                  format(obj.id))
+                self.feedback(obj, label)
+                self.skipScan = True
+                break
 
 if __name__ == '__main__':
     rospy.init_node('object_collector')

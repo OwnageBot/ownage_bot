@@ -29,21 +29,10 @@ class ObjectTracker:
                              rospy.has_param("landmark_ids") else [])
         self.new_obj_pub = rospy.Publisher("new_object",
                                            UInt32, queue_size = 10)
-        self.obj_db_pub = rospy.Publisher("object_db",
-                                          RichObjectArray,
-                                          queue_size = 10)
         self.loc_obj_srv = rospy.Service("locate_object", LocateObject,
                                          self.locateObject)
         self.lst_obj_srv = rospy.Service("list_objects", ListObjects,
                                          self.listObjects)
-
-    def publishDb(self):
-        rate = rospy.Rate(1/self.latency)
-        while not rospy.is_shutdown():
-          obj_arr = RichObjectArray()
-          obj_arr.objects = self.object_db.values()
-          self.obj_db_pub.publish(obj_arr)
-          rate.sleep()
 
     def insertObject(self, marker):
         """Insert object into the database using marker information."""
@@ -210,7 +199,6 @@ if __name__ == '__main__':
     # Published by aruco_ros
     rospy.Subscriber("/aruco_marker_publisher/markers",
                      MarkerArray, objectTracker.ARucoCallback)
-    # objectTracker.publishDb()
 
     rospy.spin()
 

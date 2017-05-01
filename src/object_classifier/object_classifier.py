@@ -23,10 +23,10 @@ class ObjectClassifier:
         self.w_proxs = [1] *  len(self.avatar_ids)
 
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
-        rospy.Service("classifyObjects", ListObjects, self.handleClassify)
+        rospy.Service("classify_objects", ListObjects, self.handleClassify)
 
     def handleClassify(self, req):
-        """Classifies each object and returns the list with updated ownership."""
+        """Classifies and returns a list of objects."""
         rospy.loginfo("Classifying objects...\n")
         resp = self.listObjects()
         if len(self.object_db) == 0:
@@ -151,12 +151,7 @@ class ObjectClassifier:
 if __name__ == '__main__':
     rospy.init_node('object_classifier')
     objectClassifier = ObjectClassifier()
-    # Are we running a simulation?
-
-    # Subscribe to feedback from ObjectCollector
+    # Subscribe to feedback from ObjectCollector / ObjectTester
     rospy.Subscriber("feedback", RichFeedback,
                      objectClassifier.feedbackCallback)
-    # if so, read fake data from file and do computations
-
-
     rospy.spin()
