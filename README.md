@@ -76,7 +76,7 @@ OwnageBot is comprised by five different modules, each of which runs as a ROS no
 
 ### Topics & Services
 
-When using `ownage_bot.launch`, these topic and service names are contained with the namespace `/ownage_bot` unless otherwise specificied.
+When using `ownage_bot.launch`, these topic and service names are contained with the namespace `/ownage_bot` unless otherwise specified.
 
 * `new_object` (topic)
   * Type: `uint32` (unsigned int)
