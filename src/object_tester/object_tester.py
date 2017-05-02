@@ -15,7 +15,7 @@ class ObjectTester():
     to test and train the learning algorithm in ObjectClassifier.
     """
     
-    def __init__(self, metrics, n_objs, n_avatars, n_examples):
+    def __init__(self, metrics, n_objs, n_avatars, n_examples, threshold=0.2):
         """Constructs a tester with a corresponding test environment.
 
         metrics -- Cluster based on either 'color', 'position', 'proximity',
@@ -23,6 +23,7 @@ class ObjectTester():
         n_objs -- Number of objects in the environment (excluding avatars)
         n_avatars -- Number of avatars
         n_examples -- Number of training examples, drawn from n_objs
+        threshold -- Ownership cutoff for object collection (online training)
 
         """
 
@@ -38,7 +39,8 @@ class ObjectTester():
         self.n_avatars = n_avatars
         self.n_objs = n_objs
         self.n_examples = n_examples
-
+        self.threshold = threshold
+        
         self.avatars = []
         self.objects = [] # Non-avatar objects
         self.labels = [] # True owner labels for non-avatar objects
@@ -64,7 +66,6 @@ class ObjectTester():
 
     def generateEnvironment(self):
         """Randomly generates simulated environment."""
-
         # Clear previous generated data
         self.avatars = []
         self.centers = []
@@ -110,7 +111,6 @@ class ObjectTester():
 
     def generateObjects(self):
         """Randomly generates objects within their clusters."""
-        
         oids = range(OBJECT_BASE_ID, OBJECT_BASE_ID + self.n_objs)
         for i, oid in enumerate(oids):
             obj = RichObject()
@@ -161,7 +161,6 @@ class ObjectTester():
         
     def trainOffline(self):
         """Provides classifier with all training examples before testing."""
-
         # Select random subset of size n_examples to train classifier
         for obj, label in r.sample(zip(self.objects, self.labels),
                                    self.n_examples):
@@ -174,10 +173,66 @@ class ObjectTester():
             self.feedback_pub.publish(fb)
         
         resp = self.classify()
-        self.evaluate(resp.objects)
+        return self.evaluate(resp.objects)
 
+    def trainOnline(self):
+        """Reclassifies after each example is given.
+
+        Replicates the behavior of ObjectCollector by picking the object that
+        is most likely to be unowned each time, stopping if the probability of
+        non-ownership (for all objects) does not exceed the threshold.
+
+        Returns the collection accuracy, average classification accuracy, and
+        final classification accuracy as a tuple.
+        """
+        # Randomly pick first object
+        obj, label = r.choice(zip(self.objects, self.labels))
+        class_accuracies = []
+        n_collects = 0 # Total number of object collections
+        n_success = 0 # Number of successful collections
+        for i in range(self.n_examples):
+            fb = RichFeedback()
+            fb.object = obj
+            fb.label = label
+            rospy.loginfo("Chose object {} with owner {} as example".
+                          format(obj.id, label))
+            rospy.sleep(0.1)
+            self.feedback_pub.publish(fb)
+
+            resp = self.classify()
+            class_accuracies.append[self.evaluate(resp.objects)]
+
+            # Select most likely unowned object to try as next example
+            obj = max(resp.objects, key=lambda o: o.ownership[0])
+            label = self.labels[self.objects.index(obj)]
+
+            # Stop training if all objects are too likely to be owned
+            if obj.ownership[0] < self.threshold:
+                rospy.loginfo("All objects too likely to be owned.")
+                rospy.loginfo("Stopping after {} examples.".format(i))
+                n_collects = i
+                break
+
+            # Check if collection was correct
+            predicted = obj.owners[obj.ownership.index(max(obj.ownership))]
+            if predicted == label:
+                n_success += 1
+
+        # Compute accuracies
+        collect_accuracy = float(n_success) / self.n_examples
+        avg_class_accuracy = sum(class_accuracies) / len(class_accuracies)
+        fin_class_accuracy = class_accuracies[-1]
+        print("Collection accuracy: {} ({}/{})".
+              format(collect_accuracy, n_success, self.n_examples))
+        print("Average classification accuracy: {}".
+              format(avg_class_accuracy))
+        print("Final classification accuracy: {}".
+              format(fin_class_accuracy))
+
+        return (collect_accuracy, avg_class_accuracy, fin_class_accuracy)
+        
     def evaluate(self, classified):
-        """Evaluates classifier accuracy."""
+        """Evaluates and returns classifier accuracy."""
         predictions = []
         for o in classified:
             if o.is_avatar:
@@ -205,7 +260,9 @@ class ObjectTester():
 if __name__ == '__main__':
     rospy.init_node('object_tester')
 
-    # Load parametrs from launch file
+    # Load parameters from launch file
+    online = (rospy.get_param("online") if
+              rospy.has_param("online") else True)
     trials = (rospy.get_param("trials") if
               rospy.has_param("trials") else 100)
     n_objs = (rospy.get_param("n_objs") if
@@ -217,11 +274,33 @@ if __name__ == '__main__':
     metrics = (rospy.get_param("metrics") if
                rospy.has_param("metrics") else
                ['color', 'position', 'proximity'])
+    threshold = (rospy.get_param("collect_threshold") if
+                 rospy.has_param("collect_threshold") else 0.2)
 
-    tester = ObjectTester(metrics, n_objs, n_avatars, n_examples)
+    tester = ObjectTester(metrics, n_objs, n_avatars, n_examples, threshold)
+    results = []
 
     for t in range(trials):
         tester.generateEnvironment()
         rospy.wait_for_service('classify_objects')
-        tester.trainOffline()
+        if online:
+            results.append(tester.trainOnline())
+        else:
+            results.append(tester.trainOffline())
         tester.reset()
+
+    # Transpose results and average them
+    results = zip(*results)
+    if online:
+        avg_collect_accuracy = sum(results[0]) / len(results[0])
+        avg_avg_class_accuracy = sum(results[1]) / len(results[1])
+        avg_fin_class_accuracy = sum(results[2]) / len(results[2])
+        print("Overall collection accuracy: {})".
+              format(avg_collect_accuracy))
+        print("Overall average classification accuracy: {}".
+              format(avg_avg_class_accuracy))
+        print("Overall final classification accuracy: {}".
+              format(avg_fin_class_accuracy))
+    else:
+        avg_accuracy = sum(results[0]) / len(results[0])
+        print("Overall accuracy: {})".format(avg_accuracy))
