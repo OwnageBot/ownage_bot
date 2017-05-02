@@ -50,6 +50,8 @@
     <node pkg="ownage_bot" type="object_tester.py"
           name="object_tester" output="screen"
 	  if="$(arg simulation)">
+      <!-- Online or offline training -->
+      <param name="online" type="bool" value="true"/>
       <!-- Number of simulation trials -->
       <param name="trials" type="int" value="100"/>
       <!-- Number of simulated (non-avatar) objects -->
