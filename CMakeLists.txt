@@ -4,14 +4,25 @@ project(ownage_bot)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
-  rospy
-  message_generation
-  aruco_ros
-  baxter_collaboration_lib
-  geometry_msgs
-  std_msgs
-)
+if (DEFINED ENV{OWNAGE_BOT_SIMULATION})
+  message("COMPILING ONLY COMPONENTS NEEDED FOR SIMULATION...")
+  find_package(catkin REQUIRED COMPONENTS
+    rospy
+    message_generation
+    geometry_msgs
+    std_msgs
+  )
+else()
+  message("COMPILING ALL COMPONENTS...")
+  find_package(catkin REQUIRED COMPONENTS
+    rospy
+    message_generation
+    aruco_ros
+    baxter_collaboration_lib
+    geometry_msgs
+    std_msgs
+  )
+endif()
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -103,13 +114,21 @@ generate_messages(
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
-catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES ownage_bot
-#  CATKIN_DEPENDS aruco aruco_msgs aruco_ros baxter_collaboration_lib geometry_msgs rospy std_msgs
-  CATKIN_DEPENDS baxter_collaboration_lib message_runtime
-#  DEPENDS system_lib
-)
+
+if (DEFINED ENV{OWNAGE_BOT_SIMULATION})
+  catkin_package(
+    CATKIN_DEPENDS message_runtime
+  )
+else()
+  catkin_package(
+  #  INCLUDE_DIRS include
+  #  LIBRARIES ownage_bot
+  #  CATKIN_DEPENDS aruco aruco_msgs aruco_ros baxter_collaboration_lib  geometry_msgs rospy std_msgs
+    CATKIN_DEPENDS message_runtime baxter_collaboration_lib 
+  #  DEPENDS system_lib
+  )
+endif()
+
 
 ###########
 ## Build ##
@@ -134,22 +153,26 @@ include_directories(
 
 ## Declare a C++ executable
 # add_executable(ownage_bot_node src/ownage_bot_node.cpp)
-add_executable(object_picker    src/object_picker/object_picker.h
-                                src/object_picker/object_picker.cpp
-                                src/object_picker/action_provider.cpp)
+if (NOT DEFINED ENV{OWNAGE_BOT_SIMULATION})
+  add_executable(object_picker    src/object_picker/object_picker.h
+                                  src/object_picker/object_picker.cpp
+                                  src/object_picker/action_provider.cpp)
+endif()
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(ownage_bot_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-add_dependencies(object_picker    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-                                          ${catkin_EXPORTED_TARGETS})
+#add_dependencies(object_picker    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#                                          ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(ownage_bot_node
 #   ${catkin_LIBRARIES}
 # )
-target_link_libraries(object_picker     ${catkin_LIBRARIES} )
+if (NOT DEFINED ENV{OWNAGE_BOT_SIMULATION})
+  target_link_libraries(object_picker     ${catkin_LIBRARIES} )
+endif()
 
 #############
 ## Install ##

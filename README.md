@@ -10,11 +10,23 @@ README adapted from the [Baxter Collaboration repository](https://github.com/Sca
 
 ## Compilation
 
-We follow [`baxter_collaboration`](https://github.com/ScazLab/baxter_collaboration) in using `catkin_tools`. To compile:
+We follow [`baxter_collaboration`](https://github.com/ScazLab/baxter_collaboration) in using `catkin_tools`.
+
+### Full compile
 
 1. Make sure you're on the correct branch/version of both `baxter_collaboration_lib` and `aruco_ros`
 2. Compile `baxter_collaboration_lib` and `aruco_ros` if necessary
-3. Compile ownage_bot: `catkin build ownage_bot`
+3. Compile `ownage_bot`: `catkin build ownage_bot`
+
+### Simulation-only compile
+
+If you have a ROS installation but don't have `baxter_collaboration` or `aruco_ros`, you can still compile and run the learning algorithm in
+simulated mode.
+
+1. Set the `OWNAGE_BOT_SIMULATION` variable: `export OWNAGE_BOT_SIMULATION=1`
+  * Switch back to full compile by calling `unset OWNAGE_BOT_SIMULATION`
+2. Compile `ownage_bot`: `catkin build ownage_bot`
+  * You may have to delete `build/CMakeCache.txt` in your Catkin workspace for changes in the environment variables to be noticed.
 
 ## Execution
 
