@@ -29,27 +29,26 @@
   $(arg landmark_ids)</rosparam>
   
   <group ns="ownage_bot">
-    <!-- Object tracker node, unused in simulation mode-->
-    <node pkg="ownage_bot" type="object_tracker.py"
-	  name="object_tracker" unless="$(arg simulation)">
-    </node>
+    <group unless="$(arg simulation)">
+      <!-- Object tracker node, unused in simulation mode-->
+      <node pkg="ownage_bot" type="object_tracker.py" name="object_tracker">
+      </node>
 
-    <!-- Object collector node, unused in manual and simulation modes -->
-    <node pkg="ownage_bot" type="object_collector.py"
-	  name="object_collector" output="screen"
-	  unless="$(eval simulation or manual)">
-    </node>
+      <!-- Object collector node, unused in manual and simulation modes -->
+      <node pkg="ownage_bot" type="object_collector.py"
+            name="object_collector" output="screen" unless="$(arg manual)">
+      </node>
+    </group>
 
     <!-- Object classifier node-->
     <node pkg="ownage_bot" type="object_classifier.py"
-          name="object_classifier" output="screen"
-	  unless="$(arg manual)">
+          name="object_classifier" output="screen">
     </node>
     
     <!-- Object tester node, only runs in simulation -->
     <node pkg="ownage_bot" type="object_tester.py"
           name="object_tester" output="screen"
-	  if="$(arg simulation)">
+  	      if="$(arg simulation)">
       <!-- Online or offline training -->
       <param name="online" type="bool" value="true"/>
       <!-- Number of simulation trials -->
@@ -62,7 +61,7 @@
       <param name="n_examples" type="int" value="3"/>
       <!-- Metrics which object_tester uses to generate clusters -->
       <rosparam param="metrics">
-	['color', 'position', 'proximity']
+        ['color', 'position', 'proximity']
       </rosparam>
     </node>
     
@@ -70,14 +69,14 @@
 
   <!-- provides actions on left arm -->
   <node pkg="ownage_bot" type="object_picker"
-	name="object_picker" output="screen"
-	unless="simulation">
+      	name="object_picker" output="screen"
+	      unless="$(arg simulation)">
   </node>
 
   <!-- show image from camera -->
   <node name="image_view_AR" pkg="image_view"
-	type="image_view" respawn="false"
-	unless="simulation"> <!-- output="log" -->
+        type="image_view" respawn="false"
+        unless="$(arg simulation)"> <!-- output="log" -->
     <remap from="image" to="/aruco_marker_publisher/result"/>
     <param name="autosize" value="true" />
   </node>
@@ -96,8 +95,8 @@
 	 value="/left_hand_camera"/>
 
   <node pkg="aruco_ros" type="marker_publisher"
-	name="aruco_marker_publisher" respawn="true"
-	unless="simulation">
+        name="aruco_marker_publisher" respawn="true"
+        unless="$(arg simulation)">
     <remap from="image" to="/cameras/left_hand_camera/image"/>
     <remap from="camera_info" to="/cameras/left_hand_camera/camera_info"/>
   </node>

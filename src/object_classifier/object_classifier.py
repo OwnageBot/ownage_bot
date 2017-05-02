@@ -70,24 +70,24 @@ class ObjectClassifier:
         rospy.loginfo("Received obj {} with owners {}\n".
             format(obj.id,obj.owners))
 
-        def gauss(dist, sigma):
+        def gauss(sqr_dist, sigma):
             sqr = lambda x: x*x
-            return math.exp(-1.0 * sqr(dist * sigma))
+            return math.exp(-0.5 * sqr_dist / sqr(sigma))
 
         for f in self.interaction_log:
             label = f.label
             if label not in obj.owners:
                 obj.owners.append(label)
                 obj.ownership.append(0.0)
-            # Compute distance between i and obj
-            dist = self.norm(obj, f)
+            # Compute squared distance between i and obj
+            sqr_dist = self.norm(obj, f)
 
             # Apply Gaussian weighting to the interaction
             # Compute running sum of weights for each avatar id (including 0)
             if label in sum_of_weights:
-                sum_of_weights[label] += gauss(dist, sigma)
+                sum_of_weights[label] += gauss(sqr_dist, sigma)
             else:
-                sum_of_weights[label] = gauss(dist, sigma)
+                sum_of_weights[label] = gauss(sqr_dist, sigma)
 
         total_weight_sum = sum(sum_of_weights.values())
 
@@ -145,10 +145,9 @@ class ObjectClassifier:
 
         pos = lambda o : o.pose.pose.position
 
-        sum_sqr_pos = (
-            sqr(pos(o).x - pos(f.object).x) +
-            sqr(pos(o).y - pos(f.object).y) +
-            sqr(pos(o).z - pos(f.object).z))
+        sum_sqr_pos = (sqr(pos(o).x - pos(f.object).x) +
+                       sqr(pos(o).y - pos(f.object).y) +
+                       sqr(pos(o).z - pos(f.object).z))
 
         return (self.w_color * color_dist +
                 sum_sqr_proxs +

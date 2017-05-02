@@ -6,10 +6,8 @@ project(ownage_bot)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   rospy
-  aruco
   message_generation
   aruco_ros
-  baxter_collaboration
   baxter_collaboration_lib
   geometry_msgs
   std_msgs
