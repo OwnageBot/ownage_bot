@@ -72,7 +72,7 @@ class ObjectClassifier:
 
         def gauss(dist, sigma):
             sqr = lambda x: x*x
-            return math.exp(-.5 * sqr(dist / sigma))
+            return math.exp(-1.0 * sqr(dist * sigma))
 
         for f in self.interaction_log:
             label = f.label
