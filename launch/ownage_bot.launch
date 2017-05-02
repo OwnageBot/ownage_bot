@@ -28,6 +28,9 @@
   <rosparam param="landmark_ids" subst_value="true">
   $(arg landmark_ids)</rosparam>
 
+  <!-- Metrics which object_tester uses to generate clusters -->
+  <rosparam param="metrics">['proximity']</rosparam>
+  
   <group ns="ownage_bot">
     <!-- Object tracker node, unused in simulation mode-->
     <node pkg="ownage_bot" type="object_tracker.py"

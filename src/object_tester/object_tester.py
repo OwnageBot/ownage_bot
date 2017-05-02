@@ -6,22 +6,44 @@ from ownage_bot.srv import *
 import math
 import random as r
 
-# color, position, or proximity
-METRIC = "proximity"
+OBJECT_BASE_ID = 1
+AVATAR_BASE_ID = 100
 
 class ObjectTester():
     """Generates a simulated environment of objects and avatars
-       to test and train the learning algorithm in ObjectClassifier."""
+    to test and train the learning algorithm in ObjectClassifier.
+    """
     
-    def __init__(self, n_objs, n_avatars, n_examples):
+    def __init__(self, metrics, n_objs, n_avatars, n_examples):
+        """Constructs a tester with a corresponding test environment.
 
+        metrics -- Cluster based on either 'color', 'position', 'proximity',
+                   or some combination of them.
+        n_objs -- Number of objects in the environment (excluding avatars)
+        n_avatars -- Number of avatars
+        n_examples -- Number of training examples, drawn from n_objs
+
+        """
+
+        if not set(['color', 'position', 'proximity']).issubset(metrics):
+            rospy.logerr("One or more metrics are unrecognized!")
+            rospy.logerr("Allowed metrics: 'color', 'position', 'proximity.")
+            return        
+        if n_examples > n_objs:
+            rospy.logerr("Cannot have more examples than objects!")
+            return
+            
+        self.metrics = metrics
         self.n_avatars = n_avatars
         self.n_objs = n_objs
         self.n_examples = n_examples
 
-        self.objects = []
-        self.labels = []
-
+        self.avatars = []
+        self.objects = [] # Non-avatar objects
+        self.labels = [] # True owner labels for non-avatar objects
+        self.centers = [] # Cluster centers for position-based clustering
+        self.home = geometry_msgs.msg.Point() # Home location
+        
         # Set up service call to ObjectClassifier as in-class method
         self.classify = rospy.ServiceProxy("classifyObjects", ListObjects)
 
@@ -30,142 +52,157 @@ class ObjectTester():
                                       RichFeedback,
                                       queue_size=10)
         self.lst_obj_srv = rospy.Service("list_objects", ListObjects,
-                                         self.listObjects)
+                                         self.handleList)
 
-    def generateClusters(self):
-        """Randomly generates avatars and object clusters."""
+    def handleList(self, req):
+        """ Returns list of all tracked objects (including avatars)"""
+        return ListObjectsResponse(self.avatars + self.objects)
 
-        fb_array = []
-        avatars = []
-        centers = []
+    def generateEnvironment(self):
+        """Randomly generates simulated environment."""
+
+        # Clear previous generated data
+        self.avatars = []
+        self.centers = []
         self.objects = []
+        self.labels = []
 
-        home = geometry_msgs.msg.Point()
-        home.x = 0.0
-        home.y = 0.0
-        home.z = 2.0
+        # Set home location
+        self.home.x = 0.0
+        self.home.y = 0.0
+        self.home.z = 0.0
 
+        self.generateAvatars()
+        self.generateCenters()
+        self.generateObjects()
+        
+    def generateAvatars(self):
+        """Randomly generates the locations of avatars."""
         for i in range(self.n_avatars):
             av = RichObject()
-            av.id = 100 + i
+            av.id = AVATAR_BASE_ID + i
             av.is_avatar = True
 
             av.pose.pose.position.x = r.uniform(-1.0, 1.0)
             av.pose.pose.position.y = r.uniform(-1.0, 1.0)
-            av.pose.pose.position.z = 2.0
+            av.pose.pose.position.z = 0.0
 
-            avatars.append(av)
-            self.objects.append(av)
+            self.avatars.append(av)
 
-        for i in range(self.n_avatars + 1):
-            c = geometry_msgs.msg.Point()
+    def generateCenters(self):
+        """Randomly generates the centers of physical clusters."""
+        for p in ([self.home] +
+                  [av.pose.pose.position for av in self.avatars]):
+            if 'proximity' in self.metrics:
+                # Centers are avatar locations if clustering by proximity
+                self.centers.append(p)
+            else:
+                # Otherwise, just cluster based on absolute position
+                c = geometry_msgs.msg.Point()
+                c.x = r.uniform(-1.0, 1.0)
+                c.y = r.uniform(-1.0, 1.0)
+                c.z = 0.0
+                self.centers.append(c)
 
-            c.x = r.uniform(-1.0, 1.0)
-            c.y = r.uniform(-1.0, 1.0)
-            c.z = 2.0
-
-            centers.append(c)
-
-        ids = range(10, 10 + self.n_objs)
-
-        for i in range(self.n_objs):
-
+    def generateObjects(self):
+        """Randomly generates objects within their clusters."""
+        
+        oids = range(OBJECT_BASE_ID, OBJECT_BASE_ID + self.n_objs)
+        for i, oid in enumerate(oids):
             obj = RichObject()
-            obj.id = ids.pop()
+            obj.id = oid
 
-            category = r.choice(range(len(avatars) + 1))
-            label = 0 if category == 0 else avatars[category-1].id
+            # Choose cluster / owner label uniformly at random
+            cluster = r.choice(range(len(avatars) + 1))
+            label = 0 if cluster == 0 else avatars[cluster-1].id
 
-            if METRIC == "color":
-                obj.pose.pose.position.x = r.uniform(-1.0, 1.0)
-                obj.pose.pose.position.y = r.uniform(-1.0, 1.0)
-                obj.pose.pose.position.z = r.uniform(-1.0, 1.0)
-
-                obj.color = category
-
-            elif METRIC == "proximity":
+            # Generate object locations
+            if ('position' in self.metrics or 'proximity' in self.metrics):
+                # Cluster around centers
                 rand_offset = r.uniform(-0.5, 0.5)
-                avp = (home if category == 0 else
-                       avatars[category-1].pose.pose.position)
-
-                obj.pose.pose.position.x = avp.x + rand_offset
-                obj.pose.pose.position.y = avp.y + rand_offset
-                obj.pose.pose.position.z = avp.z
-
-                obj.color = 0
-
-            elif METRIC == "position":
-                rand_offset = r.uniform(-0.5, 0.5)
-                c = centers[category]
+                c = centers[cluster]
 
                 obj.pose.pose.position.x = c.x + rand_offset
                 obj.pose.pose.position.y = c.y + rand_offset
                 obj.pose.pose.position.z = c.z
+            else:
+                # Uniform distribution if no position or proximity clustering
+                obj.pose.pose.position.x = r.uniform(-1.0, 1.0)
+                obj.pose.pose.position.y = r.uniform(-1.0, 1.0)
+                obj.pose.pose.position.z = r.uniform(-1.0, 1.0)                
+                
+            # Generate object colors
+            if 'color' in self.metrics:
+                # Associate cluster with color 
+                obj.color = cluster
+            else:
+                # Choose color uniformly at random
+                obj.color = r.choice(range(len(avatars) + 1))
+                
+            # Fill in other object properties
 
-                obj.color = 0
-
-            obj.proximities = [self.dist(j, obj) for j in avatars]
-
+            def dist(obj1, obj2):
+                p1 = obj1.pose.pose.position
+                p2 = obj2.pose.pose.position
+                return math.sqrt((p1.x-p2.x)*(p1.x-p2.x) +
+                                 (p1.y-p2.y)*(p1.y-p2.y))
+            
+            obj.is_avatar = False
+            obj.proximities = [dist(av, obj) for av in avatars]
             obj.owners = [0]
             obj.ownership = [1.0]
 
-            obj.is_avatar = False
-
-            if i < self.n_examples:
-                fb = RichFeedback()
-                fb.object = obj
-                fb.label = label
-                rospy.loginfo("There are {} examples!\n".format(i + 1))
-                rospy.sleep(0.1)
-                self.fb_pub.publish(fb)
-
             self.objects.append(obj)
             self.labels.append(label)
-
-    def listObjects(self, req):
-        """ Service callback: returns list of tracked objects"""
-        return ListObjectsResponse(self.object_db)
-
-    def trainClassifier(self):
-        resp = self.classify()
-
-        predictions = []
         
-        for o in resp.objects:
+    def trainOffline(self):
+        """Provides classifier with all training examples before testing."""
+
+        # Select random subset of size n_examples to train classifier
+        for obj, label in r.sample(zip(self.objects, self.labels),
+                                   self.n_examples):
+            fb = RichFeedback()
+            fb.object = obj
+            fb.label = label
+            rospy.loginfo("Chose object {} with owner {} as example".
+                          format(obj.id, label))
+            rospy.sleep(0.1)
+            self.fb_pub.publish(fb)
+        
+        resp = self.classify()
+        self.evaluate(resp.objects)
+
+    def evaluate(self, classified):
+        """Evaluates classifier accuracy."""
+        predictions = []
+        for o in classified:
             if o.is_avatar:
                 continue
+            # Prediction is the owner with maximum ownership probability
             predicted = o.owners[o.ownership.index(max(o.ownership))]
             predictions.append(predicted)
 
-        correct = 0
-        for (actual, predicted) in zip(self.labels, predictions):
-            print actual, predicted
-            if actual == predicted:
-                correct += 1
+        # Assumes that predicted labels are in the same order as true labels
+        correct = [(actual == predicted) for (actual, predicted) in
+                   zip(self.labels, predictions)]
+        n_correct = sum(correct)
 
-        print("TOTAL FRACTION CORRECT: {}".format(correct /float(self.n_objs)))
+        accuracy = float(n_correct) / self.n_objs
+        print("Accuracy: {} ({}/{})".format(accuracy, n_correct, self.n_objs))
 
-
-    def dist(self, av, obj):
-        av_x = av.pose.pose.position.x
-        av_y = av.pose.pose.position.y
-        av_z = av.pose.pose.position.z
-
-        obj_x = obj.pose.pose.position.x
-        obj_y = obj.pose.pose.position.y
-        obj_z = obj.pose.pose.position.z
-
-        sqr = lambda x: x * x
-
-        return float(sqr(av_x-obj_x) + sqr(av_y-obj_y) + sqr(av_z-obj_z))
+        return accuracy
 
 if __name__ == '__main__':
     rospy.init_node('object_tester')
 
-    tester = ObjectTester(10, 2, 3)
-    tester.generateClusters()
-
+    # Load metrics from launch file, else default to all three
+    metrics = (rospy.get_param("metrics") if
+               rospy.has_param("metrics") else
+               ['color', 'position', 'proximity'])
+    
+    tester = ObjectTester(metrics, 10, 2, 3)
+    tester.generateEnvironment()
     rospy.wait_for_service('classifyObjects')
-    tester.trainClassifier()
+    tester.trainOffline()
 
     rospy.spin()
