@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 import rospy
-from std_msgs.msg import UInt32
+import math
+import copy
+import std_msgs.msg
 import geometry_msgs.msg
 from ownage_bot.msg import *
 from ownage_bot.srv import *
-import math
-import sys
-import copy
 
 class ObjectClassifier:
     """A class for classifying objects into ownership categories."""
@@ -29,11 +28,14 @@ class ObjectClassifier:
         """Classifies and returns a list of objects."""
         rospy.loginfo("Classifying objects...\n")
         resp = self.listObjects()
+
+        # Initialize object database assuming that all objects are unowned
         if len(self.object_db) == 0:
             object_ids = [obj.id for obj in resp.objects]
             self.object_db = dict(zip(object_ids, copy.deepcopy(resp.objects)))
 
         objects = resp.objects
+        # Assign new ownership probabilities in place
         if self.interaction_log:
             for obj in objects:
                 if not obj.is_avatar:
@@ -52,6 +54,10 @@ class ObjectClassifier:
         #             self.interaction_log.append(fb)
         self.interaction_log.append(msg)
 
+    def resetCallback(self, msg):
+        """Callback upon receiving reset switch. Clears interaction log."""
+        self.interaction_log = []
+        
     def classifyObject(self, obj):
         """Modifies the owners and ownership probabilities in place."""
         obj.owners = list(obj.owners)
@@ -123,7 +129,7 @@ class ObjectClassifier:
 
 
     def norm(self, o, f):
-        """Determines the squared L2 norm of two objects"""
+        """Determines the squared L2 norm between two objects"""
         o_color = o.color
         f_color = f.object.color
         color_dist = 1.0 if o_color != f_color else 0.0
@@ -154,4 +160,6 @@ if __name__ == '__main__':
     # Subscribe to feedback from ObjectCollector / ObjectTester
     rospy.Subscriber("feedback", RichFeedback,
                      objectClassifier.feedbackCallback)
+    rospy.Subscriber("reset_classifier", std_msgs.msg.Empty,
+                     objectClassifier.resetCallback)
     rospy.spin()

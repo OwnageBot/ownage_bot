@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import rospy
+import std_msgs.msg
 import geometry_msgs.msg
 from ownage_bot.msg import *
 from ownage_bot.srv import *
@@ -47,10 +48,13 @@ class ObjectTester():
         # Set up service call to ObjectClassifier as in-class method
         self.classify = rospy.ServiceProxy("classifyObjects", ListObjects)
 
-        # Create feedback publisher and object lister service
-        self.fb_pub = rospy.Publisher("feedback",
-                                      RichFeedback,
-                                      queue_size=10)
+        # Create publishers and servers
+        self.feedback_pub = rospy.Publisher("feedback",
+                                            RichFeedback,
+                                            queue_size=10)
+        self.reset_pub = rospy.Publisher("reset_classifier",
+                                         std_msgs.msg.Empty,
+                                         queue_size=10)
         self.lst_obj_srv = rospy.Service("list_objects", ListObjects,
                                          self.handleList)
 
@@ -167,7 +171,7 @@ class ObjectTester():
             rospy.loginfo("Chose object {} with owner {} as example".
                           format(obj.id, label))
             rospy.sleep(0.1)
-            self.fb_pub.publish(fb)
+            self.feedback_pub.publish(fb)
         
         resp = self.classify()
         self.evaluate(resp.objects)
@@ -192,17 +196,32 @@ class ObjectTester():
 
         return accuracy
 
+    def reset(self):
+        """Resets the classifier's interaction history."""
+        msg = std_msgs.msg.Empty()
+        self.reset_pub.publish(msg)
+        rospy.sleep(0.1)
+
 if __name__ == '__main__':
     rospy.init_node('object_tester')
 
-    # Load metrics from launch file, else default to all three
+    # Load parametrs from launch file
+    trials = (rospy.get_param("trials") if
+              rospy.has_param("trials") else 100)
+    n_objs = (rospy.get_param("n_objs") if
+              rospy.has_param("n_objs") else 10)
+    n_avatars = (rospy.get_param("n_avatars") if
+                 rospy.has_param("n_avatars") else 2)
+    n_examples = (rospy.get_param("n_examples") if
+                  rospy.has_param("n_examples") else 3)
     metrics = (rospy.get_param("metrics") if
                rospy.has_param("metrics") else
                ['color', 'position', 'proximity'])
-    
-    tester = ObjectTester(metrics, 10, 2, 3)
-    tester.generateEnvironment()
-    rospy.wait_for_service('classifyObjects')
-    tester.trainOffline()
 
-    rospy.spin()
+    tester = ObjectTester(metrics, n_objs, n_avatars, n_examples)
+
+    for t in range(trials):
+        tester.generateEnvironment()
+        rospy.wait_for_service('classify_objects')
+        tester.trainOffline()
+        tester.reset()

@@ -40,7 +40,7 @@ Intended mode of behavior, where Baxter repeatedly tries to pick up all objects 
 
 For testing and debugging the arm control services provided by [`object_picker`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_picker)
 
-1. Run `roslaunch ownage_bot.launch is_manual:=true`
+1. Run `roslaunch ownage_bot.launch manual:=true`
 2. Request an action by calling `rosservice call /action_provider/service_left "{action: 'action_name', objects: [list of ids]}"`
 
 #### List of supported actions (left arm only)
@@ -59,7 +59,7 @@ For testing and debugging the arm control services provided by [`object_picker`]
 
 For simulated training and testing of [`object_classifier`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_classifier)
 
-1. Run `roslaunch ownage_bot.launch is_simulation:=true`
+1. Run `roslaunch ownage_bot.launch simulation:=true`
 2. Wait for the results to be printed in the terminal
 
 ## Architecture
@@ -88,6 +88,11 @@ When using `ownage_bot.launch`, these topic and service names are contained with
   * Publisher(s): `object_collector`, `object_tester` (in simulation)
   * Subscriber(s): `object_classifier`
   * Whenever Baxter successfully claims an object for itself, or is stopped and told the owner of the object, `object_collector` sends feedback to `object_classifier` as training data, using this topic. The three pieces of information contained in the feedback data structure are the *time of interaction*, *owner label* (avatar id of owner, 0 if unowned), and the *object data* itself.
+* `reset_classifier` (topic)
+  * Type: Empty
+  * Publisher(s): `object_tester` (in simulation)
+  * Subscriber(s): `object_classifier`
+  * `object_classifier` clears its history of past interactions whenever it receives this signal.
 * `locate_object` (service)
   * Type: [`LocateObject`](https://github.com/OwnageBot/ownage_bot/blob/master/srv/LocateObject.srv)
   * Server(s): `object_tracker`
