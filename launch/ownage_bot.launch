@@ -58,7 +58,7 @@
       <!-- Number of simulated avatars -->
       <param name="n_avatars" type="int" value="2"/>
       <!-- Number of training examples given to classifier -->
-      <param name="n_examples" type="int" value="3"/>
+      <param name="n_examples" type="int" value="5"/>
       <!-- Metrics which object_tester uses to generate clusters -->
       <rosparam param="metrics">
         ['color', 'position', 'proximity']

@@ -48,7 +48,7 @@ class ObjectTester():
         self.home = geometry_msgs.msg.Point() # Home location
         
         # Set up service call to ObjectClassifier as in-class method
-        self.classify = rospy.ServiceProxy("classifyObjects", ListObjects)
+        self.classify = rospy.ServiceProxy("classify_objects", ListObjects)
 
         # Create publishers and servers
         self.feedback_pub = rospy.Publisher("feedback",
@@ -117,14 +117,14 @@ class ObjectTester():
             obj.id = oid
 
             # Choose cluster / owner label uniformly at random
-            cluster = r.choice(range(len(avatars) + 1))
-            label = 0 if cluster == 0 else avatars[cluster-1].id
+            cluster = r.choice(range(len(self.avatars) + 1))
+            label = 0 if cluster == 0 else self.avatars[cluster-1].id
 
             # Generate object locations
             if ('position' in self.metrics or 'proximity' in self.metrics):
                 # Cluster around centers
                 rand_offset = r.uniform(-0.5, 0.5)
-                c = centers[cluster]
+                c = self.centers[cluster]
 
                 obj.pose.pose.position.x = c.x + rand_offset
                 obj.pose.pose.position.y = c.y + rand_offset
@@ -141,10 +141,9 @@ class ObjectTester():
                 obj.color = cluster
             else:
                 # Choose color uniformly at random
-                obj.color = r.choice(range(len(avatars) + 1))
+                obj.color = r.choice(range(len(self.avatars) + 1))
                 
             # Fill in other object properties
-
             def dist(obj1, obj2):
                 p1 = obj1.pose.pose.position
                 p2 = obj2.pose.pose.position
@@ -152,7 +151,7 @@ class ObjectTester():
                                  (p1.y-p2.y)*(p1.y-p2.y))
             
             obj.is_avatar = False
-            obj.proximities = [dist(av, obj) for av in avatars]
+            obj.proximities = [dist(av, obj) for av in self.avatars]
             obj.owners = [0]
             obj.ownership = [1.0]
 
@@ -199,12 +198,14 @@ class ObjectTester():
             rospy.sleep(0.1)
             self.feedback_pub.publish(fb)
 
+            # Classify and filter out avatars
             resp = self.classify()
-            class_accuracies.append[self.evaluate(resp.objects)]
+            objects = [o for o in resp.objects if not o.is_avatar]
+            class_accuracies.append(self.evaluate(objects))
 
             # Select most likely unowned object to try as next example
-            obj = max(resp.objects, key=lambda o: o.ownership[0])
-            label = self.labels[self.objects.index(obj)]
+            obj = max(objects, key=lambda o: o.ownership[0])
+            label = self.labels[objects.index(obj)]
 
             # Stop training if all objects are too likely to be owned
             if obj.ownership[0] < self.threshold:
@@ -261,21 +262,13 @@ if __name__ == '__main__':
     rospy.init_node('object_tester')
 
     # Load parameters from launch file
-    online = (rospy.get_param("online") if
-              rospy.has_param("online") else True)
-    trials = (rospy.get_param("trials") if
-              rospy.has_param("trials") else 100)
-    n_objs = (rospy.get_param("n_objs") if
-              rospy.has_param("n_objs") else 10)
-    n_avatars = (rospy.get_param("n_avatars") if
-                 rospy.has_param("n_avatars") else 2)
-    n_examples = (rospy.get_param("n_examples") if
-                  rospy.has_param("n_examples") else 3)
-    metrics = (rospy.get_param("metrics") if
-               rospy.has_param("metrics") else
-               ['color', 'position', 'proximity'])
-    threshold = (rospy.get_param("collect_threshold") if
-                 rospy.has_param("collect_threshold") else 0.2)
+    online = rospy.get_param("~online", True)
+    trials = rospy.get_param("~trials", 100)
+    n_objs = rospy.get_param("~n_objs", 10)
+    n_avatars = rospy.get_param("~n_avatars", 2)
+    n_examples = rospy.get_param("~n_examples", 3)
+    metrics = rospy.get_param("~metrics", ['color', 'position', 'proximity'])
+    threshold = rospy.get_param("collect_threshold", 0.2)
 
     tester = ObjectTester(metrics, n_objs, n_avatars, n_examples, threshold)
     results = []
@@ -289,9 +282,9 @@ if __name__ == '__main__':
             results.append(tester.trainOffline())
         tester.reset()
 
-    # Transpose results and average them
-    results = zip(*results)
+    # Average results and print them
     if online:
+        results = zip(*results)
         avg_collect_accuracy = sum(results[0]) / len(results[0])
         avg_avg_class_accuracy = sum(results[1]) / len(results[1])
         avg_fin_class_accuracy = sum(results[2]) / len(results[2])
@@ -302,5 +295,6 @@ if __name__ == '__main__':
         print("Overall final classification accuracy: {}".
               format(avg_fin_class_accuracy))
     else:
-        avg_accuracy = sum(results[0]) / len(results[0])
-        print("Overall accuracy: {})".format(avg_accuracy))
+        avg_accuracy = sum(results) / len(results)
+        print("Simulated training for {} trials complete.".format(trials))
+        print("Overall accuracy: {}".format(avg_accuracy))

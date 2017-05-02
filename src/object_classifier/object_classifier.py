@@ -13,13 +13,11 @@ class ObjectClassifier:
     def __init__(self):
         self.object_db = dict()
         self.interaction_log = []
-        self.avatar_ids = (rospy.get_param("avatar_ids")
-                           if rospy.has_param("avatar_ids") else [])
-        self.landmark_ids = (rospy.get_param("landmark_ids")
-                             if rospy.has_param("landmark_ids") else [])
+        self.avatar_ids = []
+        self.landmark_ids = []
         self.w_color = 5
         self.w_pos = 1
-        self.w_proxs = [1] *  len(self.avatar_ids)
+        self.w_prox = 1
 
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
         rospy.Service("classify_objects", ListObjects, self.handleClassify)
@@ -35,6 +33,11 @@ class ObjectClassifier:
             self.object_db = dict(zip(object_ids, copy.deepcopy(resp.objects)))
 
         objects = resp.objects
+
+        # Extract list of avatars and assign proximity weights
+        self.avatar_ids = [o.id for o in objects if o.is_avatar]
+        self.w_proxs = [self.w_prox] * len(self.avatar_ids)
+
         # Assign new ownership probabilities in place
         if self.interaction_log:
             for obj in objects:
@@ -44,18 +47,11 @@ class ObjectClassifier:
 
     def feedbackCallback(self, msg):
         """Callback upon receiving feedback from ObjectCollector."""
-        # if len(self.interaction_log) == 0:
-        #     resp = self.listObjects()
-        #     for o in resp.objects:
-        #         for a in [0] + self.avatar_ids:
-        #             fb = RichFeedback()
-        #             fb.object = o
-        #             fb.label = a
-        #             self.interaction_log.append(fb)
         self.interaction_log.append(msg)
 
     def resetCallback(self, msg):
         """Callback upon receiving reset switch. Clears interaction log."""
+        self.object_db = []
         self.interaction_log = []
         
     def classifyObject(self, obj):
@@ -67,8 +63,8 @@ class ObjectClassifier:
         total_weight_sum = 0
 
         sum_of_weights = dict(zip(obj.owners, [0] * len(obj.owners)))
-        rospy.loginfo("Received obj {} with owners {}\n".
-            format(obj.id,obj.owners))
+        rospy.logdebug("Received obj {} with owners {}".
+                       format(obj.id,obj.owners))
 
         def gauss(sqr_dist, sigma):
             sqr = lambda x: x*x
@@ -121,12 +117,12 @@ class ObjectClassifier:
 
         self.object_db[obj.id] = obj
 
-        print "Object id: %s" % obj.id
+        # Print ownership and other properties for debugging
+        rospy.logdebug("Object id: {}".format(obj.id))
         for key in sorted(ownerDict):
-           print "%s: %s" % (key, ownerDict[key])
-        print(obj.proximities)
-        print("Color: {}".format(obj.color))
-
+           rospy.logdebug("{}: {}".format(key, ownerDict[key]))
+        rospy.logdebug("Proximities: {}".format(obj.proximities))
+        rospy.logdebug("Color: {}".format(obj.color))
 
     def norm(self, o, f):
         """Determines the squared L2 norm between two objects"""
