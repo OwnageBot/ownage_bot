@@ -4,8 +4,11 @@ import std_msgs.msg
 import geometry_msgs.msg
 from ownage_bot.msg import *
 from ownage_bot.srv import *
+
 import math
 import random as r
+import os.path
+import csv
 
 OBJECT_BASE_ID = 1
 AVATAR_BASE_ID = 100
@@ -84,9 +87,8 @@ class ObjectTester():
     def generateAvatars(self):
         """Randomly generates the locations of avatars.
 
-        Ensures they are sufficiently spaced apart by generating
-        them 0.4-0.8 meters from the home location, within its own
-        angular sector.
+        Ensures they are sufficiently spaced apart by generating them 0.4-0.8
+        meters from the home location, each within its own angular sector.
         """
         for i in range(self.n_avatars):
             av = RichObject()
@@ -103,7 +105,13 @@ class ObjectTester():
             self.avatars.append(av)
 
     def generateCenters(self):
-        """Randomly generates the centers of physical clusters."""
+        """Randomly generates the centers of physical clusters.
+
+        If clustering by absolute position, ensures they are sufficiently 
+        spaced apart by generating them 0.4-0.8 meters from the origin, each
+        within its own angular sector.
+
+        """
         if 'proximity' in self.metrics:
             # Centers are avatar locations if clustering by proximity
             self.centers = ([self.home] +
@@ -122,7 +130,12 @@ class ObjectTester():
                 self.centers.append(c)
 
     def generateObjects(self):
-        """Randomly generates objects within their clusters."""
+        """Randomly generates objects within their clusters.
+
+        Ensures they are tightly clustered (within 0.3m) around centers if
+        clustering by position or proximity. Otherwise, they are distributed
+        uniformly at random across the workspace.
+        """
         oids = range(OBJECT_BASE_ID, OBJECT_BASE_ID + self.n_objs)
         for i, oid in enumerate(oids):
             obj = RichObject()
@@ -305,6 +318,7 @@ if __name__ == '__main__':
     tester = ObjectTester(metrics, n_objs, n_avatars, n_examples, threshold)
     results = []
 
+    # Run tester for multiple trials
     for t in range(trials):
         tester.generateEnvironment()
         rospy.wait_for_service('classify_objects')
@@ -314,19 +328,21 @@ if __name__ == '__main__':
             results.append(tester.trainOffline())
         tester.reset()
 
-    # Average results and print them
+    # Average and print results
     print("")
     print("AGGREGATE RESULTS")
     if online:
-        results = zip(*results)
-        results[0] = [r for r in results[0] if r >= 0]
-        results[1] = [r for r in results[1] if r >= 0]
-        results[2] = [r for r in results[2] if r >= 0]
-        avg_f_collected = (sum(results[0]) / len(results[0])
-                           if len(results[0]) > 0 else -1)
-        avg_efficiency = (sum(results[1]) / len(results[1])
-                          if len(results[1]) > 0 else -1)
-        avg_accuracy = sum(results[2]) / len(results[2])
+        f_collected, efficiency, accuracy = zip(*results)
+        
+        f_collected = [r for r in f_collected if r >= 0]
+        efficiency = [r for r in efficiency if r >= 0]
+        accuracy = [r for r in accuracy if r >= 0]
+        
+        avg_f_collected = (sum(f_collected) / len(f_collected)
+                           if len(f_collected) > 0 else -1)
+        avg_efficiency = (sum(efficiency) / len(efficiency)
+                          if len(efficiency) > 0 else -1)
+        avg_accuracy = sum(accuracy) / len(accuracy)
 
         print("Overall fraction collected: {}".
               format(avg_f_collected))
@@ -338,3 +354,20 @@ if __name__ == '__main__':
         avg_accuracy = sum(results) / len(results)
         print("Simulated training for {} trials complete.".format(trials))
         print("Overall accuracy: {}".format(avg_accuracy))
+        
+    # Save results to CSV file
+    csv_path = os.path.expanduser("~/ownage_bot_performance.csv")
+    with open(csv_path, 'wb') as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["metrics:"] + metrics)
+        writer.writerow(["n_objs:", n_objs,
+                         "n_avatars:", n_avatars,
+                         "n_examples:", n_examples,
+                         "threshold:", threshold])
+        if online:
+            writer.writerow([avg_f_collected, avg_efficiency, avg_accuracy])
+            writer.writerow(["f_collected", "efficiency", "accuracy"])
+        else:
+            writer.writerow([avg_accuracy])            
+            writer.writerow(["accuracy"])            
+        writer.writerows(results)
