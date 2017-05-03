@@ -27,7 +27,7 @@ class ObjectTester():
 
         """
 
-        if not set(['color', 'position', 'proximity']).issubset(metrics):
+        if not set(metrics).issubset(['color', 'position', 'proximity']):
             rospy.logerr("One or more metrics are unrecognized!")
             rospy.logerr("Allowed metrics: 'color', 'position', 'proximity.")
             return        
@@ -82,30 +82,42 @@ class ObjectTester():
         self.generateObjects()
         
     def generateAvatars(self):
-        """Randomly generates the locations of avatars."""
+        """Randomly generates the locations of avatars.
+
+        Ensures they are sufficiently spaced apart by generating
+        them 0.4-0.8 meters from the home location, within its own
+        angular sector.
+        """
         for i in range(self.n_avatars):
             av = RichObject()
             av.id = AVATAR_BASE_ID + i
             av.is_avatar = True
 
-            av.pose.pose.position.x = r.uniform(-1.0, 1.0)
-            av.pose.pose.position.y = r.uniform(-1.0, 1.0)
+            dist = r.uniform(0.4, 0.8)
+            angle = r.uniform(i, i+1) * 2 * math.pi / self.n_avatars
+            
+            av.pose.pose.position.x = dist * math.cos(angle)
+            av.pose.pose.position.y = dist * math.sin(angle)
             av.pose.pose.position.z = 0.0
 
             self.avatars.append(av)
 
     def generateCenters(self):
         """Randomly generates the centers of physical clusters."""
-        for p in ([self.home] +
-                  [av.pose.pose.position for av in self.avatars]):
-            if 'proximity' in self.metrics:
-                # Centers are avatar locations if clustering by proximity
-                self.centers.append(p)
-            else:
-                # Otherwise, just cluster based on absolute position
+        if 'proximity' in self.metrics:
+            # Centers are avatar locations if clustering by proximity
+            self.centers = ([self.home] +
+                            [av.pose.pose.position for av in self.avatars])
+        else:
+            # Otherwise, just cluster based on absolute position
+            for i in range(self.n_avatars + 1):
                 c = geometry_msgs.msg.Point()
-                c.x = r.uniform(-1.0, 1.0)
-                c.y = r.uniform(-1.0, 1.0)
+
+                dist = r.uniform(0.4, 0.8)
+                angle = r.uniform(i, i+1) * 2 * math.pi / (self.n_avatars + 1)
+                
+                c.x = dist * math.cos(angle)
+                c.y = dist * math.sin(angle)
                 c.z = 0.0
                 self.centers.append(c)
 
@@ -116,18 +128,19 @@ class ObjectTester():
             obj = RichObject()
             obj.id = oid
 
-            # Choose cluster / owner label uniformly at random
-            cluster = r.choice(range(len(self.avatars) + 1))
+            # Distribute objects equally across clusters
+            cluster = i % (self.n_avatars + 1)
             label = 0 if cluster == 0 else self.avatars[cluster-1].id
 
             # Generate object locations
             if ('position' in self.metrics or 'proximity' in self.metrics):
                 # Cluster around centers
-                rand_offset = r.uniform(-0.5, 0.5)
+                r_offset = r.uniform(0, 0.3)
+                r_angle = r.uniform(0, 1) * 2 * math.pi
                 c = self.centers[cluster]
 
-                obj.pose.pose.position.x = c.x + rand_offset
-                obj.pose.pose.position.y = c.y + rand_offset
+                obj.pose.pose.position.x = c.x + r_offset * math.cos(r_angle)
+                obj.pose.pose.position.y = c.y + r_offset * math.sin(r_angle)
                 obj.pose.pose.position.z = c.z
             else:
                 # Uniform distribution if no position or proximity clustering
@@ -168,7 +181,7 @@ class ObjectTester():
             fb.label = label
             rospy.loginfo("Chose object {} with owner {} as example".
                           format(obj.id, label))
-            rospy.sleep(0.1)
+            rospy.sleep(0.01)
             self.feedback_pub.publish(fb)
         
         resp = self.classify()
@@ -181,56 +194,75 @@ class ObjectTester():
         is most likely to be unowned each time, stopping if the probability of
         non-ownership (for all objects) does not exceed the threshold.
 
-        Returns the collection accuracy, average classification accuracy, and
-        final classification accuracy as a tuple.
+        Evaluates and returns three performance metrics:
+
+        f_collected -- The fraction of unowned objects which are collected
+                       within the alloted number of interactions (n_examples)
+        efficiency -- Ratio of number of trials required to successfully
+                      collect all objects to the total number of objects
+        accuracy -- The prediction accuracy of the classifier after having
+                    been trained on all examples
+
         """
+        collected_ids = []
+        n_unowned = self.labels.count(0)
+        n_tries = -1
+        accuracy = 0
+        
         # Randomly pick first object
         obj, label = r.choice(zip(self.objects, self.labels))
-        class_accuracies = []
-        n_collects = 0 # Total number of object collections
-        n_success = 0 # Number of successful collections
+        
         for i in range(self.n_examples):
+            # Simulated collection (only if object is unowned)
+            if label == 0:
+                collected_ids.append(obj.id)
+            if n_tries == -1 and len(collected_ids) == n_unowned:
+                n_tries = i+1
+                
+            # Simulated feedback
             fb = RichFeedback()
             fb.object = obj
             fb.label = label
             rospy.loginfo("Chose object {} with owner {} as example".
                           format(obj.id, label))
-            rospy.sleep(0.1)
+            rospy.sleep(0.01)
             self.feedback_pub.publish(fb)
-
+            
             # Classify and filter out avatars
             resp = self.classify()
             objects = [o for o in resp.objects if not o.is_avatar]
-            class_accuracies.append(self.evaluate(objects))
 
-            # Select most likely unowned object to try as next example
-            obj = max(objects, key=lambda o: o.ownership[0])
+            # Check if any more objects to collect
+            uncollected = [o for o in objects if o.id not in collected_ids]
+            if len(uncollected) == 0:
+                rospy.loginfo("All objects have been collected.")
+                break
+
+            # Select uncollected and most likely unowned object next
+            obj = max(uncollected, key=lambda o: o.ownership[0])
             label = self.labels[objects.index(obj)]
 
             # Stop training if all objects are too likely to be owned
             if obj.ownership[0] < self.threshold:
                 rospy.loginfo("All objects too likely to be owned.")
                 rospy.loginfo("Stopping after {} examples.".format(i))
-                n_collects = i
                 break
 
-            # Check if collection was correct
-            predicted = obj.owners[obj.ownership.index(max(obj.ownership))]
-            if predicted == label:
-                n_success += 1
-
-        # Compute accuracies
-        collect_accuracy = float(n_success) / self.n_examples
-        avg_class_accuracy = sum(class_accuracies) / len(class_accuracies)
-        fin_class_accuracy = class_accuracies[-1]
-        print("Collection accuracy: {} ({}/{})".
-              format(collect_accuracy, n_success, self.n_examples))
-        print("Average classification accuracy: {}".
-              format(avg_class_accuracy))
+        # Compute performance metrics
+        f_collected = (float(len(collected_ids)) / n_unowned
+                       if n_unowned > 0 else -1)
+        efficiency = (float(n_tries) / self.n_objs
+                      if n_tries > 0 else -1)
+        accuracy = self.evaluate(objects)
+        
+        print("Collected fraction: {} ({}/{})".
+              format(f_collected, len(collected_ids), n_unowned))
+        print("Collection efficiency: {} ({}/{})".
+              format(efficiency, n_tries, self.n_objs))
         print("Final classification accuracy: {}".
-              format(fin_class_accuracy))
+              format(accuracy))
 
-        return (collect_accuracy, avg_class_accuracy, fin_class_accuracy)
+        return (f_collected, efficiency, accuracy)
         
     def evaluate(self, classified):
         """Evaluates and returns classifier accuracy."""
@@ -256,7 +288,7 @@ class ObjectTester():
         """Resets the classifier's interaction history."""
         msg = std_msgs.msg.Empty()
         self.reset_pub.publish(msg)
-        rospy.sleep(0.1)
+        rospy.sleep(0.01)
 
 if __name__ == '__main__':
     rospy.init_node('object_tester')
@@ -283,17 +315,25 @@ if __name__ == '__main__':
         tester.reset()
 
     # Average results and print them
+    print("")
+    print("AGGREGATE RESULTS")
     if online:
         results = zip(*results)
-        avg_collect_accuracy = sum(results[0]) / len(results[0])
-        avg_avg_class_accuracy = sum(results[1]) / len(results[1])
-        avg_fin_class_accuracy = sum(results[2]) / len(results[2])
-        print("Overall collection accuracy: {})".
-              format(avg_collect_accuracy))
-        print("Overall average classification accuracy: {}".
-              format(avg_avg_class_accuracy))
-        print("Overall final classification accuracy: {}".
-              format(avg_fin_class_accuracy))
+        results[0] = [r for r in results[0] if r >= 0]
+        results[1] = [r for r in results[1] if r >= 0]
+        results[2] = [r for r in results[2] if r >= 0]
+        avg_f_collected = (sum(results[0]) / len(results[0])
+                           if len(results[0]) > 0 else -1)
+        avg_efficiency = (sum(results[1]) / len(results[1])
+                          if len(results[1]) > 0 else -1)
+        avg_accuracy = sum(results[2]) / len(results[2])
+
+        print("Overall fraction collected: {}".
+              format(avg_f_collected))
+        print("Overall collection efficiency: {}".
+              format(avg_efficiency))
+        print("Overall classification accuracy: {}".
+              format(avg_accuracy))
     else:
         avg_accuracy = sum(results) / len(results)
         print("Simulated training for {} trials complete.".format(trials))

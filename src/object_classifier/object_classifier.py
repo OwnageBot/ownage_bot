@@ -15,9 +15,10 @@ class ObjectClassifier:
         self.interaction_log = []
         self.avatar_ids = []
         self.landmark_ids = []
-        self.w_color = 5
-        self.w_pos = 1
-        self.w_prox = 1
+        self.w_color = 30
+        self.w_pos = 10
+        self.w_prox = 10
+        self.learn_rate = 0.5
 
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
         rospy.Service("classify_objects", ListObjects, self.handleClassify)
@@ -89,7 +90,7 @@ class ObjectClassifier:
 
         if total_weight_sum:
             for k in sum_of_weights.keys():
-                # Compute running sum of weights for each avatar id (including 0)
+                # Compute running sum of weights for each avatar id
                 # Normalize weights to get probabilities
                 obj.ownership[obj.owners.index(k)] = (sum_of_weights[k] /
                                                       total_weight_sum)
@@ -108,9 +109,8 @@ class ObjectClassifier:
 
             for k in ownerDict:
                 if k in oldOwnerDict:
-                    ownerDict[k] = ownerDict[k] + oldOwnerDict[k]
-            for k in ownerDict:
-                ownerDict[k] = ownerDict[k] / 2.0
+                    ownerDict[k] = (self.learn_rate * ownerDict[k] +
+                                    (1-self.learn_rate) * oldOwnerDict[k])
 
             obj.owners = ownerDict.keys()
             obj.ownership = ownerDict.values()

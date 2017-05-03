@@ -52,13 +52,13 @@
       <!-- Online or offline training -->
       <param name="online" type="bool" value="true"/>
       <!-- Number of simulation trials -->
-      <param name="trials" type="int" value="100"/>
+      <param name="trials" type="int" value="1000"/>
       <!-- Number of simulated (non-avatar) objects -->
       <param name="n_objs" type="int" value="10"/>
       <!-- Number of simulated avatars -->
       <param name="n_avatars" type="int" value="2"/>
       <!-- Number of training examples given to classifier -->
-      <param name="n_examples" type="int" value="5"/>
+      <param name="n_examples" type="int" value="3"/>
       <!-- Metrics which object_tester uses to generate clusters -->
       <rosparam param="metrics">
         ['color', 'position', 'proximity']
