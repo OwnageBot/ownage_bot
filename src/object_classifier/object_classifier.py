@@ -2,6 +2,7 @@
 import rospy
 import math
 import copy
+import numpy as np
 import std_msgs.msg
 import geometry_msgs.msg
 from ownage_bot.msg import *
@@ -15,10 +16,12 @@ class ObjectClassifier:
         self.interaction_log = []
         self.avatar_ids = []
         self.landmark_ids = []
+        self.n_dims = 4
         self.w_color = 30
         self.w_pos = 10
         self.w_prox = 10
         self.learn_rate = 0.5
+        self.w_matrix = np.diag([self.w_color] + [self.w_pos] * 3)
 
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
         rospy.Service("classify_objects", ListObjects, self.handleClassify)
@@ -36,9 +39,17 @@ class ObjectClassifier:
         objects = resp.objects
 
         # Extract list of avatars and assign proximity weights
+        # TODO: deal with arbitrary ordering of avatar ids
         self.avatar_ids = [o.id for o in objects if o.is_avatar]
         self.w_proxs = [self.w_prox] * len(self.avatar_ids)
 
+        # Extend weight matrix to account for new avatars
+        new_dims = 4 + len(self.avatar_ids)
+        new_matrix = np.diag([self.w_prox] * new_dims)
+        new_matrix[:self.n_dims,:self.n_dims] = self.w_matrix
+        self.w_matrix = new_matrix
+        self.n_dims = new_dims
+        
         # Assign new ownership probabilities in place
         if self.interaction_log:
             for obj in objects:
@@ -57,98 +68,82 @@ class ObjectClassifier:
         
     def classifyObject(self, obj):
         """Modifies the owners and ownership probabilities in place."""
-        obj.owners = list(obj.owners)
-        obj.ownership = list(obj.ownership)
-
-        sigma = 1  # Need to figure out a good value for this
-        total_weight_sum = 0
-
-        sum_of_weights = dict(zip(obj.owners, [0] * len(obj.owners)))
         rospy.logdebug("Received obj {} with owners {}".
                        format(obj.id,obj.owners))
 
-        def gauss(sqr_dist, sigma):
+        def gauss(dist, sigma):
             sqr = lambda x: x*x
-            return math.exp(-0.5 * sqr_dist / sqr(sigma))
+            return math.exp(-0.5 * np.dot(dist, dist) / sqr(sigma))
 
+        sigma = 1  # Need to figure out a good value for this
+        owner_weights = dict()
+        
+        # Iterate through interaction history
         for f in self.interaction_log:
-            label = f.label
-            if label not in obj.owners:
-                obj.owners.append(label)
-                obj.ownership.append(0.0)
-            # Compute squared distance between i and obj
-            sqr_dist = self.norm(obj, f)
+            owner = f.label
 
+            # Compute weighted displacement between obj and past object
+            dist = self.dist(obj, f.object)
+            w_dist = np.dot(self.w_matrix, dist)
+            
             # Apply Gaussian weighting to the interaction
-            # Compute running sum of weights for each avatar id (including 0)
-            if label in sum_of_weights:
-                sum_of_weights[label] += gauss(sqr_dist, sigma)
-            else:
-                sum_of_weights[label] = gauss(sqr_dist, sigma)
+            # Compute running sum of weights for each owner id (including 0)
+            if owner not in owner_weights.keys():
+                owner_weights[owner] = 0
+            owner_weights[owner] += gauss(w_dist, sigma)
 
-        total_weight_sum = sum(sum_of_weights.values())
-
-        if total_weight_sum:
-            for k in sum_of_weights.keys():
-                # Compute running sum of weights for each avatar id
-                # Normalize weights to get probabilities
-                obj.ownership[obj.owners.index(k)] = (sum_of_weights[k] /
-                                                      total_weight_sum)
-        else:
-            obj.ownership = [0] * len(sum_of_weights)
-            obj.ownership[0] = 1.0
-
-        ownerDict = dict(zip(obj.owners, obj.ownership))
+        # If weights are too small, just assume unowned
+        sum_owner_weights = sum(owner_weights.values())
+        if sum_owner_weights == 0:
+            obj.owners = [0]
+            obj.ownership = [1.0]
+            self.object_db[obj.id] = obj
+            return
+            
+        # Normalize weights to get probabilities
+        owner_probs = {o: w / sum_owner_weights
+                       for o, w in owner_weights.items()}
 
         # Average between old and new ownership
         if obj.id in self.object_db:
             old_owners = self.object_db[obj.id].owners
             old_ownership = self.object_db[obj.id].ownership
 
-            oldOwnerDict = dict(zip(old_owners, old_ownership))
+            old_probs = dict(zip(old_owners, old_ownership))
 
-            for k in ownerDict:
-                if k in oldOwnerDict:
-                    ownerDict[k] = (self.learn_rate * ownerDict[k] +
-                                    (1-self.learn_rate) * oldOwnerDict[k])
+            for o in owner_probs:
+                if o in old_probs:
+                    owner_probs[o] = (self.learn_rate * owner_probs[o] +
+                                      (1-self.learn_rate) * old_probs[o])
 
-            obj.owners = ownerDict.keys()
-            obj.ownership = ownerDict.values()
+        obj.owners = owner_probs.keys()
+        obj.ownership = owner_probs.values()
 
         self.object_db[obj.id] = obj
 
         # Print ownership and other properties for debugging
         rospy.logdebug("Object id: {}".format(obj.id))
-        for key in sorted(ownerDict):
-           rospy.logdebug("{}: {}".format(key, ownerDict[key]))
+        rospy.logdebug("Ownership probabilities")
+        for key in sorted(owner_probs):
+           rospy.logdebug("{}: {}".format(key, owner_probs[key]))
         rospy.logdebug("Proximities: {}".format(obj.proximities))
         rospy.logdebug("Color: {}".format(obj.color))
 
-    def norm(self, o, f):
-        """Determines the squared L2 norm between two objects"""
-        o_color = o.color
-        f_color = f.object.color
-        color_dist = 1.0 if o_color != f_color else 0.0
-
-        # weights used to normalize data
-        sum_sqr_proxs = 0
-
-        sqr = lambda x: x*x
-
-        for i in range(len(o.proximities)):
-            sum_sqr_proxs +=  self.w_proxs[i] * sqr(
-                o.proximities[i] - f.object.proximities[i])
+    def dist(self, o1, o2):
+        """Computes raw displacement vector between the two objects"""
+        
+        col_dist = 1.0 if o1.color != o2.color else 0.0
 
         pos = lambda o : o.pose.pose.position
+        pos_dist = [pos(o1).x - pos(o2).x,
+                    pos(o1).y - pos(o2).y,
+                    pos(o1).z - pos(o2).z]
+        
+        prox_dist = [p1 - p2 for p1, p2 in
+                     zip(o1.proximities, o2.proximities)]
 
-        sum_sqr_pos = (sqr(pos(o).x - pos(f.object).x) +
-                       sqr(pos(o).y - pos(f.object).y) +
-                       sqr(pos(o).z - pos(f.object).z))
-
-        return (self.w_color * color_dist +
-                sum_sqr_proxs +
-                self.w_pos * sum_sqr_pos)
-
+        return np.array([col_dist] + pos_dist + prox_dist)
+    
 if __name__ == '__main__':
     rospy.init_node('object_classifier')
     objectClassifier = ObjectClassifier()
