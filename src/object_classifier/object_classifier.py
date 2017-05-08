@@ -214,7 +214,7 @@ class ObjectClassifier:
         n_interactions = len(self.interaction_log)
         # Iterate over each pair of metric dimensions (n,m)
         for n in range(self.n_dims):
-            for m in range(n, self.n_dims):
+            for m in range(self.n_dims):
                 dpdw = 0 # Running sum
                 for i in range(n_interactions):
                     # Some kind of probabilistic covariance measure
@@ -226,29 +226,36 @@ class ObjectClassifier:
                              sum([prob_dim_cov[j] for j in true_neighbors[i]]))
                 dpdw *= 2 * self.w_matrix[n,m]
                 gradient[n,m] = dpdw
-                gradient[m,n] = dpdw
         return gradient
         
     def updateMetricWeights(self):
         """Update metric weights through Neighborhood Component Analysis and
-        one iteration of gradient ascent with backtracking line search."""
+        conjugate gradient ascent with backtracking line search."""
 
         # Objective function is expected number of correct classifications
         objective_f = lambda M : sum(self.computeProbCorrect(M)[1])
+        mat_norm = lambda M : sum(sum(np.multiply(M, M)))
+        
         step_size = 1.0
         shrinkage = 0.8
         allowance = 0.5
 
+        # No point if less than 3 interactions
         n_interactions = len(self.interaction_log)
+        if n_interactions < 3:
+            return
         
-        for i in range(1):   
-            gradient = self.computeMetricGradient(*self.computeProbCorrect())
+        # Conjugate gradient ascent
+        cur_grad = self.computeMetricGradient(*self.computeProbCorrect())
+        direction = cur_grad
+        
+        for i in range(self.n_dims):            
             cur_f = objective_f(None)
-            
-            # Gradient ascent with backtracking line search
+            grad_norm = mat_norm(cur_grad)
+
+            # Backtracking line search
             while True:
-                w_matrix = self.w_matrix + step_size * gradient
-                grad_norm = sum(sum(np.multiply(gradient, gradient)))
+                w_matrix = self.w_matrix + step_size * direction
                 new_f = objective_f(w_matrix)
                 tgt_f =  cur_f + allowance * step_size * grad_norm
                 tgt_f = min(tgt_f, n_interactions)
@@ -262,8 +269,17 @@ class ObjectClassifier:
                 
             # Assign new weights
             self.w_matrix = w_matrix
-            print w_matrix
-                    
+
+            # Compute conjugate direction
+            cur_grad = self.computeMetricGradient(*self.computeProbCorrect())
+            if grad_norm == 0:
+                break
+            beta = mat_norm(cur_grad) / grad_norm
+            direction = cur_grad + beta * direction
+
+        print w_matrix
+    
+            
 if __name__ == '__main__':
     rospy.init_node('object_classifier')
     objectClassifier = ObjectClassifier()
