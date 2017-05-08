@@ -43,6 +43,9 @@ class ObjectTester():
         self.n_objs = n_objs
         self.n_examples = n_examples
         self.threshold = threshold
+
+        # If true, will collect most likely unowned objects
+        self.greedy = rospy.get_param("~greedy", True)
         
         self.avatars = []
         self.objects = [] # Non-avatar objects
@@ -187,6 +190,7 @@ class ObjectTester():
     def trainOffline(self):
         """Provides classifier with all training examples before testing."""
         # Select random subset of size n_examples to train classifier
+        self.classify() # Ensure classifier knows the avatars
         for obj, label in r.sample(zip(self.objects, self.labels),
                                    self.n_examples):
             fb = RichFeedback()
@@ -221,13 +225,15 @@ class ObjectTester():
         n_unowned = self.labels.count(0)
         n_tries = -1
         accuracy = 0
-        
+
+        # Ensure classifier sees the environment / knows the avatars
+        self.classify()
         # Randomly pick first object
         obj, label = r.choice(zip(self.objects, self.labels))
         
         for i in range(self.n_examples):
             # Simulated collection (only if object is unowned)
-            if label == 0:
+            if label == 0 or not self.greedy:
                 collected_ids.append(obj.id)
             if n_tries == -1 and len(collected_ids) == n_unowned:
                 n_tries = i+1
@@ -251,8 +257,9 @@ class ObjectTester():
                 rospy.loginfo("All objects have been collected.")
                 break
 
-            # Select uncollected and most likely unowned object next
-            obj = max(uncollected, key=lambda o: o.ownership[0])
+            # If greedy, choose uncollected and most likely unowned object
+            obj = (max(uncollected, key=lambda o: o.ownership[0])
+                   if self.greedy else r.choice(uncollected))
             label = self.labels[objects.index(obj)]
 
             # Stop training if all objects are too likely to be owned
@@ -325,7 +332,7 @@ if __name__ == '__main__':
         if online:
             results.append(tester.trainOnline())
         else:
-            results.append(tester.trainOffline())
+            results.append([tester.trainOffline()])
         tester.reset()
 
     # Average and print results
@@ -351,7 +358,7 @@ if __name__ == '__main__':
         print("Overall classification accuracy: {}".
               format(avg_accuracy))
     else:
-        avg_accuracy = sum(results) / len(results)
+        avg_accuracy = sum(results[0]) / len(results[0])
         print("Simulated training for {} trials complete.".format(trials))
         print("Overall accuracy: {}".format(avg_accuracy))
         

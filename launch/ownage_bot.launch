@@ -12,23 +12,23 @@
   <arg name="avatar_ids" default="[200,152]"/>
   <!-- Landmarks are special objects which define geographical areas -->
   <arg name="landmark_ids" default="[0]"/>
-
-  <!-- Threshold of confidence for picking up objects-->
-  <param name="collect_threshold" type="double" value="0.2" />
-  <!-- Duration before each tracked object has its properties updated -->
-  <param name="tracker_latency" type="double" value="0.2" />
-
-  <rosparam param="home_area" subst_value="true">
-    lower: [0.39, 0.07, 0]
-    upper: [0.62, 0.29, 0]
-  </rosparam>
-  
-  <rosparam param="avatar_ids" subst_value="true">
-  $(arg avatar_ids)</rosparam>
-  <rosparam param="landmark_ids" subst_value="true">
-  $(arg landmark_ids)</rosparam>
   
   <group ns="ownage_bot">
+    <!-- Threshold of confidence for picking up objects-->
+    <param name="collect_threshold" type="double" value="0.0" />
+    <!-- Duration before each tracked object has its properties updated -->
+    <param name="tracker_latency" type="double" value="0.2" />
+
+    <rosparam param="home_area" subst_value="true">
+      lower: [0.39, 0.07, 0]
+      upper: [0.62, 0.29, 0]
+    </rosparam>
+    
+    <rosparam param="avatar_ids" subst_value="true">
+    $(arg avatar_ids)</rosparam>
+    <rosparam param="landmark_ids" subst_value="true">
+    $(arg landmark_ids)</rosparam>
+
     <group unless="$(arg simulation)">
       <!-- Object tracker node, unused in simulation mode-->
       <node pkg="ownage_bot" type="object_tracker.py" name="object_tracker">
@@ -43,22 +43,27 @@
     <!-- Object classifier node-->
     <node pkg="ownage_bot" type="object_classifier.py"
           name="object_classifier" output="screen">
+      <param name="w_color" type="double" value="1"/>
+      <param name="w_pos" type="double" value="1"/>
+      <param name="w_prox" type="double" value="1"/>
     </node>
     
     <!-- Object tester node, only runs in simulation -->
     <node pkg="ownage_bot" type="object_tester.py"
           name="object_tester" output="screen"
   	      if="$(arg simulation)">
+      <!-- Greedy collection - try to collect unowned first, else random -->
+      <param name="greedy" type="bool" value="false"/>
       <!-- Online or offline training -->
       <param name="online" type="bool" value="true"/>
       <!-- Number of simulation trials -->
-      <param name="trials" type="int" value="1000"/>
+      <param name="trials" type="int" value="1"/>
       <!-- Number of simulated (non-avatar) objects -->
-      <param name="n_objs" type="int" value="10"/>
+      <param name="n_objs" type="int" value="100"/>
       <!-- Number of simulated avatars -->
       <param name="n_avatars" type="int" value="2"/>
       <!-- Number of training examples given to classifier -->
-      <param name="n_examples" type="int" value="3"/>
+      <param name="n_examples" type="int" value="10"/>
       <!-- Metrics which object_tester uses to generate clusters -->
       <rosparam param="metrics">
         ['color', 'position', 'proximity']

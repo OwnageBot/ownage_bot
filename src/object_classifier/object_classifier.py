@@ -3,6 +3,7 @@ import rospy
 import math
 import copy
 import numpy as np
+import itertools as itools
 import std_msgs.msg
 import geometry_msgs.msg
 from ownage_bot.msg import *
@@ -14,15 +15,20 @@ class ObjectClassifier:
     def __init__(self):
         self.object_db = dict()
         self.interaction_log = []
+
         self.avatar_ids = []
         self.landmark_ids = []
-        self.n_dims = 4
-        self.w_color = 30
-        self.w_pos = 10
-        self.w_prox = 10
-        self.learn_rate = 0.5
-        self.w_matrix = np.diag([self.w_color] + [self.w_pos] * 3)
 
+        self.learn_rate = 0.5
+
+        self.n_dims = 4
+        self.w_color = rospy.get_param("~w_color", 30)
+        self.w_pos = rospy.get_param("~w_pos", 10)
+        self.w_prox = rospy.get_param("~w_prox", 10)
+        self.w_matrix = np.diag([self.w_color] + [self.w_pos] * 3)
+        
+        self.nb_dist = []
+        
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
         rospy.Service("classify_objects", ListObjects, self.handleClassify)
 
@@ -45,10 +51,14 @@ class ObjectClassifier:
 
         # Extend weight matrix to account for new avatars
         new_dims = 4 + len(self.avatar_ids)
-        new_matrix = np.diag([self.w_prox] * new_dims)
-        new_matrix[:self.n_dims,:self.n_dims] = self.w_matrix
-        self.w_matrix = new_matrix
+        pad_width = new_dims - self.n_dims
+        self.w_matrix = np.pad(self.w_matrix, (0,pad_width), 'constant')
+        for i in range(self.n_dims, new_dims):
+            self.w_matrix[i,i] = self.w_prox
         self.n_dims = new_dims
+
+        # Adjust weights if necessary
+        self.updateMetricWeights()
         
         # Assign new ownership probabilities in place
         if self.interaction_log:
@@ -56,26 +66,27 @@ class ObjectClassifier:
                 if not obj.is_avatar:
                     self.classifyObject(obj)
         return ListObjectsResponse(objects)
-
+    
     def feedbackCallback(self, msg):
         """Callback upon receiving feedback from ObjectCollector."""
+        self.insertNewDist(msg)
         self.interaction_log.append(msg)
 
     def resetCallback(self, msg):
         """Callback upon receiving reset switch. Clears interaction log."""
         self.object_db = []
         self.interaction_log = []
+        self.nb_dist = []
         
     def classifyObject(self, obj):
-        """Modifies the owners and ownership probabilities in place."""
+        """Classifies objects using probailistic RBF-kernel method.
+
+        Modifies the owners and ownership probabilities in place."""
+
         rospy.logdebug("Received obj {} with owners {}".
                        format(obj.id,obj.owners))
 
-        def gauss(dist, sigma):
-            sqr = lambda x: x*x
-            return math.exp(-0.5 * np.dot(dist, dist) / sqr(sigma))
-
-        sigma = 1  # Need to figure out a good value for this
+        gauss = lambda x : math.exp(-0.5 * np.dot(x, x))
         owner_weights = dict()
         
         # Iterate through interaction history
@@ -90,7 +101,7 @@ class ObjectClassifier:
             # Compute running sum of weights for each owner id (including 0)
             if owner not in owner_weights.keys():
                 owner_weights[owner] = 0
-            owner_weights[owner] += gauss(w_dist, sigma)
+            owner_weights[owner] += gauss(w_dist)
 
         # If weights are too small, just assume unowned
         sum_owner_weights = sum(owner_weights.values())
@@ -144,6 +155,115 @@ class ObjectClassifier:
 
         return np.array([col_dist] + pos_dist + prox_dist)
     
+    def insertNewDist(self, new):
+        """Compute distance to previous interactions and insert into table."""
+        i = len(self.interaction_log)
+        self.nb_dist.append([np.zeros(self.n_dims)] * (i+1))
+        for j, old in enumerate(self.interaction_log):
+            dist = self.dist(new.object, old.object)
+            self.nb_dist[i][j] = dist
+            self.nb_dist[j].append(dist)
+
+    def computeProbCorrect(self, w_matrix=None):
+        """Compute probabilities of correctness upon self-classification i.e.,
+        if each object in the interaction history were classified against 
+        the others.
+
+        w_matrix -- Optionally use some other weights for the metric
+
+        Returns (nb_probs, owner_probs, true_neighbors):
+
+        nb_probs[i,j] -- Probability that i, j are neighbors (i.e same owner)
+        owner_probs[i] -- Probability that i is correctly classified
+        true_neighbors[i] -- List of actual neighbors of the ith interaction
+        """
+
+        if w_matrix is None:
+            w_matrix = self.w_matrix
+        
+        n_interactions = len(self.interaction_log)
+        nb_probs = np.empty((n_interactions, n_interactions))
+        owner_probs = [0] * n_interactions
+        true_neighbors = [list() for i in range(n_interactions)]
+
+        gauss = lambda x : math.exp(-0.5 * np.dot(x, x))
+        sim = lambda d : gauss(np.dot(w_matrix, d))
+        
+        for i, fb1 in enumerate(self.interaction_log):
+            dists = self.nb_dist[i]
+            similarities = map(sim, dists)
+            sum_sim = sum(similarities) - similarities[i]
+            for j, fb2 in enumerate(self.interaction_log):
+                # Compute probability that i and j have the same owner
+                nb_probs[i,j] = (similarities[j] / sum_sim
+                                 if (i != j and sum_sim > 0) else 0.0) 
+                # Update probability that i is correctly classified
+                if fb1.label == fb2.label:
+                    owner_probs[i] += nb_probs[i,j]
+                    true_neighbors[i].append(j)
+
+        return (nb_probs, owner_probs, true_neighbors)
+
+    def computeMetricGradient(self, nb_probs, owner_probs, true_neighbors):
+        """Compute gradient of objective with respect to metric weights,
+        where objective is the expected number of correctly classified points.
+
+        Refer to NCA paper by Goldberger et al. for the symbolic expression.
+        """
+        gradient = np.zeros((self.n_dims, self.n_dims))
+        n_interactions = len(self.interaction_log)
+        # Iterate over each pair of metric dimensions (n,m)
+        for n in range(self.n_dims):
+            for m in range(n, self.n_dims):
+                dpdw = 0 # Running sum
+                for i in range(n_interactions):
+                    # Some kind of probabilistic covariance measure
+                    prob_dim_cov = [nb_probs[i,j] *
+                                    self.nb_dist[i][j][n] *
+                                    self.nb_dist[i][j][m] for
+                                    j in range(n_interactions)]
+                    dpdw += (owner_probs[i] * sum(prob_dim_cov) -
+                             sum([prob_dim_cov[j] for j in true_neighbors[i]]))
+                dpdw *= 2 * self.w_matrix[n,m]
+                gradient[n,m] = dpdw
+                gradient[m,n] = dpdw
+        return gradient
+        
+    def updateMetricWeights(self):
+        """Update metric weights through Neighborhood Component Analysis and
+        one iteration of gradient ascent with backtracking line search."""
+
+        # Objective function is expected number of correct classifications
+        objective_f = lambda M : sum(self.computeProbCorrect(M)[1])
+        step_size = 1.0
+        shrinkage = 0.8
+        allowance = 0.5
+
+        n_interactions = len(self.interaction_log)
+        
+        for i in range(1):   
+            gradient = self.computeMetricGradient(*self.computeProbCorrect())
+            cur_f = objective_f(None)
+            
+            # Gradient ascent with backtracking line search
+            while True:
+                w_matrix = self.w_matrix + step_size * gradient
+                grad_norm = sum(sum(np.multiply(gradient, gradient)))
+                new_f = objective_f(w_matrix)
+                tgt_f =  cur_f + allowance * step_size * grad_norm
+                tgt_f = min(tgt_f, n_interactions)
+                if new_f >= tgt_f:
+                    break
+                step_size *= shrinkage
+
+            if self.interaction_log:
+                acc = [f/n_interactions for f in [cur_f, new_f, tgt_f]]
+                print("Cur: {}, New: {}, Tgt: {}".format(*acc))
+                
+            # Assign new weights
+            self.w_matrix = w_matrix
+            print w_matrix
+                    
 if __name__ == '__main__':
     rospy.init_node('object_classifier')
     objectClassifier = ObjectClassifier()
