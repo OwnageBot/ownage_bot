@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 import rospy
-import math
-import copy
-import numpy as np
-import itertools as itools
 import std_msgs.msg
 import geometry_msgs.msg
 from ownage_bot.msg import *
 from ownage_bot.srv import *
+
+import math
+import numpy as np
+
+import copy
+import os.path
+import csv
 
 class ObjectClassifier:
     """A class for classifying objects into ownership categories."""
@@ -244,6 +247,7 @@ class ObjectClassifier:
         n_interactions = len(self.interaction_log)
         if n_interactions < 3:
             return
+        accuracies = [objective_f(None) / n_interactions]
         
         # Conjugate gradient ascent
         cur_grad = self.computeMetricGradient(*self.computeProbCorrect())
@@ -262,13 +266,10 @@ class ObjectClassifier:
                 if new_f >= tgt_f:
                     break
                 step_size *= shrinkage
-
-            if self.interaction_log:
-                acc = [f/n_interactions for f in [cur_f, new_f, tgt_f]]
-                print("Cur: {}, New: {}, Tgt: {}".format(*acc))
                 
             # Assign new weights
             self.w_matrix = w_matrix
+            accuracies.append(new_f / n_interactions)
 
             # Compute conjugate direction
             cur_grad = self.computeMetricGradient(*self.computeProbCorrect())
@@ -277,8 +278,16 @@ class ObjectClassifier:
             beta = mat_norm(cur_grad) / grad_norm
             direction = cur_grad + beta * direction
 
-        print w_matrix
-    
+        rospy.logdebug("Accuracy: Start - {}, End: {}".
+                       format(accuracies[0], accuracies[-1]))
+
+        # Log data if flag is set
+        if rospy.get_param("~metric_learn_log", False):
+            csv_path = os.path.expanduser("~/metric_learn_log.csv")
+            with open(csv_path, 'ab') as csv_file:
+                writer = csv.writer(csv_file)
+                writer.writerow(["accuracy", "n_interactions", n_interactions])
+                writer.writerows([[a] for a in accuracies])
             
 if __name__ == '__main__':
     rospy.init_node('object_classifier')

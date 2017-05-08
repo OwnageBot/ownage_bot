@@ -46,18 +46,19 @@
       <param name="w_color" type="double" value="1"/>
       <param name="w_pos" type="double" value="1"/>
       <param name="w_prox" type="double" value="1"/>
+      <param name="metric_learn_log" type="bool" value="false"/>      
     </node>
     
     <!-- Object tester node, only runs in simulation -->
     <node pkg="ownage_bot" type="object_tester.py"
           name="object_tester" output="screen"
   	      if="$(arg simulation)">
-      <!-- Greedy collection - try to collect unowned first, else random -->
+      <!-- Greedy collection - tries to collect unowned if true -->
       <param name="greedy" type="bool" value="false"/>
       <!-- Online or offline training -->
       <param name="online" type="bool" value="true"/>
       <!-- Number of simulation trials -->
-      <param name="trials" type="int" value="1"/>
+      <param name="trials" type="int" value="100"/>
       <!-- Number of simulated (non-avatar) objects -->
       <param name="n_objs" type="int" value="100"/>
       <!-- Number of simulated avatars -->
