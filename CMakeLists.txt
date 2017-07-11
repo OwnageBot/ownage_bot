@@ -22,6 +22,7 @@ else()
     geometry_msgs
     std_msgs
   )
+  find_package(OpenCV 2.4 REQUIRED)
 endif()
 
 ## System dependencies are found with CMake's conventions
@@ -139,6 +140,7 @@ endif()
 # include_directories(include)
 include_directories(
   ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
