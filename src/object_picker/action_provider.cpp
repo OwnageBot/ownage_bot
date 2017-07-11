@@ -16,7 +16,7 @@ int main(int argc, char ** argv)
     ROS_INFO("use_robot flag set to %s", use_robot==true?"true":"false");
 
     printf("\n");
-    ObjectPicker left_ctrl("action_provider","left", !use_robot);
+    ObjectPicker left_ctrl("action_provider","left", use_robot);
     ROS_INFO("READY! Waiting for service messages..\n");
 
     ros::spin();
