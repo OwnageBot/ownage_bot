@@ -6,9 +6,9 @@ using namespace baxter_collaboration_msgs;
 using namespace ownage_bot;
 
 ObjectPicker::ObjectPicker(
-    std::string _name,
-    std::string _limb,
-    bool _no_robot ) :
+    string _name,
+    string _limb,
+    bool _use_robot ) :
     ArmCtrl(_name,_limb, _no_robot),
     ARucoClient(_name, _limb),
     elap_time(0)
@@ -34,24 +34,26 @@ ObjectPicker::ObjectPicker(
   insertAction(ACTION_WAIT,
                static_cast<f_action>(&ObjectPicker::waitForFeedback));
 
-
   printActionDB();
 
   is_holding = false;
 
-  _new_obj_sub = _n.subscribe("/ownage_bot/new_object",
+  new_obj_sub = nh.subscribe("/ownage_bot/new_object",
                               SUBSCRIBER_BUFFER,
-                              &ObjectPicker::newObjectCallback, this);
+                              &ObjectPicker::newObjectCb, this);
 
-  _loc_obj_client =
-    _n.serviceClient<LocateObject>("/ownage_bot/locate_object");
+  loc_obj_client =
+    nh.serviceClient<LocateObject>("/ownage_bot/locate_object");
+    
+  string cancel_name = "/"+getName()+"/cancel_"+_limb;
+  cancel_srv = nh.advertiseService(cancel_name, &ObjectPicker::cancelCb, this);
 
-  if (_no_robot) return;
+  if (!use_robot) return;
 
   if (!callAction(ACTION_HOME)) setState(ERROR);
 }
 
-void ObjectPicker::newObjectCallback(const std_msgs::UInt32 msg)
+void ObjectPicker::newObjectCb(const std_msgs::UInt32 msg)
 {
   if (!isObjectInDB(msg.data)) {
     stringstream object_name;
@@ -66,7 +68,7 @@ bool ObjectPicker::findObject()
   // Request last-remembered location of object from ObjectTracker node
   LocateObject srv;
   srv.request.id = getObjectID();
-  if (!_loc_obj_client.call(srv)) {
+  if (!loc_obj_client.call(srv)) {
     ROS_ERROR("[%s] Failed to call service locate_object!", getLimb().c_str());
     return false;
   }
@@ -82,7 +84,7 @@ bool ObjectPicker::findObject()
   // Check if object is indeed there, return false otherwise
   if (!waitForARucoData()) return false;
   // Request again just in case object shifted slightly
-  if (!_loc_obj_client.call(srv)) {
+  if (!loc_obj_client.call(srv)) {
     ROS_ERROR("[%s] Failed to call service locate_object!\n", getLimb().c_str());
     return false;
   }
@@ -98,7 +100,7 @@ bool ObjectPicker::offerObject()
  // Request last-remembered location of object from ObjectTracker node
   LocateObject srv;
   srv.request.id = getObjectID();
-  if (!_loc_obj_client.call(srv)) {
+  if (!loc_obj_client.call(srv)) {
     ROS_ERROR("[%s] Failed to call service locate_object!", getLimb().c_str());
     return false;
   }
@@ -137,7 +139,7 @@ bool ObjectPicker::pickObject()
   }
   // Save position of object before picking up
   if (!waitForARucoData()) return false;
-  _last_pick_loc = getMarkerPos();
+  last_pick_loc = getMarkerPos();
   if (!pickARTag())               return false;
   if (!gripObject())              return false;
   is_holding = true;
@@ -175,8 +177,8 @@ bool ObjectPicker::replaceObject()
     return false;
   }
   // Move to location of last picked object and release
-  if (!goToPose(_last_pick_loc.x, _last_pick_loc.y,
-                     Z_RELEASE, VERTICAL_ORI_L)) return false;
+  if (!goToPose(last_pick_loc.x, last_pick_loc.y,
+                Z_RELEASE, VERTICAL_ORI_L)) return false;
   ros::Duration(1).sleep();
   releaseObject();
   is_holding = false;
@@ -299,7 +301,7 @@ bool ObjectPicker::pickARTag()
 
 bool ObjectPicker::releaseAtPose(double px, double py, double pz,
                                  double ox, double oy, double oz, double ow,
-                                 std::string mode)
+                                 string mode)
 {
   ros::Time start_time = ros::Time::now();
   double z_start       =       getPos().z;
@@ -351,7 +353,7 @@ bool ObjectPicker::releaseAtPose(double px, double py, double pz,
   }
 }
 
-bool ObjectPicker::serviceCb(DoAction::Request  &req, DoAction::Response &res)
+bool ObjectPicker::serviceCb(DoAction::Request &req, DoAction::Response &res)
 {
     // Let's read the requested action and object to act upon
     setSubState("");
@@ -359,8 +361,8 @@ bool ObjectPicker::serviceCb(DoAction::Request  &req, DoAction::Response &res)
     setObjectID(-1);
 
     string action = req.action;
-    std::vector<int> object_ids;
-    std::string objs_str = "";
+    vector<int> object_ids;
+    string objs_str = "";
 
     for (size_t i = 0; i < req.objects.size(); ++i)
     {
@@ -393,7 +395,9 @@ bool ObjectPicker::serviceCb(DoAction::Request  &req, DoAction::Response &res)
     setAction(action);
 
     // Only getting, finding and offering require object id
-    if (action == ACTION_GET || action == ACTION_FIND || action == ACTION_OFFER)
+    if (action == ACTION_GET ||
+        action == ACTION_FIND ||
+        action == ACTION_OFFER)
     {
         setObjectIDs(areObjectsInDB(object_ids));
 
@@ -458,6 +462,14 @@ bool ObjectPicker::serviceCb(DoAction::Request  &req, DoAction::Response &res)
     return true;
 }
 
+bool cancelCb(std_srvs::Trigger::Request  &req,
+              std_srvs::Trigger::Response &res)
+{
+  setState(KILLED);
+  res.success = true;
+  return true;  
+}
+
 void ObjectPicker::setHomeConfiguration()
 {
   // Home location at center of the table
@@ -479,10 +491,10 @@ void ObjectPicker::setWorkspaceConfiguration()
   static const double top_right[] =   {0.685, -0.102, 0.221,
                                        0, 1, 0, 0};
   // Push in order that robot scans the workspace
-  workspace_conf.push_back(std::vector<double>(btm_left, btm_left + 7));
-  workspace_conf.push_back(std::vector<double>(top_left, top_left + 7));
-  workspace_conf.push_back(std::vector<double>(top_right, top_right + 7));
-  workspace_conf.push_back(std::vector<double>(btm_right, btm_right + 7));
+  workspace_conf.push_back(vector<double>(btm_left, btm_left + 7));
+  workspace_conf.push_back(vector<double>(top_left, top_left + 7));
+  workspace_conf.push_back(vector<double>(top_right, top_right + 7));
+  workspace_conf.push_back(vector<double>(btm_right, btm_right + 7));
 }
 
 void ObjectPicker::setObjectID(int _obj)

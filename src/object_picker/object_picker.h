@@ -10,6 +10,7 @@
 #include <string>
 #include <ros/ros.h>
 #include <std_msgs/UInt32.h>
+#include <std_srvs/Trigger.h>
 #include "robot_interface/arm_ctrl.h"
 #include "robot_perception/aruco_client.h"
 #include "ownage_bot/LocateObject.h"
@@ -47,7 +48,7 @@ private:
     bool is_holding;
 
     // Location of last picked object
-    geometry_msgs::Point _last_pick_loc;
+    geometry_msgs::Point last_pick_loc;
 
     // Endpoint position for home location
     geometry_msgs::Point home_loc;
@@ -56,13 +57,16 @@ private:
     std::vector< std::vector<double> > workspace_conf;
 
     // Subscriber to the ARuco detector,
-    ros::Subscriber _aruco_sub;
+    ros::Subscriber aruco_sub;
 
     // Subscriber to the new object topic,
-    ros::Subscriber _new_obj_sub;
+    ros::Subscriber new_obj_sub;
 
     // Client for LocateObject service
-    ros::ServiceClient _loc_obj_client;
+    ros::ServiceClient loc_obj_client;
+
+    // Service for cancelling current action
+    ros::ServiceServer cancel_srv;
 
 protected:
 
@@ -70,7 +74,7 @@ protected:
      * Adds new objects to the object database when notified by the object
      * tracker node.
      */
-    void newObjectCallback(const std_msgs::UInt32 msg);
+    void newObjectCb(const std_msgs::UInt32 msg);
 
     /**
      * Picks up object with ARuco tag, where the id is first set
@@ -164,7 +168,7 @@ public:
     /**
      * Constructor
      */
-    ObjectPicker(std::string _name, std::string _limb, bool _no_robot = false);
+    ObjectPicker(std::string _name, std::string _limb, bool _use_robot = true);
 
     /**
      * Destructor
@@ -178,6 +182,12 @@ public:
      */
     bool serviceCb(baxter_collaboration_msgs::DoAction::Request  &req,
                    baxter_collaboration_msgs::DoAction::Response &res);
+
+    /**
+     * Callback function for cancel service
+     */
+    bool cancelCb(std_srvs::Trigger::Request  &req,
+                  std_srvs::Trigger::Response &res);
 
     /**
      * Sets current object ID to be picked up and manipulated
