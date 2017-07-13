@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import rospy
 import std_msgs.msg
+import std_srvs.srv
 import geometry_msgs.msg
 from ownage_bot.msg import *
 from ownage_bot.srv import *
@@ -53,16 +54,14 @@ class ObjectTester():
         self.centers = [] # Cluster centers for position-based clustering
         self.home = geometry_msgs.msg.Point() # Home location
         
-        # Set up service call to ObjectClassifier as in-class method
+        # Set up service calls to ObjectClassifier as in-class method
         self.classify = rospy.ServiceProxy("classify_objects", ListObjects)
+        self.reset = rospy.ServiceProxy("reset_classifier", std_srvs.srv.Empty)
 
         # Create publishers and servers
         self.feedback_pub = rospy.Publisher("feedback",
                                             RichFeedback,
                                             queue_size=10)
-        self.reset_pub = rospy.Publisher("reset_classifier",
-                                         std_msgs.msg.Empty,
-                                         queue_size=10)
         self.lst_obj_srv = rospy.Service("list_objects", ListObjects,
                                          self.handleList)
 
@@ -304,12 +303,6 @@ class ObjectTester():
 
         return accuracy
 
-    def reset(self):
-        """Resets the classifier's interaction history."""
-        msg = std_msgs.msg.Empty()
-        self.reset_pub.publish(msg)
-        rospy.sleep(0.01)
-
 if __name__ == '__main__':
     rospy.init_node('object_tester')
 
@@ -334,6 +327,7 @@ if __name__ == '__main__':
         else:
             results.append([tester.trainOffline()])
         tester.reset()
+        rospy.sleep(0.01)
 
     # Average and print results
     print("")

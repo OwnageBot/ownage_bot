@@ -38,7 +38,10 @@ class ObjectTracker:
                                          self.locateObject)
         self.lst_obj_srv = rospy.Service("list_objects", ListObjects,
                                          self.listObjects)
-        
+        # Subscribers and clients
+        self.marker_sub = rospy.Subscriber("/aruco_marker_publisher/markers",
+                                           MarkerArray, self.ARucoCallback)
+
         # Computer vision
         self.cv_bridge = CvBridge();
         # List of basic colors
@@ -153,10 +156,6 @@ if __name__ == '__main__':
     rospy.init_node('object_tracker')
 
     objectTracker = ObjectTracker()
-
-    # Published by aruco_ros
-    rospy.Subscriber("/aruco_marker_publisher/markers",
-                     MarkerArray, objectTracker.ARucoCallback)
 
     rospy.spin()
 

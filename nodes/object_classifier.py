@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import rospy
 import std_msgs.msg
+import std_srvs.srv
 import geometry_msgs.msg
 from ownage_bot.msg import *
 from ownage_bot.srv import *
@@ -33,8 +34,13 @@ class ObjectClassifier:
         self.nb_dist = []
         
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
-        rospy.Service("classify_objects", ListObjects, self.handleClassify)
-
+        self.classify_srv = rospy.Service("classify_objects", ListObjects,
+                                          self.handleClassify)
+        self.reset_srv = rospy.Service("reset_classifier", std_srvs.srv.Empty,
+                                       self.resetCallback)
+        self.feedback_sub = rospy.Subscriber("feedback", RichFeedback,
+                                             self.feedbackCallback)
+                         
     def handleClassify(self, req):
         """Classifies and returns a list of objects."""
         rospy.loginfo("Classifying objects...\n")
@@ -69,17 +75,18 @@ class ObjectClassifier:
                 if not obj.is_avatar:
                     self.classifyObject(obj)
         return ListObjectsResponse(objects)
+
+    def handleReset(self, msg):
+        """Callback upon receiving reset switch. Clears interaction log."""
+        self.object_db = []
+        self.interaction_log = []
+        self.nb_dist = []
+        return std_srs.srv.EmptyResponse()
     
     def feedbackCallback(self, msg):
         """Callback upon receiving feedback from ObjectCollector."""
         self.insertNewDist(msg)
         self.interaction_log.append(msg)
-
-    def resetCallback(self, msg):
-        """Callback upon receiving reset switch. Clears interaction log."""
-        self.object_db = []
-        self.interaction_log = []
-        self.nb_dist = []
         
     def classifyObject(self, obj):
         """Classifies objects using probailistic RBF-kernel method.
@@ -292,9 +299,4 @@ class ObjectClassifier:
 if __name__ == '__main__':
     rospy.init_node('object_classifier')
     objectClassifier = ObjectClassifier()
-    # Subscribe to feedback from ObjectCollector / ObjectTester
-    rospy.Subscriber("feedback", RichFeedback,
-                     objectClassifier.feedbackCallback)
-    rospy.Subscriber("reset_classifier", std_msgs.msg.Empty,
-                     objectClassifier.resetCallback)
     rospy.spin()
