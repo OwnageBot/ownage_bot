@@ -31,7 +31,7 @@
 
     <group unless="$(arg simulation)">
       <!-- Object tracker node, unused in simulation mode-->
-      <node pkg="ownage_bot" type="object_tracker.py" name="object_tracker">
+      <node pkg="ownage_bot" type="object_tracker.py" output="screen" name="object_tracker">
       </node>
 
       <!-- Object collector node, unused in manual and simulation modes -->

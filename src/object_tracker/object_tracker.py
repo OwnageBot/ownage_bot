@@ -22,9 +22,9 @@ class ObjectTracker:
 
         # Margins around ARuco tag for color determination
         self.in_offset = (rospy.get_param("in_offset") if
-                        rospy.has_param("in_offset") else 2)
+                          rospy.has_param("in_offset") else 1)
         self.out_offset = (rospy.get_param("out_offset") if
-                        rospy.has_param("out_offset") else 6)
+                           rospy.has_param("out_offset") else 6)
 
         self.avatar_ids = (rospy.get_param("avatar_ids") if
                            rospy.has_param("avatar_ids") else [])
@@ -42,10 +42,13 @@ class ObjectTracker:
         # Computer vision
         self.cv_bridge = CvBridge();
         # List of basic colors
-        self.color_db = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+        self.color_db = [(110, 45, 50), # Red
+                         (40, 70, 60),  # Green
+                         (35, 55, 115)] # Blue
         # List of basic colors in LAB color space
-        self.lab_db = np.asarray(color_db, dtype="uint8")[... , None]
-        self.lab_db = cv.cvtColor(np.swapaxes(self.lab_db, 1, 2), cv.RGB2LAB)
+        self.lab_db = np.asarray(self.color_db, dtype="uint8")[... , None]
+        self.lab_db = cv.cvtColor(np.swapaxes(self.lab_db, 1, 2), cv.COLOR_RGB2LAB)
+        cv.namedWindow("Mask")
 
     def insertObject(self, marker):
         """Insert object into the database using marker information."""
@@ -94,9 +97,6 @@ class ObjectTracker:
                 # Publish that new object was found
                 self.new_obj_pub.publish(m.id)
                 rospy.loginfo("New object %s found!", m.id)
-                print "New object found!"
-                print("Obj color: {}".format(obj.color))
-                print("Color db: {}\n".format(self.color_db))
             elif ((rospy.get_rostime()-self.object_db[m.id].last_update) >
                   rospy.Duration(self.latency)):
                 # Update object if update period has lapsed
@@ -115,20 +115,20 @@ class ObjectTracker:
         # Convert to OpenCV image (stored as Numpy array)
         cv_image = self.cv_bridge.imgmsg_to_cv2(msg, "rgb8")
         
-
         # Draw mask on outer border of ARuco marker
         mask = np.zeros(cv_image.shape[:2], dtype="uint8")
-        contour = np.array([[c.x,c.y] for i in marker.corners], dtype="int32");
+        contour = np.array([[c.x,c.y] for c in marker.corners], dtype="int32");
         cv.drawContours(mask, [contour], -1, 255, 2*self.out_offset)
         cv.drawContours(mask, [contour], -1, 0, 2*self.in_offset)
-        
+        cv.drawContours(mask, [contour], -1, 0, -1)
+
         # Compute mean color in LAB color space
         lab_image = cv.cvtColor(cv_image, cv.COLOR_RGB2LAB)
         mean = cv.mean(lab_image, mask=mask)[:3]
 
         # Find distance to basic colors, return index of closest color
         minDist = np.inf
-        colorId = -1
+        colorId = len(self.color_db)
         for (i, c) in enumerate(self.lab_db):
             dist = sum(np.square(c[0]-mean))
             if dist < minDist:

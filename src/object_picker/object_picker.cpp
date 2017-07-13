@@ -9,7 +9,7 @@ ObjectPicker::ObjectPicker(
     string _name,
     string _limb,
     bool _use_robot ) :
-    ArmCtrl(_name,_limb, _no_robot),
+    ArmCtrl(_name,_limb, _use_robot),
     ARucoClient(_name, _limb),
     elap_time(0)
 {
@@ -48,7 +48,7 @@ ObjectPicker::ObjectPicker(
   string cancel_name = "/"+getName()+"/cancel_"+_limb;
   cancel_srv = nh.advertiseService(cancel_name, &ObjectPicker::cancelCb, this);
 
-  if (!use_robot) return;
+  if (!_use_robot) return;
 
   if (!callAction(ACTION_HOME)) setState(ERROR);
 }
@@ -141,7 +141,7 @@ bool ObjectPicker::pickObject()
   if (!waitForARucoData()) return false;
   last_pick_loc = getMarkerPos();
   if (!pickARTag())               return false;
-  if (!gripObject())              return false;
+  if (!Gripper::close())              return false;
   is_holding = true;
   // Move up from current position to Z_LOW
   geometry_msgs::Point p = getPos();
@@ -163,7 +163,7 @@ bool ObjectPicker::putObject()
   ros::Duration(0.05).sleep();
   if (!goToPose(p.x, p.y, Z_RELEASE, VERTICAL_ORI_L)) return false;
   ros::Duration(1).sleep();
-  releaseObject();
+  Gripper::open();
   is_holding = false;
 
   return true;
@@ -180,7 +180,7 @@ bool ObjectPicker::replaceObject()
   if (!goToPose(last_pick_loc.x, last_pick_loc.y,
                 Z_RELEASE, VERTICAL_ORI_L)) return false;
   ros::Duration(1).sleep();
-  releaseObject();
+  Gripper::open();
   is_holding = false;
 
   return true;
@@ -334,7 +334,7 @@ bool ObjectPicker::releaseAtPose(double px, double py, double pz,
          getWrench().force.z < RELEASE_THRESHOLD)
       {
         ros::Duration(1).sleep();
-        releaseObject();
+        Gripper::open();
         is_holding = false;
         return true;
       }
@@ -419,7 +419,7 @@ bool ObjectPicker::serviceCb(DoAction::Request &req, DoAction::Response &res)
         }
     }
 
-    startInternalThread();
+    startThread();
 
     // This is there for the current thread to avoid overlapping
     // with the internal thread that just started
@@ -462,8 +462,8 @@ bool ObjectPicker::serviceCb(DoAction::Request &req, DoAction::Response &res)
     return true;
 }
 
-bool cancelCb(std_srvs::Trigger::Request  &req,
-              std_srvs::Trigger::Response &res)
+bool ObjectPicker::cancelCb(std_srvs::Trigger::Request  &req,
+                            std_srvs::Trigger::Response &res)
 {
   setState(KILLED);
   res.success = true;
