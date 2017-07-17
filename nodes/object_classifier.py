@@ -75,7 +75,7 @@ class ObjectClassifier:
             for obj in objects:
                 if not obj.is_avatar:
                     self.classifyObject(obj)
-        return ListObjectsResponse(objects)
+        return ListObjectsResponse([o.asMessage() for o in objects])
 
     def handleReset(self, msg):
         """Callback upon receiving reset switch. Clears interaction log."""
