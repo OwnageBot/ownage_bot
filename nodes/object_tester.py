@@ -5,6 +5,7 @@ import std_srvs.srv
 import geometry_msgs.msg
 from ownage_bot.msg import *
 from ownage_bot.srv import *
+from ownage_bot import Objects
 
 import math
 import random as r
@@ -67,7 +68,8 @@ class ObjectTester():
 
     def handleList(self, req):
         """ Returns list of all tracked objects (including avatars)"""
-        return ListObjectsResponse(self.avatars + self.objects)
+        return ListObjectsResponse([o.asMessage for o in
+                                    (self.avatars + self.objects)])
 
     def generateEnvironment(self):
         """Randomly generates simulated environment."""
@@ -100,9 +102,9 @@ class ObjectTester():
             dist = r.uniform(0.4, 0.8)
             angle = r.uniform(i, i+1) * 2 * math.pi / self.n_avatars
             
-            av.pose.pose.position.x = dist * math.cos(angle)
-            av.pose.pose.position.y = dist * math.sin(angle)
-            av.pose.pose.position.z = 0.0
+            av.position.x = dist * math.cos(angle)
+            av.position.y = dist * math.sin(angle)
+            av.position.z = 0.0
 
             self.avatars.append(av)
 
@@ -140,7 +142,7 @@ class ObjectTester():
         """
         oids = range(OBJECT_BASE_ID, OBJECT_BASE_ID + self.n_objs)
         for i, oid in enumerate(oids):
-            obj = RichObject()
+            obj = Objects.Object()
             obj.id = oid
 
             # Distribute objects equally across clusters
@@ -154,14 +156,14 @@ class ObjectTester():
                 r_angle = r.uniform(0, 1) * 2 * math.pi
                 c = self.centers[cluster]
 
-                obj.pose.pose.position.x = c.x + r_offset * math.cos(r_angle)
-                obj.pose.pose.position.y = c.y + r_offset * math.sin(r_angle)
-                obj.pose.pose.position.z = c.z
+                obj.position.x = c.x + r_offset * math.cos(r_angle)
+                obj.position.y = c.y + r_offset * math.sin(r_angle)
+                obj.position.z = c.z
             else:
                 # Uniform distribution if no position or proximity clustering
-                obj.pose.pose.position.x = r.uniform(-1.0, 1.0)
-                obj.pose.pose.position.y = r.uniform(-1.0, 1.0)
-                obj.pose.pose.position.z = r.uniform(-1.0, 1.0)                
+                obj.position.x = r.uniform(-1.0, 1.0)
+                obj.position.y = r.uniform(-1.0, 1.0)
+                obj.position.z = r.uniform(-1.0, 1.0)                
                 
             # Generate object colors
             if 'color' in self.metrics:
@@ -170,18 +172,10 @@ class ObjectTester():
             else:
                 # Choose color uniformly at random
                 obj.color = r.choice(range(len(self.avatars) + 1))
-                
-            # Fill in other object properties
-            def dist(obj1, obj2):
-                p1 = obj1.pose.pose.position
-                p2 = obj2.pose.pose.position
-                return math.sqrt((p1.x-p2.x)*(p1.x-p2.x) +
-                                 (p1.y-p2.y)*(p1.y-p2.y))
-            
+                            
             obj.is_avatar = False
-            obj.proximities = [dist(av, obj) for av in self.avatars]
-            obj.owners = [0]
-            obj.ownership = [1.0]
+            obj.proximities = [Objects.dist(av, obj) for av in self.avatars]
+            obj.ownership[0] = 1.0
 
             self.objects.append(obj)
             self.labels.append(label)
@@ -290,7 +284,7 @@ class ObjectTester():
             if o.is_avatar:
                 continue
             # Prediction is the owner with maximum ownership probability
-            predicted = o.owners[o.ownership.index(max(o.ownership))]
+            predicted = max(o.ownership, key=lambda k:o.ownership[k])
             predictions.append(predicted)
 
         # Assumes that predicted labels are in the same order as true labels
