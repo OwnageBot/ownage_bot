@@ -6,15 +6,7 @@ from geometry_msgs.msg import Point, Quaternion
 
 class Object:
     """Represents objects in the workspace and their properties."""
-    
-    @staticmethod
-    def dist(obj1, obj2):
-        """Calculates Euclidean distance between two objects."""
-        p1 = obj1.position
-        p2 = obj2.position
-        diff = [p1.x-p2.x, p1.y-p2.y, p1.z-p2.z]
-        return math.sqrt(sum([d*d for d in diff]))
-        
+            
     def __init__(self, msg=None):
         if msg is None:
             self.id = -1
@@ -46,3 +38,10 @@ class Object:
         msg.owners = self.ownership.keys()
         msg.ownership = self.ownership.values()
         return msg
+
+def dist(obj1, obj2):
+    """Calculates Euclidean distance between two objects."""
+    p1 = obj1.position
+    p2 = obj2.position
+    diff = [p1.x-p2.x, p1.y-p2.y, p1.z-p2.z]
+    return math.sqrt(sum([d*d for d in diff]))
