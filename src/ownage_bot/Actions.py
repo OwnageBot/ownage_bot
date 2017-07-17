@@ -12,4 +12,8 @@ class Action:
 
 # List of pre-defined actions
 PickUp = Action("pickUp")
-Trash = Action("trash", "pickUp")
+PutDown = Action("putDown")
+Drop = Action("drop")
+Trash = Action("trash", [PickUp, Drop])
+Collect = Action("collect", [PickUp, PutDown])
+Replace = Action("replace", [PutDown])
