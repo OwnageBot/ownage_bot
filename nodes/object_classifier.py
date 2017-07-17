@@ -5,6 +5,7 @@ import std_srvs.srv
 import geometry_msgs.msg
 from ownage_bot.msg import *
 from ownage_bot.srv import *
+from ownage_bot import Objects
 
 import math
 import numpy as np
@@ -94,8 +95,8 @@ class ObjectClassifier:
         Modifies the owners and ownership probabilities in place."""
 
         rospy.logdebug("Received obj {} with owners {}".
-                       format(obj.id,obj.owners))
-
+                       format(obj.id,obj.ownership.iterkeys()))
+        
         gauss = lambda x : math.exp(-0.5 * np.dot(x, x))
         owner_weights = dict()
         
@@ -116,37 +117,29 @@ class ObjectClassifier:
         # If weights are too small, just assume unowned
         sum_owner_weights = sum(owner_weights.values())
         if sum_owner_weights == 0:
-            obj.owners = [0]
-            obj.ownership = [1.0]
+            self.ownership[0] = 1.0
             self.object_db[obj.id] = obj
             return
             
         # Normalize weights to get probabilities
-        owner_probs = {o: w / sum_owner_weights
-                       for o, w in owner_weights.items()}
+        new_probs = {o: w / sum_owner_weights
+                     for o, w in owner_weights.items()}
 
         # Average between old and new ownership
         if obj.id in self.object_db:
-            old_owners = self.object_db[obj.id].owners
-            old_ownership = self.object_db[obj.id].ownership
-
-            old_probs = dict(zip(old_owners, old_ownership))
-
-            for o in owner_probs:
+            old_probs = dict(self.object_db[obj.id].ownership)
+            for o in new_probs:
                 if o in old_probs:
-                    owner_probs[o] = (self.learn_rate * owner_probs[o] +
-                                      (1-self.learn_rate) * old_probs[o])
-
-        obj.owners = owner_probs.keys()
-        obj.ownership = owner_probs.values()
+                    obj.ownership[o] = (self.learn_rate * new_probs[o] +
+                                        (1-self.learn_rate) * old_probs[o])
 
         self.object_db[obj.id] = obj
 
         # Print ownership and other properties for debugging
         rospy.logdebug("Object id: {}".format(obj.id))
         rospy.logdebug("Ownership probabilities")
-        for key in sorted(owner_probs):
-           rospy.logdebug("{}: {}".format(key, owner_probs[key]))
+        for k, v in sorted(obj.ownership.iteritems()):
+           rospy.logdebug("{}: {}".format(k, v))
         rospy.logdebug("Proximities: {}".format(obj.proximities))
         rospy.logdebug("Color: {}".format(obj.color))
 
@@ -155,10 +148,7 @@ class ObjectClassifier:
         
         col_dist = 1.0 if o1.color != o2.color else 0.0
 
-        pos = lambda o : o.pose.pose.position
-        pos_dist = [pos(o1).x - pos(o2).x,
-                    pos(o1).y - pos(o2).y,
-                    pos(o1).z - pos(o2).z]
+        pos_dist = Objects.dist(o1, o2)
         
         prox_dist = [p1 - p2 for p1, p2 in
                      zip(o1.proximities, o2.proximities)]
