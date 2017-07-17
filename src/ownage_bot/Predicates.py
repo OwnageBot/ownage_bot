@@ -35,11 +35,11 @@ class Predicate:
 Red = Predicate("red", [Objects.Object])
 Red.impl = lambda obj : (obj.color == 0)
 
-Blue = Predicate("blue", [Objects.Object])
-Blue.impl = lambda obj : (obj.color == 1)
-
 Green = Predicate("green", [Objects.Object])
-Green.impl = lambda obj : (obj.color == 2)
+Green.impl = lambda obj : (obj.color == 1)
+
+Blue = Predicate("blue", [Objects.Object])
+Blue.impl = lambda obj : (obj.color == 2)
 
 Near = Predicate("near", [Objects.Object, Objects.Object])
 Near.impl = lambda obj1, obj2: Objects.dist(obj1, obj2) < 0.4
