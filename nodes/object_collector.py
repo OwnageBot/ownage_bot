@@ -134,7 +134,7 @@ class ObjectCollector:
 
     def inHomeArea(self, obj):
         """Checks if object is in home area."""
-        loc = obj.pose.pose.position
+        loc = obj.position
         return ((self.home_area[0].x <= loc.x <= self.home_area[1].x) and
                 (self.home_area[0].y <= loc.y <= self.home_area[1].y))
 
