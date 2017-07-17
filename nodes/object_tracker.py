@@ -7,7 +7,7 @@ from std_msgs.msg import UInt32
 from aruco_msgs.msg import MarkerArray
 from geometry_msgs.msg import Pose
 from ownage_bot.srv import *
-from ownage_bot.msg import *
+from ownage_bot import Objects
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from collections import deque, OrderedDict
@@ -40,7 +40,7 @@ class ObjectTracker:
                                          self.listObjects)
         # Subscribers and clients
         self.marker_sub = rospy.Subscriber("/aruco_marker_publisher/markers",
-                                           MarkerArray, self.ARucoCallback)
+                                           MarkerArray, self.ARucoCb)
 
         # Computer vision
         self.cv_bridge = CvBridge();
@@ -56,12 +56,11 @@ class ObjectTracker:
     def insertObject(self, marker):
         """Insert object into the database using marker information."""
         # Initialize fields that should be modified only once
-        obj = RichObject()
+        obj = Objects.Object()
         obj.id = marker.id
         obj.is_avatar = (marker.id in self.avatar_ids)
         obj.is_landmark = (marker.id in self.landmark_ids)
-        obj.owners = [0] # Default to unowned
-        obj.ownership = [1.0] # With probability 1
+        obj.ownership[0] = 1.0 # Default to unowned with probability 1
         self.object_db[marker.id] = obj
         # Initialize fields which are dynamically changing
         self.updateObject(marker)
@@ -72,13 +71,14 @@ class ObjectTracker:
         # Assumes that marker.id is already in the database
         obj = self.object_db[marker.id]
         obj.last_update = rospy.get_rostime()
-        obj.pose = marker.pose
+        obj.position = marker.pose.pose.position
+        obj.orientation = marke.pose.pose.orientation
         # Proxmities are -1 if avatar cannot be found
         obj.proximities = [-1] * len(self.avatar_ids)
         for (i, k) in enumerate(self.avatar_ids):
             if k in self.object_db:
                 avatar = self.object_db[k]
-                obj.proximities[i] = self.computeProximity(obj, avatar)
+                obj.proximities[i] = Objects.dist(obj, avatar)
         # if marker.id in [2, 12, 19]:
         #     obj.color = 0
         # elif marker.id in [4, 5, 9, 10]:
@@ -91,7 +91,7 @@ class ObjectTracker:
         obj.color = self.determineColor(image_msg, marker)
         return obj
 
-    def ARucoCallback(self, msg):
+    def ARucoCb(self, msg):
         """Callback upon receiving list of markers from ARuco."""
         for m in msg.markers:
             # Check if object is already in database
@@ -104,12 +104,6 @@ class ObjectTracker:
                   rospy.Duration(self.latency)):
                 # Update object if update period has lapsed
                 self.updateObject(m)
-
-    def computeProximity(self, obj1, obj2):
-        """Computes 2D Euclidean distance between two objects."""
-        p1 = obj1.pose.pose.position
-        p2 = obj2.pose.pose.position
-        return math.sqrt((p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y))
 
     def determineColor(self, msg, marker):
         """Determines color of the currently tracked object."""
@@ -143,14 +137,17 @@ class ObjectTracker:
     def locateObject(self, req):
         """ Service callback: returns position of particular object"""
         if req.id in self.object_db:
-            p = self.object_db[req.id].pose.pose
+            p = Pose()
+            p.position = self.object_db[req.id].position
+            p.orientation = self.object_db[req.id].orientation
             return LocateObjectResponse(True, p)
         else:
-            return LocateObjectResponse(False, geometry_msgs.msg.Pose())
+            return LocateObjectResponse(False, Pose())
 
     def listObjects(self, req):
         """ Service callback: returns list of tracked objects"""
-        return ListObjectsResponse(self.object_db.values())
+        return ListObjectsResponse([obj.asMessage() for
+                                    obj in self.object_db.values()])
 
 if __name__ == '__main__':
     rospy.init_node('object_tracker')
