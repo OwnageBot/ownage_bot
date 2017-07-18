@@ -1,26 +1,26 @@
 # OwnageBot
 A robot that learns the rules of ownership based on interaction with objects and agents in its environment.
 
-README adapted from the [Baxter Collaboration repository](https://github.com/ScazLab/baxter_collaboration).
+README adapted from the [Human Robot Collaboration repository](https://github.com/ScazLab/human_robot_collaboration).
 
 ## Prerequisites
 
 * `aruco_ros`: for recognition and tracking of QR codes
-* `baxter_collaboration_lib`: for high-level arm control
+* `human_robot_collaboration_lib`: for high-level arm control
 
 ## Compilation
 
-We follow [`baxter_collaboration`](https://github.com/ScazLab/baxter_collaboration) in using `catkin_tools`.
+We follow [`human_robot_collaboration`](https://github.com/ScazLab/human_robot_collaboration) in using `catkin_tools`.
 
 ### Full compile
 
-1. Make sure you're on the correct branch/version of both `baxter_collaboration_lib` and `aruco_ros`
-2. Compile `baxter_collaboration_lib` and `aruco_ros` if necessary
+1. Make sure you're on the correct branch/version of both `human_robot_collaboration_lib` and `aruco_ros`
+2. Compile `human_robot_collaboration_lib` and `aruco_ros` if necessary
 3. Compile `ownage_bot`: `catkin build ownage_bot`
 
 ### Simulation-only compile
 
-If you have a ROS installation but don't have `baxter_collaboration` or `aruco_ros`, you can still compile and run the learning algorithm in
+If you have a ROS installation but don't have `human_robot_collaboration` or `aruco_ros`, you can still compile and run the learning algorithm in
 simulated mode.
 
 1. Set the `OWNAGE_BOT_SIMULATION` variable: `export OWNAGE_BOT_SIMULATION=1`
@@ -81,7 +81,7 @@ For simulated training and testing of [`object_classifier`](https://github.com/O
 OwnageBot is comprised by five different modules, each of which runs as a ROS node to provide a certain functionality:
 
 * [`object_tracker`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_tracker) - tracks all ARuco QR-tagged objects in the workspace, determining their absolute position (relative to Baxter's base frame), color, and proximity to avatars.
-* [`object_picker`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_picker) - provides high-level arm control as ROS services by inheriting the ArmCtrl interface in [`baxter_collaboration_lib`](https://github.com/ScazLab/baxter_collaboration/tree/master/baxter_collaboration_lib).
+* [`object_picker`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_picker) - provides high-level arm control as ROS services by inheriting the ArmCtrl interface in [`human_robot_collaboration_lib`](https://github.com/ScazLab/human_robot_collaboration/tree/master/human_robot_collaboration_lib).
 * [`object_collector`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_collector) - contains the main autonomous loop, repeatedly calling services provided by `object_picker` in order to scan the workspace and collect any unowned objects (where ownership is determined by `object_classifier`).
 * [`object_classifier`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_classifier) - receives labelled example data from `object_collector` whenever an object thought to be unowned is claimed by another agent, which is then used to train the classifier.
 * [`object_tester`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_tester) - generates virtual objects, avatars and examples, in order to train and test the learning algorithm in `object_classifier`.
@@ -121,7 +121,7 @@ When using `ownage_bot.launch`, these topic and service names are contained with
   * Client(s): `object_collector`, `object_tester` (in simulation)
   * Returns, without input, a list of all currently tracked objects classified according to ownership. More precisely, each object is returned together with a list of possible owners and corresponding ownership probabilities.
 * `/action_provider/service_left` (service, *not in `ownage_bot` namespace*)
-  * Type: [`DoAction`](https://github.com/ScazLab/baxter_collaboration/blob/master/baxter_collaboration_msgs/srv/DoAction.srv)
+  * Type: [`DoAction`](https://github.com/ScazLab/human_robot_collaboration/blob/master/human_robot_collaboration_msgs/srv/DoAction.srv)
   * Server(s): `object_picker`
   * Client(s): `object_collector`
   * Used to perform various high-level actions using Baxter's left arm. Takes the action name and a list of objects as input, returns whether the action was successful along with a response string (e.g. an error message). See above for a list of supported actions.

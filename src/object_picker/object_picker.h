@@ -2,7 +2,7 @@
 #define __OBJECT_PICKER_H__
 
 /**
- * Modified from CubePicker.h in baxter_collaboration
+ * Modified from CubePicker.h in human_robot_collaboration
  * Uses Baxter's left arm to pick up and put down objects via suction.
  * Inherits from ArmCtrl and ARucoClient, so look there for more method declarations.
  */
@@ -180,8 +180,8 @@ public:
      * - Only requires objects to be specified for the 'get' action
      * - Sends ACT_CANCELLED instead if the action is stopped by the human
      */
-    bool serviceCb(baxter_collaboration_msgs::DoAction::Request  &req,
-                   baxter_collaboration_msgs::DoAction::Response &res);
+    bool serviceCb(human_robot_collaboration_msgs::DoAction::Request  &req,
+                   human_robot_collaboration_msgs::DoAction::Response &res);
 
     /**
      * Callback function for cancel service

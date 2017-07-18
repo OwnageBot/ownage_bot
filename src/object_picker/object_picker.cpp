@@ -2,7 +2,7 @@
 
 using namespace std;
 using namespace baxter_core_msgs;
-using namespace baxter_collaboration_msgs;
+using namespace human_robot_collaboration_msgs;
 using namespace ownage_bot;
 
 ObjectPicker::ObjectPicker(

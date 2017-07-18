@@ -18,7 +18,7 @@ else()
     rospy
     message_generation
     aruco_ros
-    baxter_collaboration_lib
+    human_robot_collaboration_lib
     geometry_msgs
     std_msgs
   )
@@ -126,8 +126,8 @@ else()
   catkin_package(
   #  INCLUDE_DIRS include
   #  LIBRARIES ownage_bot
-  #  CATKIN_DEPENDS aruco aruco_msgs aruco_ros baxter_collaboration_lib  geometry_msgs rospy std_msgs
-    CATKIN_DEPENDS message_runtime baxter_collaboration_lib 
+  #  CATKIN_DEPENDS aruco aruco_msgs aruco_ros human_robot_collaboration_lib  geometry_msgs rospy std_msgs
+    CATKIN_DEPENDS message_runtime human_robot_collaboration_lib
   #  DEPENDS system_lib
   )
 endif()

@@ -3,7 +3,7 @@
   <arg name="manual" default="false"/>
 
   <env name="ROSCONSOLE_CONFIG_FILE" unless="$(arg simulation)"
-       value="$(find baxter_collaboration)/rosconsole.conf"/>
+       value="$(find human_robot_collaboration)/rosconsole.conf"/>
 
   <param name="simulation" type="bool" value="$(arg simulation)"/>
   <param name="manual" type="bool" value="$(arg manual)"/>
