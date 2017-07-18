@@ -38,9 +38,9 @@ class ObjectClassifier:
         self.classify_srv = rospy.Service("classify_objects", ListObjects,
                                           self.handleClassify)
         self.reset_srv = rospy.Service("reset_classifier", std_srvs.srv.Empty,
-                                       self.resetCallback)
+                                       self.handleReset)
         self.feedback_sub = rospy.Subscriber("feedback", FeedbackMsg,
-                                             self.feedbackCallback)
+                                             self.feedbackCb)
                          
     def handleClassify(self, req):
         """Classifies and returns a list of objects."""
@@ -77,14 +77,14 @@ class ObjectClassifier:
                     self.classifyObject(obj)
         return ListObjectsResponse([o.asMessage() for o in objects])
 
-    def handleReset(self, msg):
-        """Callback upon receiving reset switch. Clears interaction log."""
+    def handleReset(self, req):
+        """Handles reset service request. Clears interaction log."""
         self.object_db = []
         self.interaction_log = []
         self.nb_dist = []
         return std_srs.srv.EmptyResponse()
     
-    def feedbackCallback(self, msg):
+    def feedbackCb(self, msg):
         """Callback upon receiving feedback from ObjectCollector."""
         self.insertNewDist(msg)
         self.interaction_log.append(msg)
