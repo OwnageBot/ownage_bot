@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 import rospy
 from std_msgs.msg import UInt32
-from human_robot_collaboration_msgs.srv import DoAction
-from human_robot_collaboration_msgs.srv import DoActionResponse
+from human_robot_collaboration_msgs.srv import DoAction, DoActionResponse
 from ownage_bot.msg import *
 from ownage_bot.srv import *
 from geometry_msgs.msg import Point
