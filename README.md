@@ -96,7 +96,7 @@ When using `ownage_bot.launch`, these topic and service names are contained with
   * Subscriber(s): `object_picker`
   * Whenever `object-tracker` sees an ID that it has never seen before, it publishes to this topic.
 * `feedback` (topic)
-  * Type: [`RichFeedback`](https://github.com/OwnageBot/ownage_bot/blob/master/msg/RichFeedback.msg)
+  * Type: [`FeedbackMsg`](https://github.com/OwnageBot/ownage_bot/blob/master/msg/FeedbackMsg.msg)
   * Publisher(s): `object_collector`, `object_tester` (in simulation)
   * Subscriber(s): `object_classifier`
   * Whenever Baxter successfully claims an object for itself, or is stopped and told the owner of the object, `object_collector` sends feedback to `object_classifier` as training data, using this topic. The three pieces of information contained in the feedback data structure are the *time of interaction*, *owner label* (avatar id of owner, 0 if unowned), and the *object data* itself.

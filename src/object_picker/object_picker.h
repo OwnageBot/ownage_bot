@@ -14,7 +14,7 @@
 #include "robot_interface/arm_ctrl.h"
 #include "robot_perception/aruco_client.h"
 #include "ownage_bot/LocateObject.h"
-#include "ownage_bot/RichObject.h"
+#include "ownage_bot/ObjectMsg.h"
 
 // The names of the actions provided
 #define ACTION_SCAN "scan"

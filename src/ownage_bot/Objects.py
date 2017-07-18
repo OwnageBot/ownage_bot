@@ -3,7 +3,7 @@ import copy
 import rospy
 import numpy as np
 import matplotlib.path as mptPath
-from ownage_bot.msg import RichObject
+from ownage_bot.msg import ObjectMsg
 from geometry_msgs.msg import Point, Quaternion
 
 class Object:
@@ -32,7 +32,7 @@ class Object:
             
     def asMessage(self):
         """Converts object to a ROS message."""
-        msg = RichObject()
+        msg = ObjectMsg()
         uncopyable = ["ownership"] 
         for k, v in self.__dict__.items():
             if k in uncopyable:

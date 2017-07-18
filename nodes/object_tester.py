@@ -61,7 +61,7 @@ class ObjectTester():
 
         # Create publishers and servers
         self.feedback_pub = rospy.Publisher("feedback",
-                                            RichFeedback,
+                                            FeedbackMsg,
                                             queue_size=10)
         self.lst_obj_srv = rospy.Service("list_objects", ListObjects,
                                          self.handleList)
@@ -95,7 +95,7 @@ class ObjectTester():
         meters from the home location, each within its own angular sector.
         """
         for i in range(self.n_avatars):
-            av = RichObject()
+            av = ObjectMsg()
             av.id = AVATAR_BASE_ID + i
             av.is_avatar = True
 
@@ -186,7 +186,7 @@ class ObjectTester():
         self.classify() # Ensure classifier knows the avatars
         for obj, label in r.sample(zip(self.objects, self.labels),
                                    self.n_examples):
-            fb = RichFeedback()
+            fb = FeedbackMsg()
             fb.object = obj
             fb.label = label
             rospy.loginfo("Chose object {} with owner {} as example".
@@ -232,7 +232,7 @@ class ObjectTester():
                 n_tries = i+1
                 
             # Simulated feedback
-            fb = RichFeedback()
+            fb = FeedbackMsg()
             fb.object = obj
             fb.label = label
             rospy.loginfo("Chose object {} with owner {} as example".

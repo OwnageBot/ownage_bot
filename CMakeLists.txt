@@ -63,9 +63,8 @@ add_compile_options(-std=c++11)
 ## Generate messages in the 'msg' folder
 add_message_files(
   FILES
-  RichObject.msg
-  RichObjectArray.msg
-  RichFeedback.msg
+  ObjectMsg.msg
+  FeedbackMsg.msg
 )
 
 ## Generate services in the 'srv' folder

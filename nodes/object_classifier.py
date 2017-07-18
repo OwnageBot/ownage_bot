@@ -39,7 +39,7 @@ class ObjectClassifier:
                                           self.handleClassify)
         self.reset_srv = rospy.Service("reset_classifier", std_srvs.srv.Empty,
                                        self.resetCallback)
-        self.feedback_sub = rospy.Subscriber("feedback", RichFeedback,
+        self.feedback_sub = rospy.Subscriber("feedback", FeedbackMsg,
                                              self.feedbackCallback)
                          
     def handleClassify(self, req):

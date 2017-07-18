@@ -25,7 +25,7 @@ class TaskManager:
             "/action_provider/service_left", DoAction)
         self.classifyProxy = rospy.ServiceProxy(
             "classify_objects", ListObjects)
-        self.feedback_pub = rospy.Publisher("feedback", RichFeedback,
+        self.feedback_pub = rospy.Publisher("feedback", FeedbackMsg,
                                              queue_size = 10)
 
     # Python wrappers for the actions defined in object_picker.h
@@ -105,7 +105,7 @@ class TaskManager:
 
     def feedback(self, obj, label):
         """Gives label feedback to classifier."""
-        msg = RichFeedback()
+        msg = FeedbackMsg()
         msg.stamp = rospy.Time.now()
         msg.label = label
         msg.object = obj
