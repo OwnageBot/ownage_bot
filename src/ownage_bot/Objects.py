@@ -14,7 +14,7 @@ class Object:
             self.id = -1
             self.last_update = rospy.get_rostime()
             self.position = Point()
-            self.orientation = Quarternion()
+            self.orientation = Quaternion()
             self.proximities = [] # List of distances to avatars
             self.color = -1 # Red=0, Green=1, Blue=2
             self.ownership = dict() # Dictionary of ownership probabilities

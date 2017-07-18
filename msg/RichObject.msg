@@ -6,7 +6,7 @@ time last_update
 # Absolute position of the object
 geometry_msgs/Point position
 # Absolute orientation of the object
-geometry_msgs/Quarternion orientation
+geometry_msgs/Quaternion orientation
 # Relative distances to avatars
 float32[] proximities
 # Color category (0=R, 1=G, 2=B)
