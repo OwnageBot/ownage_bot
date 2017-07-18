@@ -3,6 +3,7 @@
 using namespace std;
 using namespace geometry_msgs;
 using namespace baxter_core_msgs;
+using namespace ownage_bot;
 
 BaxterArmCtrl::BaxterArmCtrl(string _name, string _limb, bool _use_robot, bool _use_forces, bool _use_trac_ik, bool _use_cart_ctrl) :
                  RobotInterface(_name,_limb, _use_robot, THREAD_FREQ, _use_forces, _use_trac_ik, _use_cart_ctrl),
@@ -14,16 +15,8 @@ BaxterArmCtrl::BaxterArmCtrl(string _name, string _limb, bool _use_robot, bool _
     service = nh.advertiseService(topic, &BaxterArmCtrl::serviceCb, this);
     ROS_INFO("[%s] Created service server with name  : %s", getLimb().c_str(), topic.c_str());
 
-    topic = "/"+getName()+"/service_"+_limb+"_to_"+other_limb;
-    service_other_limb = nh.advertiseService(topic, &BaxterArmCtrl::serviceOtherLimbCb, this);
-    ROS_INFO("[%s] Created service server with name  : %s", getLimb().c_str(), topic.c_str());
-
-    insertAction(ACTION_HOME,    &BaxterArmCtrl::goHome);
-    insertAction(ACTION_RELEASE, &BaxterArmCtrl::openImpl);
-
-    nh.param<bool>("internal_recovery",  internal_recovery, true);
-    ROS_INFO("[%s] Internal_recovery flag set to %s", getLimb().c_str(),
-                                internal_recovery==true?"true":"false");
+    insertAction(ACTION_HOME, &BaxterArmCtrl::goHome, "none");
+    insertAction(ACTION_RELEASE, &BaxterArmCtrl::openImpl, "none");
 }
 
 bool BaxterArmCtrl::startThread()
@@ -42,6 +35,8 @@ bool BaxterArmCtrl::startThread()
 void BaxterArmCtrl::InternalThreadEntry()
 {
     nh.param<bool>("internal_recovery",  internal_recovery, true);
+    ROS_INFO("[%s] Internal_recovery flag set to %s", getLimb().c_str(),
+                                internal_recovery==true?"true":"false");
 
     std::string a =     getAction();
     int         s = int(getState());
@@ -57,11 +52,10 @@ void BaxterArmCtrl::InternalThreadEntry()
     {
         if (callAction(a))   setState(DONE);
     }
-    else if (s == START || s == ERROR ||
-             s == DONE  || s == KILLED )
+    else if (s == START || s == ERROR || s == DONE  || s == KILLED )
     {
-        if (doAction(s, a))   setState(DONE);
-        else                  setState(ERROR);
+        if (callAction(a))   setState(DONE);
+        else                 setState(ERROR);
     }
     else
     {
@@ -82,84 +76,42 @@ void BaxterArmCtrl::InternalThreadEntry()
     return;
 }
 
-bool BaxterArmCtrl::serviceOtherLimbCb(human_robot_collaboration_msgs::AskFeedback::Request  &req,
-                                 human_robot_collaboration_msgs::AskFeedback::Response &res)
-{
-    res.success = false;
-    res.reply   = "not implemented";
-    return true;
-}
-
-bool BaxterArmCtrl::serviceCb(human_robot_collaboration_msgs::DoAction::Request  &req,
-                        human_robot_collaboration_msgs::DoAction::Response &res)
+bool BaxterArmCtrl::serviceCb(CallAction::Request  &req, CallAction::Response &res)
 {
     // Let's read the requested action and object to act upon
     setSubState("");
-    object_ids.clear();
-    setObjectID(-1);
-
+  
     string action = req.action;
-    std::vector<int> object_ids;
-    std::string objs_str = "";
 
-    for (size_t i = 0; i < req.objects.size(); ++i)
-    {
-        object_ids.push_back(req.objects[i]);
-        objs_str += toString(req.objects[i]) + ", ";
-    }
-    objs_str = objs_str.substr(0, objs_str.size()-2); // Remove the last ", "
-
-    ROS_INFO("[%s] Service request received. Action: %s Objects: %s", getLimb().c_str(),
-                                                      action.c_str(), objs_str.c_str());
+    ROS_INFO("[%s] Service request received. Action: %s", getLimb().c_str(), action.c_str());
 
     // Print the action or object DB if requested by the user
-    if      (action == LIST_ACTIONS)
+    if (action == LIST_ACTIONS)
     {
         printActionDB();
-        res.success  = true;
+        res.success = true;
         res.response = actionDBToString();
         return true;
     }
-    else if (action == LIST_OBJECTS)
+
+    if (!isActionInDB(action)) // The action is in the db
     {
-        printObjectDB();
-        res.success  = true;
-        res.response = objectDBToString();
+        ROS_ERROR("[%s] Action %s is not in the database!", getLimb().c_str(), action.c_str());
+        res.success = false;
+        res.response = ACT_NOT_IN_DB;
         return true;
     }
-
-    res.success = false;
-
+  
     setAction(action);
+    string target = action_db[action].target;
 
-    if (action != ACTION_HOME && action != ACTION_RELEASE && action != ACTION_HOLD &&
-        action != std::string(ACTION_HOLD) +   "_leg" && action != std::string(ACTION_HOLD) + "_top" &&
-        action != "start_" + std::string(ACTION_HOLD) && action != "end_" + std::string(ACTION_HOLD))
+    if (target == "object")
     {
-        setObjectIDs(areObjectsInDB(object_ids));
-
-        if      (object_ids.size() == 0)
-        {
-            res.response = OBJ_NOT_IN_DB;
-            ROS_ERROR("[%s] Requested object(s) are not in the database! Action %s",
-                                                 getLimb().c_str(), action.c_str());
-            return true;
-        }
-        else if (object_ids.size() == 1)
-        {
-            setObjectID(object_ids[0]);
-            // ROS_INFO("I will perform action %s on object with ID %i",
-            //                           action.c_str(), getObjectID());
-        }
-        else if (object_ids.size() >  1)
-        {
-            setObjectID(chooseObjectID(object_ids));
-        }
+        setTargetObject(req.object);
     }
-    else if (action == ACTION_HOLD || action == std::string(ACTION_HOLD) + "_leg" ||
-                                      action == std::string(ACTION_HOLD) + "_top"   )
+    else if (target == "location")
     {
-        setObjectIDs(object_ids);
+        setTargetLocation(req.location)
     }
 
     startThread();
@@ -182,7 +134,7 @@ bool BaxterArmCtrl::serviceCb(human_robot_collaboration_msgs::DoAction::Request 
         if (getState() == KILLED)
         {
             res.response = ACT_FAILED;
-            recoverFromError();
+            break;
         }
 
         r.sleep();
@@ -200,8 +152,16 @@ bool BaxterArmCtrl::serviceCb(human_robot_collaboration_msgs::DoAction::Request 
     }
 
     ROS_INFO("[%s] Service reply with success: %s\n", getLimb().c_str(),
-                                            res.success?"true":"false");
+              res.success?"true":"false");
     return true;
+}
+
+bool BaxterArmCtrl::cancelCb(std_srvs::Trigger::Request  &req,
+                             std_srvs::Trigger::Response &res)
+{
+  setState(KILLED);
+  res.success = true;
+  return true;  
 }
 
 bool BaxterArmCtrl::notImplemented()
@@ -210,112 +170,8 @@ bool BaxterArmCtrl::notImplemented()
     return false;
 }
 
-bool BaxterArmCtrl::insertObject(int id, const std::string &n)
-{
-    if (isObjectInDB(id))
-    {
-        ROS_WARN("[%s][object_db] Overwriting existing object %i with name %s",
-                 getLimb().c_str(), id, n.c_str());
-    }
-
-    object_db.insert( std::make_pair( id, n ));
-    return true;
-}
-
-bool BaxterArmCtrl::insertObjects(XmlRpc::XmlRpcValue _params)
-{
-    ROS_ASSERT(_params.getType()==XmlRpc::XmlRpcValue::TypeStruct);
-
-    bool res = true;
-
-    for (XmlRpc::XmlRpcValue::iterator i=_params.begin(); i!=_params.end(); ++i)
-    {
-        ROS_ASSERT(i->second.getType()==XmlRpc::XmlRpcValue::TypeInt);
-        res = res & insertObject(static_cast<int>(i->second), i->first.c_str());
-    }
-
-    return res;
-}
-
-bool BaxterArmCtrl::removeObject(int id)
-{
-    if (isObjectInDB(id))
-    {
-        object_db.erase(id);
-        return true;
-    }
-
-    return false;
-}
-
-string BaxterArmCtrl::getObjectNameFromDB(int id)
-{
-    if (isObjectInDB(id))
-    {
-        return object_db[id];
-    }
-
-    return "";
-}
-
-int BaxterArmCtrl::getObjectIDFromDB(string _name)
-{
-    for( map<int, string>::const_iterator it = object_db.begin(); it != object_db.end(); ++it )
-    {
-        if (_name == it->second) return it->first;
-    }
-    return -1;
-}
-
-bool BaxterArmCtrl::isObjectInDB(int id)
-{
-    if (object_db.find(id) != object_db.end()) return true;
-
-    // if (!insertAction)
-    // {
-    //     ROS_ERROR("[%s][object_db] Object %i is not in the database!",
-    //               getLimb().c_str(), id);
-    // }
-    return false;
-}
-
-std::vector<int> BaxterArmCtrl::areObjectsInDB(const std::vector<int> &_objs)
-{
-    std::vector<int> res;
-
-    for (size_t i = 0; i < _objs.size(); ++i)
-    {
-        if (isObjectInDB(_objs[i]))
-        {
-            res.push_back(_objs[i]);
-        }
-    }
-
-    ROS_DEBUG("[%s] Found %lu objects in DB.", getLimb().c_str(), res.size());
-
-    return res;
-}
-
-void BaxterArmCtrl::printObjectDB()
-{
-    ROS_INFO("[%s] Available objects in the database : %s",
-              getLimb().c_str(), objectDBToString().c_str());
-}
-
-string BaxterArmCtrl::objectDBToString()
-{
-    string res = "";
-    map<int, string>::iterator it;
-
-    for ( it = object_db.begin(); it != object_db.end(); ++it )
-    {
-        res = res + "[" + toString(it->first) + "] " + it->second + ", ";
-    }
-    res = res.substr(0, res.size()-2); // Remove the last ", "
-    return res;
-}
-
-bool BaxterArmCtrl::insertAction(const std::string &a, BaxterArmCtrl::f_action f)
+bool BaxterArmCtrl::insertAction(const std::string &name, BaxterArmCtrl::f_action f,
+                                 const std::string &target)
 {
     if (a == LIST_ACTIONS)
     {
@@ -324,13 +180,17 @@ bool BaxterArmCtrl::insertAction(const std::string &a, BaxterArmCtrl::f_action f
         return false;
     }
 
-    if (isActionInDB(a, true)) // The action is in the db
+    if (isActionInDB(a)) // The action is in the db
     {
         ROS_WARN("[%s][action_db] Overwriting existing action with key %s",
                  getLimb().c_str(), a.c_str());
     }
 
-    action_db.insert( std::make_pair( a, f ));
+    s_action row;
+    row.call = f;
+    row.target = target;
+  
+    action_db.insert( std::make_pair( a, row ));
     return true;
 }
 
@@ -349,39 +209,21 @@ bool BaxterArmCtrl::callAction(const std::string &a)
 {
     if (isActionInDB(a)) // The action is in the db
     {
-        f_action act = action_db[a];
+        f_action act = action_db[a].call;
         return (this->*act)();
-    }
-
-    return false;
-}
-
-bool BaxterArmCtrl::doAction(int s, std::string a)
-{
-    if (isActionInDB(a))
-    {
-        if (callAction(a))         return true;
-        else                recoverFromError();
     }
     else
     {
         setSubState(ACT_NOT_IN_DB);
-        ROS_ERROR("[%s] Action %s in state %i is not in the database!",
-                                      getLimb().c_str(), a.c_str(), s);
+        ROS_ERROR("[%s] Action %s is not in the database!", getLimb().c_str(), a.c_str());
     }
 
     return false;
 }
 
-bool BaxterArmCtrl::isActionInDB(const std::string &a, bool insertAction)
+bool BaxterArmCtrl::isActionInDB(const std::string &a)
 {
     if (action_db.find(a) != action_db.end()) return true;
-
-    if (!insertAction)
-    {
-        ROS_ERROR("[%s][action_db] Action %s is not in the database!",
-                  getLimb().c_str(), a.c_str());
-    }
     return false;
 }
 
@@ -394,7 +236,7 @@ void BaxterArmCtrl::printActionDB()
 string BaxterArmCtrl::actionDBToString()
 {
     string res = "";
-    map<string, f_action>::iterator it;
+    map<string, s_action>::iterator it;
 
     for ( it = action_db.begin(); it != action_db.end(); ++it )
     {
@@ -552,50 +394,15 @@ void BaxterArmCtrl::setHomeConf(double s0, double s1, double e0, double e1,
     return;
 }
 
-void BaxterArmCtrl::setHomeConfiguration(std::string _loc)
-{
-    if      (getLimb() == "left")
-    {
-        if      (_loc == "pool")
-        {
-            setHomeConf(0.7060, -1.2717, 0.3846,  1.5405,
-                                -0.1273, 1.3135,  0.3206);
-        }
-        else if (_loc == "table")
-        {
-            setHomeConf(0.1967, -0.8702, -1.0531,  1.5578,
-                                 0.6516,  1.2464, -0.1787);
-        }
-    }
-    else if (getLimb() == "right")
-    {
-        if      (_loc == "pool")
-        {
-            setHomeConf(-1.6801, -1.0500, 1.1693, 1.9762,
-                                 -0.5722, 1.0205, 0.5430);
-        }
-        else if (_loc == "table")
-        {
-            setHomeConf( 0.0717, -1.0009, 1.1083, 1.5520,
-                                 -0.5235, 1.3468, 0.4464);
-        }
-    }
-    return;
-}
-
 bool BaxterArmCtrl::goHome()
 {
-    bool res = homePoseStrict();
-    open();
-    return res;
+    return homePoseStrict();
 }
 
 void BaxterArmCtrl::recoverFromError()
 {
-    if (internal_recovery == true)
-    {
-        goHome();
-    }
+    Gripper::open();
+    goHome();
 }
 
 bool BaxterArmCtrl::setState(int _state)
@@ -612,7 +419,7 @@ bool BaxterArmCtrl::setState(int _state)
     {
         setSubState(getAction());
     }
-    else if (_state == ERROR && (getSubState() == "" || getSubState() == CHECK_OBJ_IDS))
+    else if (_state == ERROR && getSubState() == "")
     {
         setSubState(ACT_FAILED);
     }
