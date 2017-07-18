@@ -19,57 +19,46 @@
 #include <thread>
 #include <mutex>
 
+#include <std_srvs/Trigger.h>
+#include <geometry_msgs/Point.h>
+
 #include "robot_interface/robot_interface.h"
 #include "robot_interface/gripper.h"
+
+#include "ownage_bot/ObjectMsg.h"
+#include "ownage_bot/CallAction.h"
 
 class BaxterArmCtrl : public RobotInterface, public Gripper
 {
 private:
     // Substate of the controller (useful to keep track of
-    // long actions that need multiple internal states, or
-    // to store the error state of the controller in case of
-    // unsuccessful actions
-    std::string       sub_state;
+    // long actions that need multiple internal states)
+    std::string sub_state;
 
     // High level action the controller is engaged in
-    std::string          action;
-
+    std::string action;
     // Previous high level action (for complex actions)
-    std::string     prev_action;
+    std::string prev_action;
 
-    // Vector of object ids the client is requesting the controller to act upon.
-    // Among them, the controller will select those available in the DB, those
-    // visible in the field of view and if there still is multiple choice,
-    // it will randomly pick one of them
-    std::vector<int> object_ids;
-
-    // Selected Object ID the controller is acting upon (if the action is done with
-    // respect to an object), among the list of requested objects
-    int           sel_object_id;
+    // Target object for action
+    ownage_bot::ObjectMsg tgt_object;
+    // Target location for action
+    geometry_msg::Point tgt_location;
 
     // Flag to know if the robot will try to recover from an error
     // or will wait the external planner to take care of that
-    bool      internal_recovery;
+    bool internal_recovery;
 
     // Service to request actions to
     ros::ServiceServer  service;
-
-    // Internal service used for multi-arm actions
-    ros::ServiceServer service_other_limb;
 
     // Home configuration. Setting it in any of the children
     // of this class is mandatory (through the virtual method
     // called setHomeConfiguration() )
     std::vector<double> home_conf;
 
-    /**
-     * Object database, which pairs an integer key, corresponding to the marker ID
-     * placed on the object and read by ARuco, with a string that describes the object
-     * itself in human terms.
-     */
-    std::map<int, std::string> object_db;
-
-    std::thread arm_thread; // internal thread functionality
+    // Internal thread functionality
+    std::thread arm_thread;
 
     /**
      * Provides basic functionalities for the object, such as a goHome and open.
@@ -94,6 +83,16 @@ protected:
     typedef bool(ArmCtrl::*f_action)();
 
     /**
+     * Structure that stores action prototype and other metadata
+     */
+    struct s_action {
+        // Action protype function
+        f_action call;
+        // Target type, "none", "object" or "location"
+        std::string target;
+    };
+
+    /**
      * Action database, which pairs a string key, corresponding to the action name,
      * with its relative action, which is an f_action.
      *
@@ -105,7 +104,7 @@ protected:
      * avoid accessing a non-existing key (so this does not happen any more, but it
      * is still worth knowing).
      */
-    std::map <std::string, f_action> action_db;
+    std::map <std::string, s_action> action_db;
 
     /**
      * Recovers from errors during execution. It provides a basic interface,
@@ -119,7 +118,7 @@ protected:
      * @return        true/false if success/failure
      */
     bool hoverAboveTable(double height, std::string mode="loose",
-                                    bool disable_coll_av = false);
+                         bool disable_coll_av = false);
 
     /**
      * Home position with a specific joint configuration. This has
@@ -153,13 +152,6 @@ protected:
     virtual void setHomeConfiguration() { return; };
 
     /**
-     * Sets the high-level configuration for the home position
-     *
-     * @param _loc the home position (either "pool" or "table")
-     */
-    void setHomeConfiguration(std::string _loc);
-
-    /**
      * Goes to the home position, and "releases" the gripper
      *
      * @return        true/false if success/failure
@@ -176,7 +168,7 @@ protected:
      * @return true/false if success/failure
      */
     bool moveArm(std::string dir, double dist, std::string mode = "loose",
-                                             bool disable_coll_av = false);
+                 bool disable_coll_av = false);
 
     /*
      * Moves arm to the requested pose , and checks if the pose has been achieved.
@@ -199,104 +191,15 @@ protected:
     bool notImplemented();
 
     /**
-     * Adds an object to the object database
-     * @param  id the id of the object as read by ARuco
-     * @param  n  its name as a string
-     * @return    true/false if the insertion was successful or not
-     */
-    bool insertObject(int id, const std::string &n);
-
-    /**
-     * Adds an array of objects from an XmlRpcValue read from the parameter server.
-     * It is encoded as an entire namespace of parameters using a YAML dictionary.
-     * This is a valid parameter to set in your launch file:
-     *
-     * <rosparam param = "action_provider/objects_left">
-     *   "left leg":      17
-     *   "top":           21
-     *   "central frame": 24
-     *   "right leg":     26
-     * </rosparam>
-     *
-     * @param  _param the XmlRpcValue read from the parameter server.
-     * @return        true/false if the insertion was successful or not
-     */
-    bool insertObjects(XmlRpc::XmlRpcValue _params);
-
-    /**
-     * Removes an object from the database. If the object is not in the
-     * database, the return value will be false.
-     *
-     * @param   id the object to be removed
-     * @return     true/false if the removal was successful or not
-     */
-    bool removeObject(int id);
-
-    /**
-     * Gets an object's name from the object database
-     *
-     * @param    id the requested object's ID
-     * @return      the associated string
-     *              (empty string if object is not there)
-     */
-    std::string getObjectNameFromDB(int id);
-
-    /**
-     * Gets an object's ID from the object database
-     *
-     * @param   _name the requested object's name
-     * @return      the associated id
-     *              (-1 if object is not there)
-     */
-    int getObjectIDFromDB(std::string _name);
-
-    /**
-     * Checks if an object is available in the database
-     *
-     * @param  id the object to check for
-     * @return    true/false if the object is available in the database
-     */
-    bool isObjectInDB(int id);
-
-    /**
-     * Checks if a set of objects is available in the database
-     *
-     * @param _objs The list of IDs of objects to choose from
-     * @return      The list of IDs of objects that are available
-     *              in the objectDB among those requested.
-     */
-    std::vector<int> areObjectsInDB(const std::vector<int> &_objs);
-
-    /**
-     * Chooses the object to act upon according to some rule. This method
-     * needs to be specialized in any derived class because it is dependent
-     * on the type of action and the type of sensory capabilities available.
-     *
-     * @param _objs The list of IDs of objects to choose from
-     * @return      the ID of the chosen object (by default the ID of the
-     *              first object will be chosen)
-     */
-    virtual int chooseObjectID(std::vector<int> _objs) { return _objs[0]; };
-
-    /**
-     * Prints the object database to screen.
-     */
-    void printObjectDB();
-
-    /**
-     * Converts the action database to a string.
-     * @return the list of allowed actions, separated by a comma.
-     */
-    std::string objectDBToString();
-
-    /**
      * Adds an action to the action database
      *
-     * @param   a the action to be removed
+     * @param   name the action to be inserted
      * @param   f a pointer to the action, in the form bool action()
+     * @param   target "none", "object" or "location", the target type of the action
      * @return    true/false if the insertion was successful or not
      */
-    bool insertAction(const std::string &a, ArmCtrl::f_action f);
+    bool insertAction(const std::string &name, BaxterArmCtrl::f_action f,
+                      const std::string &target);
 
     /**
      * Removes an action from the database. If the action is not in the
@@ -316,28 +219,11 @@ protected:
     bool callAction(const std::string &a);
 
     /**
-     * This function wraps the arm-specific and task-specific actions.
-     * For this reason, it has been implemented as virtual because it depends on
-     * the child class.
-     *
-     * @param  s the state of the system BEFORE starting the action (when this
-     *           method is called the state has been already updated to WORKING,
-     *           so there is no way for the controller to recover it a part from
-     *           this)
-     * @param  a the action to do
-     * @return   true/false if success/failure
-     */
-    virtual bool doAction(int s, std::string a);
-
-    /**
      * Checks if an action is available in the database
      * @param             a the action to check for
-     * @param  insertAction flag to know if the method has been called
-     *                      inside insertAction (it only removes the
-     *                      ROS_ERROR if the action is not in the DB)
      * @return   true/false if the action is available in the database
      */
-    bool isActionInDB(const std::string &a, bool insertAction=false);
+    bool isActionInDB(const std::string &a);
 
     /**
      * Prints the action database to screen.
@@ -394,21 +280,18 @@ public:
      * @param  res the action response (res.success either true or false)
      * @return     true always :)
      */
-    bool serviceCb(human_robot_collaboration_msgs::DoAction::Request  &req,
-                   human_robot_collaboration_msgs::DoAction::Response &res);
+    bool serviceCb(ownage_bot::CallAction::Request  &req,
+                   ownage_bot::CallAction::Response &res);
 
     /**
-     * Callback for the service that lets the two limbs interact
-     * @param  req the action request
-     * @param  res the action response (res.success either true or false)
-     * @return     true always :)
+     * Callback function for cancel service
      */
-    virtual bool serviceOtherLimbCb(human_robot_collaboration_msgs::AskFeedback::Request  &req,
-                                    human_robot_collaboration_msgs::AskFeedback::Response &res);
+    bool cancelCb(std_srvs::Trigger::Request  &req,
+                  std_srvs::Trigger::Response &res);
 
     /* Self-explaining "setters" */
-    virtual void setObjectID(int _obj)                { sel_object_id =  _obj; };
-    virtual void setObjectIDs(std::vector<int> _objs) { object_ids    = _objs; };
+    void setTargetObject(ownage_bot::ObjectMsg& _obj) { tgt_object =  _obj; };
+    void setTargetLocation(geometry_msgs::Point& _p) { tgt_location =  _p; };
 
     /**
      * Sets the action
@@ -429,8 +312,10 @@ public:
     std::string       getSubState() { return         sub_state; };
     std::string         getAction() { return            action; };
     std::string     getPrevAction() { return       prev_action; };
-    int               getObjectID() { return     sel_object_id; };
-    std::vector<int> getObjectIDs() { return        object_ids; };
+    
+    ownage_bot::ObjectMsg getTargetObject() { return tgt_object; };
+    geometry_msgs::Point getTargetLocation() { return tgt_location; };
+    
     bool      getInternalRecovery() { return internal_recovery; };
 };
 
