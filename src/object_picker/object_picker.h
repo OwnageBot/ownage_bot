@@ -4,7 +4,7 @@
 /**
  * Modified from CubePicker.h in human_robot_collaboration
  * Uses Baxter's left arm to pick up and put down objects via suction.
- * Inherits from ArmCtrl and ARucoClient, so look there for more method declarations.
+ * Inherits from BaxterArmCtrl and ARucoClient, so look there for more method declarations.
  */
 
 #include <string>
@@ -14,7 +14,7 @@
 #include "robot_perception/aruco_client.h"
 #include "ownage_bot/LocateObject.h"
 #include "ownage_bot/ObjectMsg.h"
-#include "arm_ctrl.h"
+#include "baxter_arm_ctrl.h"
 
 // The names of the actions provided
 #define ACTION_SCAN "scan"
@@ -39,7 +39,7 @@
 // Force threshold for releasing object
 #define RELEASE_THRESHOLD (-15)
 
-class ObjectPicker : public ArmCtrl, public ARucoClient
+class ObjectPicker : public BaxterArmCtrl, public ARucoClient
 {
 private:
     double elap_time;
