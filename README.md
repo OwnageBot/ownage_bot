@@ -1,8 +1,5 @@
 # OwnageBot
 A robot that learns the rules of ownership based on interaction with objects and agents in its environment.
-
-README adapted from the [Human Robot Collaboration repository](https://github.com/ScazLab/human_robot_collaboration).
-
 ## Prerequisites
 
 * `aruco_ros`: for recognition and tracking of QR codes
@@ -80,11 +77,11 @@ For simulated training and testing of [`object_classifier`](https://github.com/O
 
 OwnageBot is comprised by five different modules, each of which runs as a ROS node to provide a certain functionality:
 
-* [`object_tracker`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_tracker) - tracks all ARuco QR-tagged objects in the workspace, determining their absolute position (relative to Baxter's base frame), color, and proximity to avatars.
-* [`object_picker`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_picker) - provides high-level arm control as ROS services by inheriting the ArmCtrl interface in [`human_robot_collaboration_lib`](https://github.com/ScazLab/human_robot_collaboration/tree/master/human_robot_collaboration_lib).
-* [`object_collector`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_collector) - contains the main autonomous loop, repeatedly calling services provided by `object_picker` in order to scan the workspace and collect any unowned objects (where ownership is determined by `object_classifier`).
-* [`object_classifier`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_classifier) - receives labelled example data from `object_collector` whenever an object thought to be unowned is claimed by another agent, which is then used to train the classifier.
-* [`object_tester`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_tester) - generates virtual objects, avatars and examples, in order to train and test the learning algorithm in `object_classifier`.
+* [`object_tracker`](https://github.com/OwnageBot/ownage_bot/tree/master/nodes/object_tracker.py) - tracks all ARuco QR-tagged objects in the workspace, determining their absolute position (relative to Baxter's base frame), color, and proximity to avatars.
+* [`object_collector`](https://github.com/OwnageBot/ownage_bot/tree/master/nodes/object_collector.py) - contains the main autonomous loop, repeatedly calling services provided by `object_picker` in order to scan the workspace and collect any unowned objects (where ownership is determined by `object_classifier`).
+* [`object_classifier`](https://github.com/OwnageBot/ownage_bot/tree/master/nodes/object_classifier.py) - receives labelled example data from `object_collector` whenever an object thought to be unowned is claimed by another agent, which is then used to train the classifier.
+* [`object_tester`](https://github.com/OwnageBot/ownage_bot/tree/master/nodes/object_tester.py) - generates virtual objects, avatars and examples, in order to train and test the learning algorithm in `object_classifier`.
+* [`action_provider`](https://github.com/OwnageBot/ownage_bot/tree/master/src/action_provider) - provides high-level arm control as ROS services by inheriting the ArmCtrl interface in [`human_robot_collaboration_lib`](https://github.com/ScazLab/human_robot_collaboration/tree/master/human_robot_collaboration_lib).
 
 ### Topics & Services
 
@@ -93,8 +90,8 @@ When using `ownage_bot.launch`, these topic and service names are contained with
 * `new_object` (topic)
   * Type: `uint32` (unsigned int)
   * Publisher(s): `object_tracker`
-  * Subscriber(s): `object_picker`
-  * Whenever `object-tracker` sees an ID that it has never seen before, it publishes to this topic.
+  * Subscriber(s): `action_provider`
+  * Whenever `object_tracker` sees an ID that it has never seen before, it publishes to this topic.
 * `feedback` (topic)
   * Type: [`FeedbackMsg`](https://github.com/OwnageBot/ownage_bot/blob/master/msg/FeedbackMsg.msg)
   * Publisher(s): `object_collector`, `object_tester` (in simulation)
@@ -108,8 +105,8 @@ When using `ownage_bot.launch`, these topic and service names are contained with
 * `locate_object` (service)
   * Type: [`LocateObject`](https://github.com/OwnageBot/ownage_bot/blob/master/srv/LocateObject.srv)
   * Server(s): `object_tracker`
-  * Client(s): `object_picker`
-  * Used when `object_picker` is performing the `find` action to locate an object that is currently out of the camera view.
+  * Client(s): `action_provider`
+  * Used when `action_provider` is performing the `find` action to locate an object that is currently out of the camera view.
 * `list_objects` (service)
   * Type: [`ListObjects`](https://github.com/OwnageBot/ownage_bot/blob/master/srv/ListObjects.srv)
   * Server(s): `object_tracker`, `object_tester` (in simulation)
@@ -120,8 +117,8 @@ When using `ownage_bot.launch`, these topic and service names are contained with
   * Server(s): `object_classifier`
   * Client(s): `object_collector`, `object_tester` (in simulation)
   * Returns, without input, a list of all currently tracked objects classified according to ownership. More precisely, each object is returned together with a list of possible owners and corresponding ownership probabilities.
-* `/action_provider/service_left` (service, *not in `ownage_bot` namespace*)
-  * Type: [`DoAction`](https://github.com/ScazLab/human_robot_collaboration/blob/master/human_robot_collaboration_msgs/srv/DoAction.srv)
-  * Server(s): `object_picker`
+* `/action_provider/service_left` (service)
+  * Type: [`CallAction`](https://github.com/OwnageBot/ownage_bot/blob/master/srv/CallAction.srv)
+  * Server(s): `action_provider`
   * Client(s): `object_collector`
   * Used to perform various high-level actions using Baxter's left arm. Takes the action name and a list of objects as input, returns whether the action was successful along with a response string (e.g. an error message). See above for a list of supported actions.
