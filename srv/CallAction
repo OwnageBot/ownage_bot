@@ -1,0 +1,18 @@
+# Action to request to the controller. It is application-dependent,
+# but some defaults are available.
+
+string action
+
+# Target object
+ownage_bot/ObjectMsg object
+
+# Target location
+geometry_msgs/Point location
+
+---
+
+# True false if action was successful or not
+bool   success
+
+# Additional error information
+string response
