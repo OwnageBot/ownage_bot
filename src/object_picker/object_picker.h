@@ -24,8 +24,7 @@
 #define ACTION_REPLACE "replace"
 #define ACTION_WAIT "wait"
 
-// Additional error messages that the service can report
-#define ACT_CANCELLED "Action cancelled by user"
+// Additional error messages
 #define OBJECT_HELD "An object is already being held"
 #define NO_OBJECT_HELD "No object is currently being held"
 
@@ -65,16 +64,7 @@ private:
     // Client for LocateObject service
     ros::ServiceClient loc_obj_client;
 
-    // Service for cancelling current action
-    ros::ServiceServer cancel_srv;
-
 protected:
-
-    /**
-     * Adds new objects to the object database when notified by the object
-     * tracker node.
-     */
-    void newObjectCb(const std_msgs::UInt32 msg);
 
     /**
      * Picks up object with ARuco tag, where the id is first set
@@ -174,25 +164,6 @@ public:
      * Destructor
      */
     ~ObjectPicker();
-
-    /**
-     * Callback function for service. Two main changes from ArmCtrl:
-     * - Only requires objects to be specified for the 'get' action
-     * - Sends ACT_CANCELLED instead if the action is stopped by the human
-     */
-    bool serviceCb(human_robot_collaboration_msgs::DoAction::Request  &req,
-                   human_robot_collaboration_msgs::DoAction::Response &res);
-
-    /**
-     * Callback function for cancel service
-     */
-    bool cancelCb(std_srvs::Trigger::Request  &req,
-                  std_srvs::Trigger::Response &res);
-
-    /**
-     * Sets current object ID to be picked up and manipulated
-     */
-    void setObjectID(int _obj);
 };
 
 #endif

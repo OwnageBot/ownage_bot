@@ -28,6 +28,11 @@
 #include "ownage_bot/ObjectMsg.h"
 #include "ownage_bot/CallAction.h"
 
+#define VERTICAL_ORI        0.0,  1.0,  0.0,  0.0
+
+// Additional error messages that the service can report
+#define ACT_CANCELLED "Action cancelled by user"
+
 class BaxterArmCtrl : public RobotInterface, public Gripper
 {
 private:
@@ -43,7 +48,7 @@ private:
     // Target object for action
     ownage_bot::ObjectMsg tgt_object;
     // Target location for action
-    geometry_msg::Point tgt_location;
+    geometry_msgs::Point tgt_location;
 
     // Flag to know if the robot will try to recover from an error
     // or will wait the external planner to take care of that
@@ -79,6 +84,9 @@ protected:
     /**
      * Pointer to the action prototype function, which does not take any
      * input argument and returns true/false if success/failure
+     * If successful, the state will be set to DONE, else the state will be set
+     * to ERROR. Actions should return further error information by setting the
+     * substate before returning.
      */
     typedef bool(ArmCtrl::*f_action)();
 
@@ -113,7 +121,7 @@ protected:
     virtual void recoverFromError();
 
     /**
-     * Hovers above table at a specific x-y position.
+     * Hovers above table at current x-y position.
      * @param  height the z-axis value of the end-effector position
      * @return        true/false if success/failure
      */

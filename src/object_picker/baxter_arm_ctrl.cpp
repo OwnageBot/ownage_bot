@@ -5,15 +5,23 @@ using namespace geometry_msgs;
 using namespace baxter_core_msgs;
 using namespace ownage_bot;
 
-BaxterArmCtrl::BaxterArmCtrl(string _name, string _limb, bool _use_robot, bool _use_forces, bool _use_trac_ik, bool _use_cart_ctrl) :
-                 RobotInterface(_name,_limb, _use_robot, THREAD_FREQ, _use_forces, _use_trac_ik, _use_cart_ctrl),
-                 Gripper(_limb, _use_robot), sub_state(""), action(""), prev_action(""), sel_object_id(-1)
+BaxterArmCtrl::BaxterArmCtrl(string _name, string _limb,
+                             bool _use_robot, bool _use_forces,
+                             bool _use_trac_ik, bool _use_cart_ctrl) :
+                RobotInterface(_name,_limb, _use_robot, THREAD_FREQ,
+                               _use_forces, _use_trac_ik, _use_cart_ctrl),
+                Gripper(_limb, _use_robot),
+                sub_state(""), action(""), prev_action(""),
+                internal_recovery(false), sel_object(ObjectMsg())
 {
     std::string other_limb = getLimb() == "right" ? "left" : "right";
 
     std::string topic = "/"+getName()+"/service_"+_limb;
     service = nh.advertiseService(topic, &BaxterArmCtrl::serviceCb, this);
-    ROS_INFO("[%s] Created service server with name  : %s", getLimb().c_str(), topic.c_str());
+    ROS_INFO("[%s] Created service server with name  : %s", 
+             getLimb().c_str(), topic.c_str());
+    string cancel = "/"+getName()+"/cancel_"+_limb;
+    cancel_srv = nh.advertiseService(cancel, &BaxterArmCtrl::cancelCb, this);
 
     insertAction(ACTION_HOME, &BaxterArmCtrl::goHome, "none");
     insertAction(ACTION_RELEASE, &BaxterArmCtrl::openImpl, "none");
@@ -23,9 +31,10 @@ bool BaxterArmCtrl::startThread()
 {
     // This allows to call multiple threads within the same thread object.
     // As written in http://en.cppreference.com/w/cpp/thread/thread/joinable :
-    //      A thread that has finished executing code, but has not yet been joined is still considered
-    //      an active thread of execution and is therefore joinable.
-    // So, we need to join the thread in order to spun out a new one anyways.
+    //   A thread that has finished executing code, but has not yet been joined 
+    //   is still considered an active thread of execution and is therefore
+    //   joinable.
+    // So, we need to join the thread in order to spin out a new one.
     if (arm_thread.joinable())    { arm_thread.join(); };
 
     arm_thread = std::thread(&BaxterArmCtrl::InternalThreadEntry, this);
@@ -59,7 +68,8 @@ void BaxterArmCtrl::InternalThreadEntry()
     }
     else
     {
-        ROS_ERROR("[%s] Invalid Action %s in state %i", getLimb().c_str(), a.c_str(), s);
+        ROS_ERROR("[%s] Invalid Action %s in state %i",
+                  getLimb().c_str(), a.c_str(), s);
     }
 
     if (int(getState())==WORKING)
@@ -69,21 +79,29 @@ void BaxterArmCtrl::InternalThreadEntry()
 
     if (int(getState())==ERROR)
     {
-        ROS_ERROR("[%s] Action %s not successful! State %s %s", getLimb().c_str(), a.c_str(),
-                                          string(getState()).c_str(), getSubState().c_str());
+        ROS_ERROR("[%s] Action %s not successful! State %s %s",
+                  getLimb().c_str(), a.c_str(), string(getState()).c_str(),
+                  getSubState().c_str());
+        
+        if (internal_recovery)
+        {
+            recoverFromError();
+        }
     }
 
     return;
 }
 
-bool BaxterArmCtrl::serviceCb(CallAction::Request  &req, CallAction::Response &res)
+bool BaxterArmCtrl::serviceCb(CallAction::Request &req,
+                              CallAction::Response &res)
 {
     // Let's read the requested action and object to act upon
     setSubState("");
   
     string action = req.action;
 
-    ROS_INFO("[%s] Service request received. Action: %s", getLimb().c_str(), action.c_str());
+    ROS_INFO("[%s] Service request received. Action: %s",
+             getLimb().c_str(), action.c_str());
 
     // Print the action or object DB if requested by the user
     if (action == LIST_ACTIONS)
@@ -114,6 +132,8 @@ bool BaxterArmCtrl::serviceCb(CallAction::Request  &req, CallAction::Response &r
         setTargetLocation(req.location)
     }
 
+    res.success = false;
+
     startThread();
 
     // This is there for the current thread to avoid overlapping
@@ -133,15 +153,14 @@ bool BaxterArmCtrl::serviceCb(CallAction::Request  &req, CallAction::Response &r
 
         if (getState() == KILLED)
         {
-            res.response = ACT_FAILED;
+            res.response = ACT_CANCELLED;
             break;
         }
 
         r.sleep();
     }
 
-    if ( int(getState()) == START   ||
-         int(getState()) == DONE      )
+    if (int(getState()) == START || int(getState()) == DONE)
     {
         res.success = true;
     }
@@ -170,13 +189,14 @@ bool BaxterArmCtrl::notImplemented()
     return false;
 }
 
-bool BaxterArmCtrl::insertAction(const std::string &name, BaxterArmCtrl::f_action f,
+bool BaxterArmCtrl::insertAction(const std::string &name,
+                                 BaxterArmCtrl::f_action f,
                                  const std::string &target)
 {
     if (a == LIST_ACTIONS)
     {
-        ROS_ERROR("[%s][action_db] Attempted to insert protected action key: %s",
-                 getLimb().c_str(), a.c_str());
+        ROS_ERROR("[%s][action_db] Attempted to insert protected action: %s",
+                  getLimb().c_str(), a.c_str());
         return false;
     }
 
@@ -215,7 +235,8 @@ bool BaxterArmCtrl::callAction(const std::string &a)
     else
     {
         setSubState(ACT_NOT_IN_DB);
-        ROS_ERROR("[%s] Action %s is not in the database!", getLimb().c_str(), a.c_str());
+        ROS_ERROR("[%s] Action %s is not in the database!",
+                  getLimb().c_str(), a.c_str());
     }
 
     return false;
@@ -246,28 +267,34 @@ string BaxterArmCtrl::actionDBToString()
     return res;
 }
 
-bool BaxterArmCtrl::moveArm(string dir, double dist, string mode, bool disable_coll_av)
+bool BaxterArmCtrl::moveArm(string dir, double dist, string mode,
+                            bool disable_coll_av)
 {
     Point p_s = getPos();
-    Point p_c = getPos();
-    Point p_f = getPos();
+    Point p_c;
+    Point p_f;
+    Point diff = Point();
 
     Quaternion o_f = getOri();
 
-    if      (dir == "backward") p_f.x -= dist;
-    else if (dir == "forward")  p_f.x += dist;
-    else if (dir == "right")    p_f.y -= dist;
-    else if (dir == "left")     p_f.y += dist;
-    else if (dir == "down")     p_f.z -= dist;
-    else if (dir == "up")       p_f.z += dist;
+
+    if      (dir == "backward") diff.x -= 1;
+    else if (dir == "forward")  diff.x += 1;
+    else if (dir == "right")    diff.y -= 1;
+    else if (dir == "left")     diff.y += 1;
+    else if (dir == "down")     diff.z -= 1;
+    else if (dir == "up")       diff.z += 1;
     else                         return false;
+
+    p_f = p_s + dist * diff;
 
     ros::Time t_start = ros::Time::now();
 
     bool finish = false;
 
     ros::Rate r(100);
-    while(RobotInterface::ok() && !isPositionReached(p_f, mode) && not isClosing())
+    while(RobotInterface::ok() && !isPositionReached(p_f, mode) &&
+          not isClosing())
     {
         if (disable_coll_av)    suppressCollisionAv();
 
@@ -276,48 +303,8 @@ bool BaxterArmCtrl::moveArm(string dir, double dist, string mode, bool disable_c
 
         if (!finish)
         {
-            if (dir == "backward" || dir == "forward")
-            {
-                int sgn = dir=="backward"?-1:+1;
-                p_c.x = p_c.x + sgn * ARM_SPEED * t_elap;
-
-                if (dir == "backward")
-                {
-                    if (p_c.x < p_f.x) finish = true;
-                }
-                else if (dir == "forward")
-                {
-                    if (p_c.x > p_f.x) finish = true;
-                }
-            }
-            if (dir == "right" || dir == "left")
-            {
-                int sgn = dir=="right"?-1:+1;
-                p_c.y = p_c.y + sgn * ARM_SPEED * t_elap;
-
-                if (dir == "right")
-                {
-                    if (p_c.y < p_f.y) finish = true;
-                }
-                else if (dir == "left")
-                {
-                    if (p_c.y > p_f.y) finish = true;
-                }
-            }
-            if (dir == "down" || dir == "up")
-            {
-                int sgn = dir=="down"?-1:+1;
-                p_c.z = p_c.z + sgn * ARM_SPEED * t_elap;
-
-                if (dir == "down")
-                {
-                    if (p_c.z < p_f.z) finish = true;
-                }
-                else if (dir == "up")
-                {
-                    if (p_c.z > p_f.z) finish = true;
-                }
-            }
+            p_c = p_c + ARM_SPEED * t_elap * diff;
+            if (dot(p_c - p_f, diff) >= 0) finish = true;
         }
         else
         {
@@ -347,19 +334,11 @@ bool BaxterArmCtrl::goToPose(double px, double py, double pz,
     return res;
 }
 
-bool BaxterArmCtrl::hoverAboveTable(double height, string mode, bool disable_coll_av)
+bool BaxterArmCtrl::hoverAboveTable(double height, string mode,
+                                    bool disable_coll_av)
 {
-    if (getLimb() == "right")
-    {
-        return goToPose(HOME_POS_R, height, VERTICAL_ORI_R,
-                                    mode, disable_coll_av);
-    }
-    else if (getLimb() == "left")
-    {
-        return goToPose(HOME_POS_L, height, VERTICAL_ORI_L,
-                                    mode, disable_coll_av);
-    }
-    else return false;
+    Point p = getPos();
+    return goToPose(p.x, p.y, height, VERTICAL_ORI, mode, disable_coll_av);
 }
 
 bool BaxterArmCtrl::homePoseStrict(bool disable_coll_av)
@@ -367,7 +346,8 @@ bool BaxterArmCtrl::homePoseStrict(bool disable_coll_av)
     ROS_INFO("[%s] Going to home position strict..", getLimb().c_str());
 
     ros::Rate r(100);
-    while(RobotInterface::ok() && !isConfigurationReached(home_conf) && not isClosing())
+    while(RobotInterface::ok() && !isConfigurationReached(home_conf) &&
+          not isClosing())
     {
         if (disable_coll_av)    suppressCollisionAv();
 
@@ -411,7 +391,8 @@ bool BaxterArmCtrl::setState(int _state)
 
     if (_state == KILLED && getState() != WORKING)
     {
-        ROS_WARN_THROTTLE(2, "[%s] Attempted to kill a non-working controller", getLimb().c_str());
+        ROS_WARN_THROTTLE(2, "[%s] Attempted to kill a non-working controller",
+                          getLimb().c_str());
         return false;
     }
 
