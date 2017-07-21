@@ -70,6 +70,7 @@ add_message_files(
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
+  CallAction.srv
   ListObjects.srv
   LocateObject.srv
 )
@@ -157,16 +158,18 @@ include_directories(
 ## Declare a C++ executable
 # add_executable(ownage_bot_node src/ownage_bot_node.cpp)
 if (NOT DEFINED ENV{OWNAGE_BOT_SIMULATION})
-  add_executable(object_picker    src/object_picker/object_picker.h
-                                  src/object_picker/object_picker.cpp
-                                  src/object_picker/action_provider.cpp)
+  add_executable(action_provider  src/action_provider/action_provider.cpp
+                                  src/action_provider/aruco_ctrl.cpp
+                                  src/action_provider/aruco_ctrl.h
+                                  src/action_provider/baxter_arm_ctrl.cpp
+                                  src/action_provider/baxter_arm_ctrl.h)
 endif()
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(ownage_bot_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-#add_dependencies(object_picker    ${${PROJECT_NAME}_EXPORTED_TARGETS}
+#add_dependencies(action_provider    ${${PROJECT_NAME}_EXPORTED_TARGETS}
 #                                          ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
@@ -174,7 +177,7 @@ endif()
 #   ${catkin_LIBRARIES}
 # )
 if (NOT DEFINED ENV{OWNAGE_BOT_SIMULATION})
-  target_link_libraries(object_picker     ${catkin_LIBRARIES} )
+  target_link_libraries(action_provider     ${catkin_LIBRARIES} )
 endif()
 
 #############

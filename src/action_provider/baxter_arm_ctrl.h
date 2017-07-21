@@ -26,12 +26,36 @@
 #include "robot_interface/gripper.h"
 
 #include "ownage_bot/ObjectMsg.h"
+#include "ownage_bot/LocateObject.h"
 #include "ownage_bot/CallAction.h"
 
+// Quartenion for vertical orientation
 #define VERTICAL_ORI        0.0,  1.0,  0.0,  0.0
 
-// Additional error messages that the service can report
+// Actions provided that are not defined in robot_utils/util.h
+#define ACTION_SCAN "scan"
+#define ACTION_FIND "find"
+#define ACTION_PUT "put"
+#define ACTION_OFFER "offer"
+#define ACTION_REPLACE "replace"
+#define ACTION_WAIT "wait"
+
+// Action target types
+#define TARGET_NONE "none"
+#define TARGET_OBJECT "object"
+#define TARGET_LOCATION "location"
+
+// Additional error messages
 #define ACT_CANCELLED "Action cancelled by user"
+#define OBJECT_HELD "An object is already being held"
+#define NO_OBJECT_HELD "No object is currently being held"
+
+// Height at which objects are released when put down
+#define Z_RELEASE (-0.1)
+#define Z_FIND (0.07)
+
+// Force threshold for releasing object
+#define RELEASE_THRESHOLD (-15)
 
 class BaxterArmCtrl : public RobotInterface, public Gripper
 {
@@ -56,11 +80,22 @@ private:
 
     // Service to request actions to
     ros::ServiceServer  service;
+    // Service to cancel actions
+    ros::ServiceServer  cancel_srv;
+    // Client for LocateObject service
+    ros::ServiceClient loc_obj_client;
 
     // Home configuration. Setting it in any of the children
     // of this class is mandatory (through the virtual method
     // called setHomeConfiguration() )
     std::vector<double> home_conf;
+    // Endpoint positions for corners of physical workspace
+    // Should also be set in setWorkspaceConfiguration.
+    std::vector< std::vector<double> > workspace_conf;
+    // Location of last picked object
+    geometry_msgs::Point last_pick_loc;
+    // Endpoint position for home location
+    geometry_msgs::Point home_loc;
 
     // Internal thread functionality
     std::thread arm_thread;
@@ -70,14 +105,6 @@ private:
      * For deeper, class-specific specialization, please modify doAction() instead.
      */
     void InternalThreadEntry();
-
-    /**
-     * Wrapper for Gripper:open() so that it can fit the action_db specifications
-     * in terms of function signature.
-     *
-     * @return true/false if success/failure
-     */
-    bool openImpl() { return open(); }
 
 protected:
 
@@ -113,90 +140,6 @@ protected:
      * is still worth knowing).
      */
     std::map <std::string, s_action> action_db;
-
-    /**
-     * Recovers from errors during execution. It provides a basic interface,
-     * but it is advised to specialize this function in the ArmCtrl's children.
-     */
-    virtual void recoverFromError();
-
-    /**
-     * Hovers above table at current x-y position.
-     * @param  height the z-axis value of the end-effector position
-     * @return        true/false if success/failure
-     */
-    bool hoverAboveTable(double height, std::string mode="loose",
-                         bool disable_coll_av = false);
-
-    /**
-     * Home position with a specific joint configuration. This has
-     * been introduced in order to force the arms to go to the home configuration
-     * in always the same exact way, in order to clean the seed configuration in
-     * case of subsequent inverse kinematics requests.
-     *
-     * @param  disable_coll_av if to disable the collision avoidance while
-     *                         performing the action or not
-     * @return                 true/false if success/failure
-     */
-    bool homePoseStrict(bool disable_coll_av = false);
-
-    /**
-     * Sets the joint-level configuration for the home position
-     *
-     * @param s0 First  shoulder joint
-     * @param s1 Second shoulder joint
-     * @param e0 First  elbow    joint
-     * @param e1 Second elbow    joint
-     * @param w0 First  wrist    joint
-     * @param w1 Second wrist    joint
-     * @param w2 Third  wrist    joint
-     */
-    void setHomeConf(double s0, double s1, double e0, double e1,
-                                double w0, double w1, double w2);
-
-    /**
-     * Sets the joint-level configuration for the home position
-     */
-    virtual void setHomeConfiguration() { return; };
-
-    /**
-     * Goes to the home position, and "releases" the gripper
-     *
-     * @return        true/false if success/failure
-     */
-    bool goHome();
-
-    /**
-     * Moves arm in a direction requested by the user, relative to the current
-     * end-effector position
-     *
-     * @param dir  the direction of motion (left right up down forward backward)
-     * @param dist the distance from the end-effector starting point
-     *
-     * @return true/false if success/failure
-     */
-    bool moveArm(std::string dir, double dist, std::string mode = "loose",
-                 bool disable_coll_av = false);
-
-    /*
-     * Moves arm to the requested pose , and checks if the pose has been achieved.
-     * Specializes the RobotInterface::gotoPose method by setting the sub_state to
-     * INV_KIN_FAILED if the method returns false.
-     *
-     * @param  requested pose (3D position + 4D quaternion for the orientation)
-     * @param  mode (either loose or strict, it checks for the final desired position)
-     * @return true/false if success/failure
-     */
-    bool goToPose(double px, double py, double pz,
-                  double ox, double oy, double oz, double ow,
-                  std::string mode="loose", bool disable_coll_av = false);
-
-    /**
-     * Placeholder for an action that has not been implemented (yet)
-     *
-     * @return false always
-     */
-    bool notImplemented();
 
     /**
      * Adds an action to the action database
@@ -245,6 +188,173 @@ protected:
     std::string actionDBToString();
 
     /**
+     * Sets the joint-level configuration for the home position
+     *
+     * @param s0 First  shoulder joint
+     * @param s1 Second shoulder joint
+     * @param e0 First  elbow    joint
+     * @param e1 Second elbow    joint
+     * @param w0 First  wrist    joint
+     * @param w1 Second wrist    joint
+     * @param w2 Third  wrist    joint
+     */
+    void setHomeConf(double s0, double s1, double e0, double e1,
+                                double w0, double w1, double w2);
+
+    /**
+     * Sets the joint-level configuration for the home position
+     */
+    virtual void setHomeConfiguration() { return; };
+
+    /**
+     * Sets the corner positions of the workspace
+     */
+    virtual void setWorkspaceConfiguration() { return; };
+
+    /**
+     * Recovers from errors during execution. It provides a basic interface,
+     * but it is advised to specialize this function in the ArmCtrl's children.
+     */
+    virtual void recoverFromError();
+
+    /* CONTROL HELPER FUNCTIONS */
+
+    /**
+     * Hovers above table at current x-y position.
+     * @param  height the z-axis value of the end-effector position
+     * @return        true/false if success/failure
+     */
+    bool hoverAboveTable(double height, std::string mode="loose",
+                         bool disable_coll_av = false);
+
+    /**
+     * Home position with a specific joint configuration. This has
+     * been introduced in order to force the arms to go to the home configuration
+     * in always the same exact way, in order to clean the seed configuration in
+     * case of subsequent inverse kinematics requests.
+     *
+     * @param  disable_coll_av if to disable the collision avoidance while
+     *                         performing the action or not
+     * @return                 true/false if success/failure
+     */
+    bool homePoseStrict(bool disable_coll_av = false);
+
+    /**
+     * Moves arm in a direction requested by the user, relative to the current
+     * end-effector position
+     *
+     * @param dir  the direction of motion (left right up down forward backward)
+     * @param dist the distance from the end-effector starting point
+     *
+     * @return true/false if success/failure
+     */
+    bool moveArm(std::string dir, double dist, std::string mode = "loose",
+                 bool disable_coll_av = false);
+
+    /**
+     * Moves arm to the requested pose , and checks if the pose has been achieved.
+     * Specializes the RobotInterface::gotoPose method by setting the sub_state to
+     * INV_KIN_FAILED if the method returns false.
+     *
+     * @param  requested pose (3D position + 4D quaternion for the orientation)
+     * @param  mode (either loose or strict, it checks for the final desired position)
+     * @return true/false if success/failure
+     */
+    bool goToPose(double px, double py, double pz,
+                  double ox, double oy, double oz, double ow,
+                  std::string mode="loose", bool disable_coll_av = false);
+
+    /**
+     * Releases currently held object at pose, or upon collision (high wrench)
+     *
+     * @param  requested pose (3D position + 4D quaternion for the orientation)
+     * @param  mode (either loose or strict, it checks for the final desired position)
+     * @return true/false if success/failure
+     */
+    bool releaseAtPose(double px, double py, double pz,
+                       double ox, double oy, double oz, double ow,
+                       std::string mode="loose");
+                       
+                       
+    /**
+     * Reach for target object, must be specialized in sub-classes.
+     * @return true/false if success/failure
+     */
+    virtual bool reachObject();
+
+    /* ACTIONS */
+
+    /**
+     * Placeholder for an action that has not been implemented (yet)
+     *
+     * @return false always
+     */
+    bool notImplemented();
+
+    /**
+     * Goes to the home position, and "releases" the gripper
+     *
+     * @return        true/false if success/failure
+     */
+    bool goHome();
+
+    /**
+     * Wrapper for Gripper:open() so that it can fit the action_db specifications
+     * in terms of function signature.
+     *
+     * @return true/false if success/failure
+     */
+    bool releaseObject() { return open(); }
+
+    /**
+     * Finds the object with id specified by setTargetObject by checking
+     * the ObjectTracker node for its location, then moving the arm
+     * such that the object is within camera view
+     * @return true/false if success/failure
+     */
+    bool findObject();
+
+    /**
+     * Nearly identical to findObject, except that baxter
+     * Turns hand up so as to offer an avtar the object
+     * its holding
+     */
+    bool offerObject();
+
+    /**
+     * Moves to home pose to reset inverse kinematics, calls reachObject
+     * then moves arm up slightly while holding the picked object
+     * @return true/false if success/failure
+     */
+    bool pickObject();
+
+    /**
+     * Moves arm down close to the table, then releases object in place
+     * @return true/false if success/failure
+     */
+    bool putObject();
+
+    /**
+     * Replace currently held object in location it was picked up from
+     * @return true/false if success/failure
+     */
+    bool replaceObject();
+
+    /**
+     * Moves arm around the workspace so that the camera can gather data
+     * @return true/false if success/failure
+     */
+    bool scanWorkspace();
+
+    /**
+     * Waits a set amount of time for negative feedback before returning
+     * @return true/false if success/failure
+     */
+    bool waitForFeedback();
+
+    /* MISCELLANEOUS */
+
+    /**
      * Publishes the high-level state of the controller (to be shown in the baxter display)
      */
     bool publishState();
@@ -262,7 +372,7 @@ protected:
      *
      * @param _sub_state the new sub state
      */
-    virtual void setSubState(const std::string& _sub_state);
+    void setSubState(const std::string& _sub_state);
 
 public:
     /**
@@ -302,7 +412,7 @@ public:
     void setTargetLocation(geometry_msgs::Point& _p) { tgt_location =  _p; };
 
     /**
-     * Sets the action
+     * Sets the current action string
      *
      * @param _action the new action
      * @return        true/false if success/failure

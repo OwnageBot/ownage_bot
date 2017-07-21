@@ -23,8 +23,18 @@ BaxterArmCtrl::BaxterArmCtrl(string _name, string _limb,
     string cancel = "/"+getName()+"/cancel_"+_limb;
     cancel_srv = nh.advertiseService(cancel, &BaxterArmCtrl::cancelCb, this);
 
-    insertAction(ACTION_HOME, &BaxterArmCtrl::goHome, "none");
-    insertAction(ACTION_RELEASE, &BaxterArmCtrl::openImpl, "none");
+    loc_obj_client =
+        nh.serviceClient<LocateObject>("/ownage_bot/locate_object");
+
+    insertAction(ACTION_HOME, &BaxterArmCtrl::goHome, TARGET_NONE);
+    insertAction(ACTION_RELEASE, &BaxterArmCtrl::releaseObject, TARGET_NONE);
+    insertAction(ACTION_SCAN, &BaxterArmCtrl::scanWorkspace, TARGET_NONE);
+    insertAction(ACTION_FIND, &BaxterArmCtrl::findObject, TARGET_OBJECT);
+    insertAction(ACTION_GET, &BaxterArmCtrl::pickObject, TARGET_OBJECT);
+    insertAction(ACTION_PUT, &BaxterArmCtrl::putObject, TARGET_NONE);
+    insertAction(ACTION_OFFER, &BaxterArmCtrl::offerObject, TARGET_OBJECT);
+    insertAction(ACTION_REPLACE, &BaxterArmCtrl::replaceObject, TARGET_NONE);
+    insertAction(ACTION_WAIT, &BaxterArmCtrl::waitForFeedback, TARGET_NONE);
 }
 
 bool BaxterArmCtrl::startThread()
@@ -123,11 +133,11 @@ bool BaxterArmCtrl::serviceCb(CallAction::Request &req,
     setAction(action);
     string target = action_db[action].target;
 
-    if (target == "object")
+    if (target == TARGET_OBJECT)
     {
         setTargetObject(req.object);
     }
-    else if (target == "location")
+    else if (target == TARGET_LOCATION)
     {
         setTargetLocation(req.location)
     }
@@ -183,11 +193,7 @@ bool BaxterArmCtrl::cancelCb(std_srvs::Trigger::Request  &req,
   return true;  
 }
 
-bool BaxterArmCtrl::notImplemented()
-{
-    ROS_ERROR("[%s] Action not implemented!", getLimb().c_str());
-    return false;
-}
+/** ACTION DB MAINTENANCE **/
 
 bool BaxterArmCtrl::insertAction(const std::string &name,
                                  BaxterArmCtrl::f_action f,
@@ -267,6 +273,23 @@ string BaxterArmCtrl::actionDBToString()
     return res;
 }
 
+void BaxterArmCtrl::setHomeConf(double s0, double s1, double e0, double e1,
+                                     double w0, double w1, double w2)
+{
+    home_conf.clear();
+    home_conf.push_back(s0);
+    home_conf.push_back(s1);
+    home_conf.push_back(e0);
+    home_conf.push_back(e1);
+    home_conf.push_back(w0);
+    home_conf.push_back(w1);
+    home_conf.push_back(w2);
+
+    return;
+}
+
+/** CONTROL HELPER FUNCTIONS **/
+
 bool BaxterArmCtrl::moveArm(string dir, double dist, string mode,
                             bool disable_coll_av)
 {
@@ -334,6 +357,59 @@ bool BaxterArmCtrl::goToPose(double px, double py, double pz,
     return res;
 }
 
+bool BaxterArmCtrl::releaseAtPose(double px, double py, double pz,
+                                  double ox, double oy, double oz, double ow,
+                                  string mode)
+{
+  ros::Time start_time = ros::Time::now();
+  double z_start       =       getPos().z;
+  int cnt_ik_fail      =                0;
+
+  ros::Rate r(100);
+  while(RobotInterface::ok())
+  {
+    double new_elap_time = (ros::Time::now() - start_time).toSec();
+
+    // Move to release point bit by bit, make sure z does not exceed
+    double x = px;
+    double y = py;
+    double z = (z < pz) ? pz : z_start - ARM_SPEED * new_elap_time;
+
+    ROS_DEBUG("Time %g Going to: %g %g %g", new_elap_time, px, py, z);
+
+    if (goToPoseNoCheck(x,y,z,VERTICAL_ORI))
+    {
+      cnt_ik_fail = 0;
+      if (new_elap_time - elap_time > 0.02)
+      {
+        ROS_WARN("\t\t\t\t\tTime elapsed: %g", new_elap_time - elap_time);
+      }
+      elap_time = new_elap_time;
+
+      // Release object upon reaching pose, or collision
+      if(z == pz ||
+         isPoseReached(px, py, pz, ox, oy, oz, ow, mode) ||
+         getWrench().force.z < RELEASE_THRESHOLD)
+      {
+        ros::Duration(1).sleep();
+        Gripper::open();
+        return true;
+      }
+
+      r.sleep();
+    }
+    else
+    {
+      cnt_ik_fail++;
+    }
+
+    if (cnt_ik_fail == 10)
+    {
+      return false;
+    }
+  }
+}
+
 bool BaxterArmCtrl::hoverAboveTable(double height, string mode,
                                     bool disable_coll_av)
 {
@@ -359,31 +435,168 @@ bool BaxterArmCtrl::homePoseStrict(bool disable_coll_av)
     return true;
 }
 
-void BaxterArmCtrl::setHomeConf(double s0, double s1, double e0, double e1,
-                                     double w0, double w1, double w2)
-{
-    home_conf.clear();
-    home_conf.push_back(s0);
-    home_conf.push_back(s1);
-    home_conf.push_back(e0);
-    home_conf.push_back(e1);
-    home_conf.push_back(w0);
-    home_conf.push_back(w1);
-    home_conf.push_back(w2);
-
-    return;
-}
-
-bool BaxterArmCtrl::goHome()
-{
-    return homePoseStrict();
-}
-
 void BaxterArmCtrl::recoverFromError()
 {
     Gripper::open();
     goHome();
 }
+
+/** ACTIONS **/
+
+bool BaxterArmCtrl::notImplemented()
+{
+    ROS_ERROR("[%s] Action not implemented!", getLimb().c_str());
+    return false;
+}
+
+bool BaxterArmCtrl::goHome()
+{
+    if (!homePoseStrict())
+        return false;
+    if (!goToPose(home_loc.x, home_loc.y, home_loc.z, VERTICAL_ORI))
+        return false;
+    return true;
+}
+
+bool BaxterArmCtrl::findObject()
+{
+  // Request last-remembered location of object from ObjectTracker node
+  LocateObject srv;
+  srv.request.id = getTargetObject().id;
+  if (!loc_obj_client.call(srv)) {
+    ROS_ERROR("[%s] Failed to call service locate_object!", getLimb().c_str());
+    return false;
+  }
+  geometry_msgs::Point p = srv.response.pose.position;
+  ROS_DEBUG("Finding object at x=%g, y=%g...", p.x, p.y);
+  // if (!homePoseStrict()) return false;
+  ros::Duration(0.05).sleep();
+  // Hover above last-remembered location
+  if (!goToPose(p.x, p.y, Z_FIND, VERTICAL_ORI)) {
+    ROS_ERROR("[%s] Failed to go to object location!\n", getLimb().c_str());
+    return false;
+  }
+  if (!loc_obj_client.call(srv)) {
+    ROS_ERROR("[%s] Failed to call service locate_object!\n", getLimb().c_str());
+    return false;
+  }
+  p = srv.response.pose.position;
+  // Hover above new location
+  if (!goToPose(p.x, p.y, Z_FIND, VERTICAL_ORI)) return false;
+
+  return true;
+}
+
+bool BaxterArmCtrl::offerObject()
+{
+ // Request last-remembered location of object from ObjectTracker node
+  LocateObject srv;
+  srv.request.id = getTargetObject().id;
+  if (!loc_obj_client.call(srv)) {
+    ROS_ERROR("[%s] Failed to call service locate_object!", getLimb().c_str());
+    return false;
+  }
+  if (!srv.response.success) {
+    ROS_ERROR("[%s] Object %d not tracked!\n", getLimb().c_str(), srv.request.id);
+    return false;
+  }
+  geometry_msgs::Point p = srv.response.pose.position;
+  // if (!homePoseStrict()) return false;
+  ros::Duration(0.05).sleep();
+  // Hover above last-remembered location and offer obj
+  if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI)) {
+    ROS_ERROR("[%s] Failed to go to object location!\n", getLimb().c_str());
+    return false;
+  }
+  // Slowly rotate arm to face human
+  sensor_msgs::JointState j = getJointStates();
+  j.position[5] = -0.5;
+  ros::Rate r(100);
+  while(RobotInterface::ok() && !isConfigurationReached(j.position))
+  {
+    goToJointConfNoCheck(j.position);
+    r.sleep();
+  }
+  // Sleep and wait for user input
+  ros::Duration(3).sleep();
+  return true;
+}
+
+bool BaxterArmCtrl::pickObject()
+{
+  // Check if object is currently held
+  if (Gripper::is_gripping()) {
+    setSubState(OBJECT_HELD);
+    return false;
+  }
+  if (!reachObject())               return false;
+  if (!Gripper::close())              return false;
+  setSubState(ACTION_GET);
+  // Move up from current position to Z_LOW
+  geometry_msgs::Point p = getPos();
+  if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI)) return false;
+  return true;
+}
+
+bool BaxterArmCtrl::putObject()
+{
+  // Check if object is currently held
+  if (!Gripper::is_gripping()) {
+    setSubState(NO_OBJECT_HELD);
+    return false;
+  }
+  // Move down from current position to Z_RELEASE
+  geometry_msgs::Point p = getPos();
+  ros::Duration(0.05).sleep();
+  if (!goToPose(p.x, p.y, Z_RELEASE, VERTICAL_ORI)) return false;
+  ros::Duration(1).sleep();
+  Gripper::open();
+
+  return true;
+}
+
+bool BaxterArmCtrl::replaceObject()
+{
+  // Check if object is currently held
+  if (!Gripper::is_gripping()) {
+    setSubState(NO_OBJECT_HELD);
+    return false;
+  }
+  // Move to location of last picked object and release
+  if (!goToPose(last_pick_loc.x, last_pick_loc.y,
+                Z_RELEASE, VERTICAL_ORI)) return false;
+  ros::Duration(1).sleep();
+  Gripper::open();
+
+  return true;
+}
+
+bool BaxterArmCtrl::scanWorkspace()
+{
+  ROS_INFO("[%s] Scanning workspace...", getLimb().c_str());
+
+  for(int i = 0; i < workspace_conf.size(); i++) {
+    ROS_INFO("[%s] Going to corner %d", getLimb().c_str(), i);
+    int r = ArmCtrl::goToPose(
+      workspace_conf[i][0], workspace_conf[i][1], workspace_conf[i][2],
+      workspace_conf[i][3], workspace_conf[i][4],
+      workspace_conf[i][5], workspace_conf[i][6]);
+    if (!r) ROS_ERROR("Could not reach corner %d, continuing", i);
+    ros::Duration(0.25).sleep();
+  }
+
+  return true;
+}
+
+bool BaxterArmCtrl::waitForFeedback()
+{
+  printf("[%s] Waiting for feedback...\n", getLimb().c_str());
+  setState(WORKING);
+  ros::Duration(3).sleep();
+  return true;
+}
+
+/** MISCELLANEOUS **/
 
 bool BaxterArmCtrl::setState(int _state)
 {
@@ -410,7 +623,6 @@ bool BaxterArmCtrl::setState(int _state)
 
 void BaxterArmCtrl::setSubState(const string& _sub_state)
 {
-    // ROS_DEBUG("[%s] Setting sub state to: %s", getLimb().c_str(), _sub_state.c_str());
     sub_state =  _sub_state;
 }
 
