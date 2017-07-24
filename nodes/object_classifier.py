@@ -5,7 +5,7 @@ import std_srvs.srv
 import geometry_msgs.msg
 from ownage_bot.msg import *
 from ownage_bot.srv import *
-from ownage_bot import Objects
+from ownage_bot import objects
 
 import math
 import numpy as np
@@ -148,7 +148,7 @@ class ObjectClassifier:
         
         col_dist = 1.0 if o1.color != o2.color else 0.0
 
-        pos_dist = Objects.dist(o1, o2)
+        pos_dist = objects.dist(o1, o2)
         
         prox_dist = [p1 - p2 for p1, p2 in
                      zip(o1.proximities, o2.proximities)]

@@ -1,5 +1,5 @@
-from ownage_bot import Predicates
-from ownage_bot import Actions
+import predicates
+import actions
 
 class Rule:
     """Condition-action pairs that the robot should follow."""    
@@ -9,7 +9,7 @@ class Rule:
     allowed = "allowed"
     obligatory = "obligatory"
     
-    def __init__(self, conditions=[], action=Actions.Empty, detype="forbidden"):
+    def __init__(self, conditions=[], action=actions.Empty, detype="forbidden"):
         self.conditions = conditions # List of predicates that have to be true
         self.action = action # Action to be performed
         self.detype = detype # Deontic operator type
@@ -22,12 +22,12 @@ class Rule:
         return True
         
 # List of pre-defined rules
-DoNotTouchRed = Rule([Predicates.Red], Actions.PickUp)
-DoNotTouchBlue = Rule([Predicates.Blue], Actions.PickUp)
-DoNotTouchGreen = Rule([Predicates.Green], Actions.PickUp)
-DoNotTouchOwned = Rule([Predicates.IsOwned], Actions.PickUp)
+DoNotTouchRed = Rule([predicates.Red], actions.PickUp)
+DoNotTouchBlue = Rule([predicates.Blue], actions.PickUp)
+DoNotTouchGreen = Rule([predicates.Green], actions.PickUp)
+DoNotTouchOwned = Rule([predicates.IsOwned], actions.PickUp)
 
-DoNotTrashRed = Rule([Predicates.Red], Actions.Trash)
-DoNotTrashBlue = Rule([Predicates.Blue], Actions.Trash)
-DoNotTrashGreen = Rule([Predicates.Green], Actions.Trash)
-DoNotTrashOwned = Rule([Predicates.IsOwned], Actions.Trash)
+DoNotTrashRed = Rule([predicates.Red], actions.Trash)
+DoNotTrashBlue = Rule([predicates.Blue], actions.Trash)
+DoNotTrashGreen = Rule([predicates.Green], actions.Trash)
+DoNotTrashOwned = Rule([predicates.IsOwned], actions.Trash)

@@ -1,6 +1,5 @@
 import rospy
 from geometry_msgs import Point
-from ownage_bot import Objects
 from ownage_bot.msg import ObjectMsg
 from ownage_bot.srv import CallAction, CallActionResponse
 

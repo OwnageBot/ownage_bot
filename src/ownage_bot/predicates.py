@@ -1,4 +1,5 @@
-from ownage_bot import Objects
+import objects
+from objects import Object, Area
 
 class Predicate:
     """Functions which apply to one or more objects, return true or false."""    
@@ -32,23 +33,23 @@ class Predicate:
         return self.impl(*args)
             
 # List of pre-defined predicates
-Red = Predicate("red", [Objects.Object])
+Red = Predicate("red", [Object])
 Red.impl = lambda obj : (obj.color == 0)
 
-Green = Predicate("green", [Objects.Object])
+Green = Predicate("green", [Object])
 Green.impl = lambda obj : (obj.color == 1)
 
-Blue = Predicate("blue", [Objects.Object])
+Blue = Predicate("blue", [Object])
 Blue.impl = lambda obj : (obj.color == 2)
 
-Near = Predicate("near", [Objects.Object, Objects.Object])
-Near.impl = lambda obj1, obj2: Objects.dist(obj1, obj2) < 0.4
+Near = Predicate("near", [Object, Object])
+Near.impl = lambda obj1, obj2: objects.dist(obj1, obj2) < 0.4
 
-Owns = Predicate("owns", [int, Objects.Object])
+Owns = Predicate("owns", [int, Object])
 Owns.impl = lambda agent, obj: obj.ownership[agent] > 0.8
 
-IsOwned = Predicate("isOwned", [Objects.Object])
+IsOwned = Predicate("isOwned", [Object])
 IsOwned.impl = lambda obj: any(map(lambda o:o>0.8, obj.ownership.iteritems()))
 
-InArea = Predicate("inArea", [Objects.Object, Objects.Area])
-InArea.impl = lambda obj, area: Objects.inArea(obj, area)
+InArea = Predicate("inArea", [Object, Area])
+InArea.impl = lambda obj, area: inArea(obj, area)

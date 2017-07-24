@@ -7,7 +7,7 @@ from std_msgs.msg import UInt32
 from aruco_msgs.msg import MarkerArray
 from geometry_msgs.msg import Pose
 from ownage_bot.srv import *
-from ownage_bot import Objects
+from ownage_bot import objects
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from collections import deque, OrderedDict
@@ -56,7 +56,7 @@ class ObjectTracker:
     def insertObject(self, marker):
         """Insert object into the database using marker information."""
         # Initialize fields that should be modified only once
-        obj = Objects.Object()
+        obj = objects.Object()
         obj.id = marker.id
         obj.is_avatar = (marker.id in self.avatar_ids)
         obj.is_landmark = (marker.id in self.landmark_ids)
@@ -72,13 +72,13 @@ class ObjectTracker:
         obj = self.object_db[marker.id]
         obj.last_update = rospy.get_rostime()
         obj.position = marker.pose.pose.position
-        obj.orientation = marke.pose.pose.orientation
+        obj.orientation = marker.pose.pose.orientation
         # Proxmities are -1 if avatar cannot be found
         obj.proximities = [-1] * len(self.avatar_ids)
         for (i, k) in enumerate(self.avatar_ids):
             if k in self.object_db:
                 avatar = self.object_db[k]
-                obj.proximities[i] = Objects.dist(obj, avatar)
+                obj.proximities[i] = objects.dist(obj, avatar)
         # if marker.id in [2, 12, 19]:
         #     obj.color = 0
         # elif marker.id in [4, 5, 9, 10]:

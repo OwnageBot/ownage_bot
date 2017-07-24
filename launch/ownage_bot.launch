@@ -73,10 +73,10 @@
     
   </group>
 
-  <!-- provides actions on left arm -->
-  <node pkg="ownage_bot" type="object_picker"
-      	name="object_picker" output="screen"
-	      unless="$(arg simulation)">
+  <!-- provides actions on Baxter's arms -->
+  <node pkg="ownage_bot" type="action_provider"
+      	name="action_provider" output="screen"
+	unless="$(arg simulation)">
   </node>
 
   <!-- show image from camera -->
