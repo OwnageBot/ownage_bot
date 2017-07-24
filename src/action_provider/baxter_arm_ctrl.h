@@ -85,18 +85,6 @@ private:
     // Client for LocateObject service
     ros::ServiceClient loc_obj_client;
 
-    // Home configuration. Setting it in any of the children
-    // of this class is mandatory (through the virtual method
-    // called setHomeConfiguration() )
-    std::vector<double> home_conf;
-    // Endpoint positions for corners of physical workspace
-    // Should also be set in setWorkspaceConfiguration.
-    std::vector< std::vector<double> > workspace_conf;
-    // Location of last picked object
-    geometry_msgs::Point last_pick_loc;
-    // Endpoint position for home location
-    geometry_msgs::Point home_loc;
-
     // Internal thread functionality
     std::thread arm_thread;
 
@@ -108,6 +96,18 @@ private:
 
 protected:
 
+    // Home configuration. Setting it in any of the children
+    // of this class is mandatory (through the virtual method
+    // called setHomeConfiguration() )
+    Eigen::VectorXd home_conf;
+    // Endpoint positions for corners of physical workspace
+    // Should also be set in setWorkspaceConfiguration.
+    std::vector< std::vector<double> > workspace_conf;
+    // Location of last picked object
+    geometry_msgs::Point last_pick_loc;
+    // Endpoint position for home location
+    geometry_msgs::Point home_loc;
+
     /**
      * Pointer to the action prototype function, which does not take any
      * input argument and returns true/false if success/failure
@@ -115,7 +115,7 @@ protected:
      * to ERROR. Actions should return further error information by setting the
      * substate before returning.
      */
-    typedef bool(ArmCtrl::*f_action)();
+    typedef bool(BaxterArmCtrl::*f_action)();
 
     /**
      * Structure that stores action prototype and other metadata

@@ -12,7 +12,8 @@ BaxterArmCtrl::BaxterArmCtrl(string _name, string _limb,
                                _use_forces, _use_trac_ik, _use_cart_ctrl),
                 Gripper(_limb, _use_robot),
                 sub_state(""), action(""), prev_action(""),
-                internal_recovery(false), sel_object(ObjectMsg())
+                internal_recovery(false), home_conf(7),
+		tgt_object(ObjectMsg()), tgt_location(Point())
 {
     std::string other_limb = getLimb() == "right" ? "left" : "right";
 
@@ -139,7 +140,7 @@ bool BaxterArmCtrl::serviceCb(CallAction::Request &req,
     }
     else if (target == TARGET_LOCATION)
     {
-        setTargetLocation(req.location)
+      setTargetLocation(req.location);
     }
 
     res.success = false;
@@ -195,7 +196,7 @@ bool BaxterArmCtrl::cancelCb(std_srvs::Trigger::Request  &req,
 
 /** ACTION DB MAINTENANCE **/
 
-bool BaxterArmCtrl::insertAction(const std::string &name,
+bool BaxterArmCtrl::insertAction(const std::string &a,
                                  BaxterArmCtrl::f_action f,
                                  const std::string &target)
 {
@@ -274,17 +275,9 @@ string BaxterArmCtrl::actionDBToString()
 }
 
 void BaxterArmCtrl::setHomeConf(double s0, double s1, double e0, double e1,
-                                     double w0, double w1, double w2)
+				double w0, double w1, double w2)
 {
-    home_conf.clear();
-    home_conf.push_back(s0);
-    home_conf.push_back(s1);
-    home_conf.push_back(e0);
-    home_conf.push_back(e1);
-    home_conf.push_back(w0);
-    home_conf.push_back(w1);
-    home_conf.push_back(w2);
-
+    home_conf << s0, s1, e0, e1, w0, w1, w2;
     return;
 }
 
@@ -309,7 +302,7 @@ bool BaxterArmCtrl::moveArm(string dir, double dist, string mode,
     else if (dir == "up")       diff.z += 1;
     else                         return false;
 
-    p_f = p_s + dist * diff;
+    p_f = p_s + diff * dist;
 
     ros::Time t_start = ros::Time::now();
 
@@ -326,7 +319,7 @@ bool BaxterArmCtrl::moveArm(string dir, double dist, string mode,
 
         if (!finish)
         {
-            p_c = p_c + ARM_SPEED * t_elap * diff;
+            p_c = p_c + diff * ARM_SPEED * t_elap;
             if (dot(p_c - p_f, diff) >= 0) finish = true;
         }
         else
@@ -361,30 +354,23 @@ bool BaxterArmCtrl::releaseAtPose(double px, double py, double pz,
                                   double ox, double oy, double oz, double ow,
                                   string mode)
 {
-  ros::Time start_time = ros::Time::now();
+  ros::Time t_start = ros::Time::now();
   double z_start       =       getPos().z;
   int cnt_ik_fail      =                0;
 
   ros::Rate r(100);
   while(RobotInterface::ok())
   {
-    double new_elap_time = (ros::Time::now() - start_time).toSec();
+    double t_elap = (ros::Time::now() - t_start).toSec();
 
     // Move to release point bit by bit, make sure z does not exceed
     double x = px;
     double y = py;
-    double z = (z < pz) ? pz : z_start - ARM_SPEED * new_elap_time;
-
-    ROS_DEBUG("Time %g Going to: %g %g %g", new_elap_time, px, py, z);
+    double z = (z < pz) ? pz : z_start - ARM_SPEED * t_elap;
 
     if (goToPoseNoCheck(x,y,z,VERTICAL_ORI))
     {
       cnt_ik_fail = 0;
-      if (new_elap_time - elap_time > 0.02)
-      {
-        ROS_WARN("\t\t\t\t\tTime elapsed: %g", new_elap_time - elap_time);
-      }
-      elap_time = new_elap_time;
 
       // Release object upon reaching pose, or collision
       if(z == pz ||
@@ -449,6 +435,12 @@ bool BaxterArmCtrl::notImplemented()
     return false;
 }
 
+bool BaxterArmCtrl::reachObject()
+{
+    ROS_ERROR("[%s] Reaching not implemented!", getLimb().c_str());
+    return false;
+}
+
 bool BaxterArmCtrl::goHome()
 {
     if (!homePoseStrict())
@@ -509,14 +501,15 @@ bool BaxterArmCtrl::offerObject()
     return false;
   }
   // Slowly rotate arm to face human
-  sensor_msgs::JointState j = getJointStates();
-  j.position[5] = -0.5;
-  ros::Rate r(100);
-  while(RobotInterface::ok() && !isConfigurationReached(j.position))
-  {
-    goToJointConfNoCheck(j.position);
-    r.sleep();
-  }
+  // TODO: Fix this to work with Eigen::VectorXd
+  // sensor_msgs::JointState j = getJointStates();
+  // j.position[5] = -0.5;
+  // ros::Rate r(100);
+  // while(RobotInterface::ok() && !isConfigurationReached(j.position))
+  // {
+  //   goToJointConfNoCheck(j.position);
+  //   r.sleep();
+  // }
   // Sleep and wait for user input
   ros::Duration(3).sleep();
   return true;
@@ -577,7 +570,7 @@ bool BaxterArmCtrl::scanWorkspace()
 
   for(int i = 0; i < workspace_conf.size(); i++) {
     ROS_INFO("[%s] Going to corner %d", getLimb().c_str(), i);
-    int r = ArmCtrl::goToPose(
+    int r = goToPose(
       workspace_conf[i][0], workspace_conf[i][1], workspace_conf[i][2],
       workspace_conf[i][3], workspace_conf[i][4],
       workspace_conf[i][5], workspace_conf[i][6]);
@@ -648,7 +641,7 @@ bool BaxterArmCtrl::publishState()
 
     msg.state  = string(getState());
     msg.action = getAction();
-    msg.object = getObjectNameFromDB(getObjectID());
+    msg.object = "";
 
     state_pub.publish(msg);
 

@@ -9,7 +9,7 @@ ARucoCtrl::ARucoCtrl(
     string _name,
     string _limb,
     bool _use_robot ) :
-    ArmCtrl(_name,_limb, _use_robot),
+    BaxterArmCtrl(_name,_limb, _use_robot),
     ARucoClient(_name, _limb),
     elap_time(0)
 {
@@ -27,7 +27,7 @@ bool ARucoCtrl::reachObject()
   ROS_INFO("[%s] Start reaching for tag..", getLimb().c_str());
 
   // Set marker ID to target object ID
-  ARucoClient::setMarkerID(tgt_object.id);
+  ARucoClient::setMarkerID(getTargetObject().id);
 
   if (!waitForARucoData()) return false;
 
