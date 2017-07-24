@@ -1,4 +1,5 @@
 import rospy
+from std_srvs.srv import Trigger
 from geometry_msgs import Point
 from ownage_bot.msg import ObjectMsg
 from ownage_bot.srv import CallAction, CallActionResponse
@@ -7,6 +8,10 @@ _service_left = rospy.ServiceProxy(
     "/action_provider/service_left", CallAction)
 _service_right = rospy.ServiceProxy(
     "/action_provider/service_right", CallAction)
+_cancel_left = rospy.ServiceProxy(
+    "/action_provider/cancel_left", Trigger)
+_cancel_right = rospy.ServiceProxy(
+    "/action_provider/cancel_right", Trigger)
 
 class Action:
     """Robotic actions performed on objects."""    
@@ -20,6 +25,16 @@ class Action:
         return self.interface(target)
 
 # List of pre-defined actions
+Empty = Action("empty")
+def _empty(target):
+    return True
+Empty.interface = _empty
+
+Cancel = Action("cancel")
+def _cancel(target):
+    return _cancel_left()
+Cancel.interface = _cancel
+
 Scan = Action("scan")
 def _scan(target):
     return _service_left("scan", ObjectMsg(), Point())

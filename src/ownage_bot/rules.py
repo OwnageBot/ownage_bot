@@ -23,11 +23,11 @@ class Rule:
         
 # List of pre-defined rules
 DoNotTouchRed = Rule([predicates.Red], actions.PickUp)
-DoNotTouchBlue = Rule([predicates.Blue], actions.PickUp)
 DoNotTouchGreen = Rule([predicates.Green], actions.PickUp)
+DoNotTouchBlue = Rule([predicates.Blue], actions.PickUp)
 DoNotTouchOwned = Rule([predicates.IsOwned], actions.PickUp)
 
 DoNotTrashRed = Rule([predicates.Red], actions.Trash)
-DoNotTrashBlue = Rule([predicates.Blue], actions.Trash)
 DoNotTrashGreen = Rule([predicates.Green], actions.Trash)
+DoNotTrashBlue = Rule([predicates.Blue], actions.Trash)
 DoNotTrashOwned = Rule([predicates.IsOwned], actions.Trash)
