@@ -50,7 +50,9 @@ Intended mode of behavior, where Baxter repeatedly tries to pick up all objects 
 For testing and debugging the arm control services provided by [`object_picker`](https://github.com/OwnageBot/ownage_bot/tree/master/src/object_picker)
 
 1. Run `roslaunch ownage_bot.launch manual:=true`
-2. Request an action by calling `rosservice call /action_provider/service_left "{action: 'action_name', objects: [list of ids]}"`
+2. For actions that have no targets, call `rosservice call /action_provider/service_left "{action: 'action_name'}"`
+3. For actions with objects as targets, call `rosservice call /action_provider/service_left "{action: 'action_name', object: {id: object_id}}"`
+4. For actions with locations as targets, call `rosservice call /action_provider/service_left "{action: 'action_name', location: {x: x, y: y, z: z}}"`
 
 #### List of supported actions (left arm only)
 
