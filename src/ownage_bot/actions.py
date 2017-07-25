@@ -18,27 +18,27 @@ class Action:
     def __init__(self, name="", dependencies=[]):
         self.name = name # Human-readable name
         self.dependencies = [] # List of action dependencies
-        self.interface = lambda obj=None : None # Interface with ObjectPicker
+        self._call = lambda obj=None : None # Implementation of call()
 
     def call(self, target=None):
         """Calls action interface after some checks."""
-        return self.interface(target)
+        return self._call(target)
 
 # List of pre-defined actions
 Empty = Action("empty")
 def _empty(target):
     return True
-Empty.interface = _empty
+Empty._call = _empty
 
 Cancel = Action("cancel")
 def _cancel(target):
     return _cancel_left()
-Cancel.interface = _cancel
+Cancel._call = _cancel
 
 Scan = Action("scan")
 def _scan(target):
     return _service_left("scan", ObjectMsg(), Point())
-Scan.interface = _scan
+Scan._call = _scan
 
 GoHome = Action("goHome")
 def _goHome(target):
@@ -47,27 +47,27 @@ def _goHome(target):
 PickUp = Action("pickUp")
 def _pickUp(target):
     return _service_left("get", target, Point())
-PickUp.interface = _pickUp
+PickUp._call = _pickUp
     
 PutDown = Action("putDown")
 def _putDown(target):
     return _service_left("put", ObjectMsg(), Point())
-PutDown.interface = _putDown
+PutDown._call = _putDown
 
 Drop = Action("drop")
 def _drop(target):
     return _service_left("drop", ObjectMsg(), Point())
-Drop.interface = _drop
+Drop._call = _drop
 
 Find = Action("find")
 def _find(target):
     return _service_left("find", target, Point())
-Find.interface = _find
+Find._call = _find
 
 Offer = Action("offer")
 def _offer(target):
     return _service_left("offer", target, Point())
-Offer.interface = _offer
+Offer._call = _offer
 
 Trash = Action("trash", [PickUp, Drop])
 
@@ -79,9 +79,9 @@ def _collect(target):
         if not ret.success:
             return ret
     return ret
-Collect.interface = _collect
+Collect._call = _collect
 
 Replace = Action("replace", [PutDown])
 def _replace(target):
     return _service_left("replace", ObjectMsg(), Point())
-Replace.interface = _replace
+Replace._call = _replace

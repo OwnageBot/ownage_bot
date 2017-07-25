@@ -7,7 +7,7 @@ class Predicate:
         self.name = name # Human-readable name
         self.n_args = len(argtypes) # Number of arguments
         self.argtypes = argtypes # List of argument types
-        self.impl = lambda *args : True # Implementation of predicate
+        self._apply = lambda *args : True # Implementation of predicate
 
     def bind(self, arg, arg_loc):
         """Creates new predicate by binding argument at arg_id."""
@@ -19,8 +19,8 @@ class Predicate:
         bound.name = "%sBoundTo%s%iAt%i".format(
             self.name, arg.__class__.__name__, arg.id, arg_loc)
         bound.n_args = self.n_args - 1;
-        bound.impl = lambda *args : \
-            self.impl(*[a if (i == arg_loc) else arg
+        bound._apply = lambda *args : \
+            self._apply(*[a if (i == arg_loc) else arg
                         for (i,a) in enumerate(args)])
     
     def apply(self, *args):
@@ -30,26 +30,26 @@ class Predicate:
         for t, a in zip(self.argtypes, args):
             if not isinstance(t, a):
                 raise TypeError("Argument is the wrong type.")
-        return self.impl(*args)
+        return self._apply(*args)
             
 # List of pre-defined predicates
 Red = Predicate("red", [Object])
-Red.impl = lambda obj : (obj.color == 0)
+Red._apply = lambda obj : (obj.color == 0)
 
 Green = Predicate("green", [Object])
-Green.impl = lambda obj : (obj.color == 1)
+Green._apply = lambda obj : (obj.color == 1)
 
 Blue = Predicate("blue", [Object])
-Blue.impl = lambda obj : (obj.color == 2)
+Blue._apply = lambda obj : (obj.color == 2)
 
 Near = Predicate("near", [Object, Object])
-Near.impl = lambda obj1, obj2: objects.dist(obj1, obj2) < 0.4
+Near._apply = lambda obj1, obj2: objects.dist(obj1, obj2) < 0.4
 
 Owns = Predicate("owns", [int, Object])
-Owns.impl = lambda agent, obj: obj.ownership[agent] > 0.8
+Owns._apply = lambda agent, obj: obj.ownership[agent] > 0.8
 
 IsOwned = Predicate("isOwned", [Object])
-IsOwned.impl = lambda obj: any(map(lambda o:o>0.8, obj.ownership.iteritems()))
+IsOwned._apply = lambda obj: any(map(lambda o:o>0.8, obj.ownership.iteritems()))
 
 InArea = Predicate("inArea", [Object, Area])
-InArea.impl = lambda obj, area: inArea(obj, area)
+InArea._apply = lambda obj, area: inArea(obj, area)

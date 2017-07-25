@@ -10,17 +10,10 @@ class Object:
     """Represents objects in the workspace and their properties."""
             
     def __init__(self, msg=None):
-        if msg is None:
-            self.id = -1
-            self.last_update = rospy.get_rostime()
-            self.position = Point()
-            self.orientation = Quaternion()
-            self.proximities = [] # List of distances to avatars
-            self.color = -1 # Red=0, Green=1, Blue=2
-            self.ownership = dict() # Dictionary of ownership probabilities
-            self.is_avatar = False # Whether object is an avatar
-            self.is_landmark = False # Whether object is a landmark
-        else:
+        # Copy construct from ObjectMsg
+        if msg is not None:
+            if not isinstance(msg, ObjectMsg):
+                raise TypeError("Copy constructor expects ObjectMsg.")
             uncopyable = ["owners", "ownership"] 
             for k, v in msg.__dict__.items():
                 if k in uncopyable:
@@ -29,6 +22,18 @@ class Object:
                     v = list(v)
                 self.__dict__[k] = copy.deepcopy(v)
             self.ownership = dict(zip(obj_msg.owners, obj_msg.ownership))
+            return
+
+        # Otherwise use default constructor
+        self.id = -1
+        self.last_update = rospy.get_rostime()
+        self.position = Point()
+        self.orientation = Quaternion()
+        self.proximities = [] # List of distances to avatars
+        self.color = -1 # Red=0, Green=1, Blue=2
+        self.ownership = dict() # Dictionary of ownership probabilities
+        self.is_avatar = False # Whether object is an avatar
+        self.is_landmark = False # Whether object is a landmark
             
     def asMessage(self):
         """Converts object to a ROS message."""
