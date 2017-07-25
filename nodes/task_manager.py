@@ -14,21 +14,16 @@ class TaskManager:
 
     def __init__(self):
         # Duration in seconds between action updates
-        self.update_latency = 0.5
+        self.update_latency = rospy.get_param("task_update", 0.5)
         # Current task being performed
         self.current_task = None
         # Database of rules to follow
         self.rule_db = [rules.DoNotTouchRed, rules.DoNotTrashBlue]
-        # Queue of actions to be performed
+        # Database of available actions
+        self.action_db = dict(zip([a.name for a in actions.db], actions.db))
+        # Queue of action-target pairs
         self.action_queue = Queue()
-        # Rectangle denoting home area
-        if rospy.has_param("home_area"):
-            self.home_area = (Point(*rospy.get_param("home_area/lower")),
-                              Point(*rospy.get_param("home_area/upper")))
-        else:
-            self.home_area = (Point(0.39,0.07, 0), Point(0.62, 0.29, 0))
-        self.avatar_ids = (rospy.get_param("avatar_ids") if
-                           rospy.has_param("avatar_ids") else [])
+        self.avatar_ids = rospy.get_param("avatar_ids", [])
         self.feedback_pub = rospy.Publisher("feedback", FeedbackMsg,
                                              queue_size = 10)
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
@@ -41,11 +36,27 @@ class TaskManager:
 
     def parseInput(self, data):
         "Parses text input and returns commands."
-        task = None
-        if data == "tidy":
-            task = tasks.Tidy
-        elif data == "trash":
-            task = tasks.Trash
+        task = tasks.Idle
+        args = data.split()
+        if args[0] in self.action_db:
+            # Construct one-shot task if syntax matches
+            action = self.action_db[args[0]]
+            if action.tgtype is None:
+                task = Task.oneShot(action, None)
+            elif len(args) >= 2:
+                if action.tgtype == Object:
+                    oid = int(args[1])
+                    obj = Object(self.lookupObject(oid))
+                    task = Task.oneShot(action, obj)
+                elif action.tgtype == Point:
+                    loc = Point(*(args[1].split(',')))
+                    task = Task.oneShot(action, loc)
+        else:
+            # Try one of the higher-level tasks
+            if data == "collectAll":
+                task = tasks.CollectAll
+            elif data == "trashAll":
+                task = tasks.TrashAll
         feedback = None
         interrupt = True
         return task, feedback, interrupt
@@ -61,8 +72,8 @@ class TaskManager:
 
     def updateCb(self):
         "Callback that updates actions based on world state."
-        resp = self.listObjects()
-        object_db = dict(zip([o.id for o in resp.objects], resp.objects))
+        olist = [Object(msg) for msg in self.listObjects().objects]
+        object_db = dict(zip([o.id for o in olist], olist))
         self.current_task.updateActions(self.action_queue, object_db)
 
     def main(self):
@@ -77,20 +88,19 @@ class TaskManager:
 
         # Keep performing requested tasks/actions
         while not rospy.is_shutdown():
-            # Get next action-object pair, blocks until one is available
-            action, obj = self.action_queue.get(True)
+            # Get next action-target pair, blocks until one is available
+            action, tgt = self.action_queue.get(True)
             # Evaluate all rules applicable to current action
             for rule in self.rule_db:
                 if action != rule.action:
                     continue
-                if rule.detype == Rule.forbidden and rule.evaluate(obj):
+                if rule.detype == Rule.forbidden and rule.evaluate(tgt):
                     break;
-                elif rule.detype == Rule.allowed and not rule.evaluate(obj):
+                elif rule.detype == Rule.allowed and not rule.evaluate(tgt):
                     break;
             else:
                 # Call action if rules allow for it
                 resp = action.call(obj)
-                # TODO: Use response from action as feedback?
 
 if __name__ == '__main__':
     rospy.init_node('task_manager')

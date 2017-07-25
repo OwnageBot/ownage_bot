@@ -49,7 +49,8 @@ Owns = Predicate("owns", [int, Object])
 Owns._apply = lambda agent, obj: obj.ownership[agent] > 0.8
 
 IsOwned = Predicate("isOwned", [Object])
-IsOwned._apply = lambda obj: any(map(lambda o:o>0.8, obj.ownership.iteritems()))
+IsOwned._apply = lambda obj: any(map(lambda o:o>0.8,
+                                     obj.ownership.iteritems()))
 
 InArea = Predicate("inArea", [Object, Area])
 InArea._apply = lambda obj, area: inArea(obj, area)

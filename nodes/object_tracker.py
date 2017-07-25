@@ -16,20 +16,15 @@ class ObjectTracker:
     """A class for tracking objects."""
 
     def __init__(self):
-        self.latency = (rospy.get_param("tracker_latency") if
-                        rospy.has_param("tracker_latency") else 0.1)
+        self.latency = rospy.get_param("tracker_latency", 0.1)
         self.object_db = dict()
 
         # Margins around ARuco tag for color determination
-        self.in_offset = (rospy.get_param("in_offset") if
-                          rospy.has_param("in_offset") else 1)
-        self.out_offset = (rospy.get_param("out_offset") if
-                           rospy.has_param("out_offset") else 6)
+        self.in_offset = rospy.get_param("in_offset", 1)
+        self.out_offset = rospy.get_param("out_offset", 6)
 
-        self.avatar_ids = (rospy.get_param("avatar_ids") if
-                           rospy.has_param("avatar_ids") else [])
-        self.landmark_ids = (rospy.get_param("landmark_ids") if
-                             rospy.has_param("landmark_ids") else [])
+        self.avatar_ids = rospy.get_param("avatar_ids", [])
+        self.landmark_ids = rospy.get_param("landmark_ids", [])
 
         # Publishers and servers
         self.new_obj_pub = rospy.Publisher("new_object",

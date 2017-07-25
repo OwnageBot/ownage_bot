@@ -22,6 +22,13 @@
     <rosparam param="home_area" subst_value="true">
       lower: [0.39, 0.07, 0]
       upper: [0.62, 0.29, 0]
+      center: [0.50, 0.176, 0.20]
+      corners: [[0.39,0.07], [0.39,0.29], [0.62,0.29], [0.39,0.29]]
+    </rosparam>
+
+    <rosparam param="trash_area" subst_value="true">
+      center: [-0.05, 0.85, 0.20]
+      corners: [[-0.20,0.70], [-0.20,1.00], [0.10,1.00], [0.10,0.70]]
     </rosparam>
     
     <rosparam param="avatar_ids" subst_value="true">
@@ -31,7 +38,8 @@
 
     <group unless="$(arg simulation)">
       <!-- Object tracker node, unused in simulation mode-->
-      <node pkg="ownage_bot" type="object_tracker.py" output="screen" name="object_tracker">
+      <node pkg="ownage_bot" type="object_tracker.py"
+	    output="screen" name="object_tracker">
       </node>
 
       <!-- Object collector node, unused in manual and simulation modes -->
