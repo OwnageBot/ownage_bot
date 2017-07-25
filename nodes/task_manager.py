@@ -2,12 +2,11 @@
 import rospy
 from Queue import Queue
 from std_msgs.msg import UInt32
+from std_msgs.msg import String
 from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
 from geometry_msgs.msg import Point
-
-ACT_CANCELLED = "Action cancelled by user"
 
 class TaskManager:
     """Manages the task currently assigned to the robot."""
@@ -24,8 +23,9 @@ class TaskManager:
         # Queue of action-target pairs
         self.action_queue = Queue()
         self.avatar_ids = rospy.get_param("avatar_ids", [])
+        self.input_sub = rospy.Subscriber("text_input", String, self.inputCb)
         self.feedback_pub = rospy.Publisher("feedback", FeedbackMsg,
-                                             queue_size = 10)
+                                            queue_size = 10)
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
 
     def sendFeedback(self, feedback):
@@ -57,13 +57,15 @@ class TaskManager:
                 task = tasks.CollectAll
             elif data == "trashAll":
                 task = tasks.TrashAll
+        if task == tasks.Idle:
+            print "Could not parse input, defaulting to idle task."
         feedback = None
         interrupt = True
         return task, feedback, interrupt
 
-    def inputCb(self, data):
+    def inputCb(self, msg):
         """Handles incoming text input."""
-        task, feedback, interrupt = self.parseInput(data)
+        task, feedback, interrupt = self.parseInput(msg.data)
         if interrupt:
             actions.Cancel.call()
         self.sendFeedback(feedback)
