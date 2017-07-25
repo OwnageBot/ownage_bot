@@ -29,6 +29,7 @@ BaxterArmCtrl::BaxterArmCtrl(string _name, string _limb,
 
     insertAction(ACTION_HOME, &BaxterArmCtrl::goHome, TARGET_NONE);
     insertAction(ACTION_RELEASE, &BaxterArmCtrl::releaseObject, TARGET_NONE);
+    insertAction(ACTION_MOVE, &BaxterArmCtrl::moveToLocation, TARGET_LOCATION);
     insertAction(ACTION_SCAN, &BaxterArmCtrl::scanWorkspace, TARGET_NONE);
     insertAction(ACTION_FIND, &BaxterArmCtrl::findObject, TARGET_OBJECT);
     insertAction(ACTION_GET, &BaxterArmCtrl::pickObject, TARGET_OBJECT);
@@ -40,12 +41,7 @@ BaxterArmCtrl::BaxterArmCtrl(string _name, string _limb,
 
 bool BaxterArmCtrl::startThread()
 {
-    // This allows to call multiple threads within the same thread object.
-    // As written in http://en.cppreference.com/w/cpp/thread/thread/joinable :
-    //   A thread that has finished executing code, but has not yet been joined 
-    //   is still considered an active thread of execution and is therefore
-    //   joinable.
-    // So, we need to join the thread in order to spin out a new one.
+    // Need to join the old thread in order to spin out a new one.
     if (arm_thread.joinable())    { arm_thread.join(); };
 
     arm_thread = std::thread(&BaxterArmCtrl::InternalThreadEntry, this);
@@ -125,7 +121,8 @@ bool BaxterArmCtrl::serviceCb(CallAction::Request &req,
 
     if (!isActionInDB(action)) // The action is in the db
     {
-        ROS_ERROR("[%s] Action %s is not in the database!", getLimb().c_str(), action.c_str());
+        ROS_ERROR("[%s] Action %s is not in the database!",
+                  getLimb().c_str(), action.c_str());
         res.success = false;
         res.response = ACT_NOT_IN_DB;
         return true;
@@ -443,11 +440,17 @@ bool BaxterArmCtrl::reachObject()
 
 bool BaxterArmCtrl::goHome()
 {
-    if (!homePoseStrict())
-        return false;
-    if (!goToPose(home_loc.x, home_loc.y, home_loc.z, VERTICAL_ORI))
-        return false;
-    return true;
+  if (!homePoseStrict())
+    return false;
+  if (!goToPose(home_loc.x, home_loc.y, home_loc.z, VERTICAL_ORI))
+    return false;
+  return true;
+}
+
+bool BaxterArmCtrl::moveToLocation()
+{
+  Point tgt = tgt_location;
+  return goToPose(tgt.x, tgt.y, tgt.z, VERTICAL_ORI));
 }
 
 bool BaxterArmCtrl::findObject()
@@ -474,7 +477,7 @@ bool BaxterArmCtrl::findObject()
   }
   p = srv.response.pose.position;
   // Hover above new location
-  if (!goToPose(p.x, p.y, Z_FIND, VERTICAL_ORI)) return false;
+  if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI)) return false;
 
   return true;
 }

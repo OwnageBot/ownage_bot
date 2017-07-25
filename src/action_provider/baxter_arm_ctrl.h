@@ -33,6 +33,7 @@
 #define VERTICAL_ORI        0.0,  1.0,  0.0,  0.0
 
 // Actions provided that are not defined in robot_utils/util.h
+#define ACTION_MOVE "move"
 #define ACTION_SCAN "scan"
 #define ACTION_FIND "find"
 #define ACTION_PUT "put"

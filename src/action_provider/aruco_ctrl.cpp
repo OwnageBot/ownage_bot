@@ -10,8 +10,7 @@ ARucoCtrl::ARucoCtrl(
     string _limb,
     bool _use_robot ) :
     BaxterArmCtrl(_name,_limb, _use_robot),
-    ARucoClient(_name, _limb),
-    elap_time(0)
+    ARucoClient(_name, _limb)
 {
   setHomeConfiguration();
   setWorkspaceConfiguration();
@@ -48,29 +47,21 @@ bool ARucoCtrl::reachObject()
 
   if (!waitForARucoData()) return false;
 
-  ros::Time start_time = ros::Time::now();
+  ros::Time t_start = ros::Time::now();
   double z_start       =       getPos().z;
   int cnt_ik_fail      =                0;
 
   ros::Rate r(100);
   while(RobotInterface::ok())
   {
-    double new_elap_time = (ros::Time::now() - start_time).toSec();
-
+    double t_elap = (ros::Time::now() - start_time).toSec();
     double x = getMarkerPos().x + IR_OFFSET;
     double y = getMarkerPos().y;
-    double z = z_start - 0.8 * ARM_SPEED * new_elap_time;
-
-    ROS_DEBUG("Time %g Going to: %g %g %g", new_elap_time, x, y, z);
+    double z = z_start - 0.8 * ARM_SPEED * t_elap;
 
     if (goToPoseNoCheck(x, y, z, VERTICAL_ORI))
     {
       cnt_ik_fail = 0;
-      if (new_elap_time - elap_time > 0.02)
-      {
-        ROS_WARN("\t\t\t\t\tTime elapsed: %g", new_elap_time - elap_time);
-      }
-      elap_time = new_elap_time;
 
       // Use loose collision detection to avoid over-pushing
       if(hasCollidedIR("strict"))

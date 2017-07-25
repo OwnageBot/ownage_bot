@@ -43,7 +43,7 @@ def _goHome(target):
     return _service_left("home", ObjectMsg(), Point())
 GoHome._call = _goHome
 
-MoveTo = Action("moveTo", Point)
+MoveTo = Action("move", Point)
 def _moveTo(target):
     return _service_left("home", ObjectMsg(), target)
 MoveTo._call = _moveTo

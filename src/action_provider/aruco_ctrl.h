@@ -19,8 +19,6 @@
 class ARucoCtrl : public BaxterArmCtrl, public ARucoClient
 {
 private:
-    double elap_time;
-
     // Subscriber to the ARuco detector,
     ros::Subscriber aruco_sub;
 
