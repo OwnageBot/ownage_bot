@@ -9,7 +9,7 @@ if __name__ == '__main__':
         try:
             data = raw_input('> ')
             input_pub.publish(String(data))
-        except EOFError, KeyboardInterrupt:
+        except EOFError, rospy.ROSInterruptException:
             print "Closing text prompt."
-            rospy.spin()
-    
+            break
+
