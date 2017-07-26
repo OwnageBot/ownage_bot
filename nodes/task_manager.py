@@ -27,6 +27,7 @@ class TaskManager:
         self.feedback_pub = rospy.Publisher("feedback", FeedbackMsg,
                                             queue_size = 10)
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
+        self.lookupObject = rospy.ServiceProxy("lookup_object", LookupObject)
 
     def sendFeedback(self, feedback):
         """Gives feedback for rule learning."""

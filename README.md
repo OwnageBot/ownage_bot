@@ -104,11 +104,11 @@ When using `ownage_bot.launch`, these topic and service names are contained with
   * Publisher(s): `object_tester` (in simulation)
   * Subscriber(s): `object_classifier`
   * `object_classifier` clears its history of past interactions whenever it receives this signal.
-* `locate_object` (service)
-  * Type: [`LocateObject`](https://github.com/OwnageBot/ownage_bot/blob/master/srv/LocateObject.srv)
+* `lookup_object` (service)
+  * Type: [`LookupObject`](https://github.com/OwnageBot/ownage_bot/blob/master/srv/LookupObject.srv)
   * Server(s): `object_tracker`
   * Client(s): `action_provider`
-  * Used when `action_provider` is performing the `find` action to locate an object that is currently out of the camera view.
+  * Looks up an object by ID when a single object is needed from the tracker
 * `list_objects` (service)
   * Type: [`ListObjects`](https://github.com/OwnageBot/ownage_bot/blob/master/srv/ListObjects.srv)
   * Server(s): `object_tracker`, `object_tester` (in simulation)

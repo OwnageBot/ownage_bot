@@ -84,7 +84,7 @@ private:
     // Service to cancel actions
     ros::ServiceServer  cancel_srv;
     // Client for LocateObject service
-    ros::ServiceClient loc_obj_client;
+    ros::ServiceClient lookup_obj_client;
 
     // Internal thread functionality
     std::thread arm_thread;

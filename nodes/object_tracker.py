@@ -6,8 +6,9 @@ import numpy as np
 from std_msgs.msg import UInt32
 from aruco_msgs.msg import MarkerArray
 from geometry_msgs.msg import Pose
+from ownage_bot.msg import *
 from ownage_bot.srv import *
-from ownage_bot import objects
+from ownage_bot import *
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from collections import deque, OrderedDict
@@ -29,10 +30,10 @@ class ObjectTracker:
         # Publishers and servers
         self.new_obj_pub = rospy.Publisher("new_object",
                                            UInt32, queue_size = 10)
-        self.loc_obj_srv = rospy.Service("locate_object", LocateObject,
-                                         self.locateObject)
+        self.loc_obj_srv = rospy.Service("lookup_object", LookupObject,
+                                         self.lookupObjectCb)
         self.lst_obj_srv = rospy.Service("list_objects", ListObjects,
-                                         self.listObjects)
+                                         self.listObjectsCb)
         # Subscribers and clients
         self.marker_sub = rospy.Subscriber("/aruco_marker_publisher/markers",
                                            MarkerArray, self.ARucoCb)
@@ -51,7 +52,7 @@ class ObjectTracker:
     def insertObject(self, marker):
         """Insert object into the database using marker information."""
         # Initialize fields that should be modified only once
-        obj = objects.Object()
+        obj = Object()
         obj.id = marker.id
         obj.is_avatar = (marker.id in self.avatar_ids)
         obj.is_landmark = (marker.id in self.landmark_ids)
@@ -129,25 +130,21 @@ class ObjectTracker:
  
         return colorId
 
-    def locateObject(self, req):
+    def lookupObjectCb(self, req):
         """ Service callback: returns position of particular object"""
         if req.id in self.object_db:
-            p = Pose()
-            p.position = self.object_db[req.id].position
-            p.orientation = self.object_db[req.id].orientation
-            return LocateObjectResponse(True, p)
+            obj = self.object_db[req.id]
+            return LocateObjectResponse(True, obj.asMessage())
         else:
-            return LocateObjectResponse(False, Pose())
+            return LocateObjectResponse(False, ObjectMsg())
 
-    def listObjects(self, req):
+    def listObjectsCb(self, req):
         """ Service callback: returns list of tracked objects"""
         return ListObjectsResponse([obj.asMessage() for
                                     obj in self.object_db.values()])
 
 if __name__ == '__main__':
     rospy.init_node('object_tracker')
-
     objectTracker = ObjectTracker()
-
     rospy.spin()
 

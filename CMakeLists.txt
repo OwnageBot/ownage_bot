@@ -72,7 +72,7 @@ add_service_files(
   FILES
   CallAction.srv
   ListObjects.srv
-  LocateObject.srv
+  LookupObject.srv
 )
 
 ## Generate actions in the 'action' folder

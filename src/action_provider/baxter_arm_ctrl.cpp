@@ -24,8 +24,8 @@ BaxterArmCtrl::BaxterArmCtrl(string _name, string _limb,
     string cancel = "/"+getName()+"/cancel_"+_limb;
     cancel_srv = nh.advertiseService(cancel, &BaxterArmCtrl::cancelCb, this);
 
-    loc_obj_client =
-        nh.serviceClient<LocateObject>("/ownage_bot/locate_object");
+    lookup_obj_client =
+        nh.serviceClient<LocateObject>("/ownage_bot/lookup_object");
 
     insertAction(ACTION_HOME, &BaxterArmCtrl::goHome, TARGET_NONE);
     insertAction(ACTION_RELEASE, &BaxterArmCtrl::releaseObject, TARGET_NONE);
@@ -455,48 +455,38 @@ bool BaxterArmCtrl::moveToLocation()
 
 bool BaxterArmCtrl::findObject()
 {
-  // Request last-remembered location of object from ObjectTracker node
-  LocateObject srv;
+  // Lookup object again to make sure position is up to date
+  LookupObject srv;
   srv.request.id = getTargetObject().id;
-  if (!loc_obj_client.call(srv)) {
-    ROS_ERROR("[%s] Failed to call service locate_object!", getLimb().c_str());
+  if (!lookup_obj_client.call(srv)) {
+    ROS_ERROR("[%s] Failed to call service lookup_object!", getLimb().c_str());
     return false;
   }
-  geometry_msgs::Point p = srv.response.pose.position;
-  ROS_DEBUG("Finding object at x=%g, y=%g...", p.x, p.y);
-  // if (!homePoseStrict()) return false;
-  ros::Duration(0.05).sleep();
-  // Hover above last-remembered location
-  if (!goToPose(p.x, p.y, Z_FIND, VERTICAL_ORI)) {
-    ROS_ERROR("[%s] Failed to go to object location!\n", getLimb().c_str());
+  if (!srv.response.success) {
+    ROS_ERROR("[%s] Object %d not tracked!\n",
+              getLimb().c_str(), srv.request.id);
     return false;
   }
-  if (!loc_obj_client.call(srv)) {
-    ROS_ERROR("[%s] Failed to call service locate_object!\n", getLimb().c_str());
-    return false;
-  }
-  p = srv.response.pose.position;
+  Point p = srv.response.object.position;
   // Hover above new location
   if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI)) return false;
-
   return true;
 }
 
 bool BaxterArmCtrl::offerObject()
 {
- // Request last-remembered location of object from ObjectTracker node
-  LocateObject srv;
+  // Lookup object again to make sure position is up to date
+  LookupObject srv;
   srv.request.id = getTargetObject().id;
-  if (!loc_obj_client.call(srv)) {
-    ROS_ERROR("[%s] Failed to call service locate_object!", getLimb().c_str());
+  if (!lookup_obj_client.call(srv)) {
+    ROS_ERROR("[%s] Failed to call service lookup_object!", getLimb().c_str());
     return false;
   }
   if (!srv.response.success) {
-    ROS_ERROR("[%s] Object %d not tracked!\n", getLimb().c_str(), srv.request.id);
+    ROS_ERROR("[%s] Object %d not tracked!\n",
+              getLimb().c_str(), srv.request.id);
     return false;
   }
-  geometry_msgs::Point p = srv.response.pose.position;
-  // if (!homePoseStrict()) return false;
   ros::Duration(0.05).sleep();
   // Hover above last-remembered location and offer obj
   if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI)) {
