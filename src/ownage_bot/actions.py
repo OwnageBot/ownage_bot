@@ -47,9 +47,9 @@ def _goHome(target):
     return _service_left("home", ObjectMsg(), Point())
 GoHome._call = _goHome
 
-MoveTo = Action("move", Point)
+MoveTo = Action("moveTo", Point)
 def _moveTo(target):
-    return _service_left("home", ObjectMsg(), target)
+    return _service_left("move", ObjectMsg(), target)
 MoveTo._call = _moveTo
 
 Scan = Action("scan")
@@ -87,8 +87,8 @@ def _trash(target):
     trash_loc = rospy.get_param("trash_area/center", [-0.05, 0.85, 0.20])
     trash_loc = Point(*trash_loc)
     ret = None
-    for a, t in [(Find, None), (PickUp, target),
-                 (MoveTo, trashLoc), (Release, None)]:
+    for a, t in [(Find, target), (PickUp, target),
+                 (MoveTo, trash_loc), (Release, None)]:
         ret = a.call(t)
         if not ret.success:
             return ret

@@ -9,7 +9,6 @@ from geometry_msgs.msg import Pose
 from ownage_bot.msg import *
 from ownage_bot.srv import *
 from ownage_bot import *
-from ownage_bot import Object
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from collections import deque, OrderedDict
@@ -135,9 +134,9 @@ class ObjectTracker:
         """ Service callback: returns position of particular object"""
         if req.id in self.object_db:
             obj = self.object_db[req.id]
-            return LocateObjectResponse(True, obj.asMessage())
+            return LookupObjectResponse(True, obj.asMessage())
         else:
-            return LocateObjectResponse(False, ObjectMsg())
+            return LookupObjectResponse(False, ObjectMsg())
 
     def listObjectsCb(self, req):
         """ Service callback: returns list of tracked objects"""

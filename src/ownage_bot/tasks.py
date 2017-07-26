@@ -49,13 +49,13 @@ class Task:
         if tgt is None:
             name = action.name
         elif isinstance(tgt, Object):
-            name = action.name + "Obj" + obj.id
+            name = action.name + "Obj" + str(tgt.id)
         elif isinstance(tgt, Point):
             name = (action.name + "Loc" +
                     " ".join(str(p) for p in [tgt.x, tgt.y, tgt.z]))
         task = Task(name)
         task._updateActions = lambda action_queue, object_db : \
-            task.updateOnce(action, obj, action_queue)
+            task.updateOnce(action, tgt, action_queue)
         return task
         
 # Pre-defined high-level tasks

@@ -59,10 +59,10 @@ class TaskManager:
             elif len(args) >= 2:
                 if action.tgtype == Object:
                     oid = int(args[1])
-                    obj = Object(self.lookupObject(oid))
+                    obj = Object(self.lookupObject(oid).object)
                     task = Task.oneShot(action, obj)
                 elif action.tgtype == Point:
-                    loc = Point(*(args[1].split(',')))
+                    loc = Point(*[float(s) for s in args[1].split(',')])
                     task = Task.oneShot(action, loc)
         else:
             # Try one of the higher-level tasks
@@ -122,7 +122,7 @@ class TaskManager:
                     break;
             else:
                 # Call action if rules allow for it
-                resp = action.call(obj)
+                resp = action.call(tgt)
 
 if __name__ == '__main__':
     rospy.init_node('task_manager')

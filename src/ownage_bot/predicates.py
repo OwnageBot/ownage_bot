@@ -13,7 +13,7 @@ class Predicate:
         """Creates new predicate by binding argument at arg_id."""
         if arg_loc >= self.n_args:
             raise ValueError("Argument index is out of range.")
-        if not isinstance(self.argtypes[arg_loc], arg):
+        if not isinstance(arg, self.argtypes[arg_loc]):
             raise TypeError("Bound argument is the wrong type.")
         bound = self.__class__()
         bound.name = "%sBoundTo%s%iAt%i".format(
@@ -28,7 +28,7 @@ class Predicate:
         if len(args) != self.n_args:
             raise ValueError("Wrong number of arguments.")
         for t, a in zip(self.argtypes, args):
-            if not isinstance(t, a):
+            if not isinstance(a, t):
                 raise TypeError("Argument is the wrong type.")
         return self._apply(*args)
             
