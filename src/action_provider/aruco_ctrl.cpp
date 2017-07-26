@@ -54,7 +54,7 @@ bool ARucoCtrl::reachObject()
   ros::Rate r(100);
   while(RobotInterface::ok())
   {
-    double t_elap = (ros::Time::now() - start_time).toSec();
+    double t_elap = (ros::Time::now() - t_start).toSec();
     double x = getMarkerPos().x + IR_OFFSET;
     double y = getMarkerPos().y;
     double z = z_start - 0.8 * ARM_SPEED * t_elap;

@@ -1,6 +1,7 @@
 import rospy
 import objects
 import actions
+from objects import Object, Area
 from Queue import Queue
 from geometry_msgs.msg import Point
 
@@ -43,14 +44,15 @@ class Task:
     @staticmethod
     def oneShot(action, tgt=None):
         """Constructs one-shot task from action-target pair."""
-        if not isinstance(tgt, action.tgtype)
+        if not isinstance(tgt, action.tgtype):
+            raise ValueError("Target is the wrong type.")
         if tgt is None:
             name = action.name
-        elif isinstance(tgt, objects.Object)
+        elif isinstance(tgt, Object):
             name = action.name + "Obj" + obj.id
         elif isinstance(tgt, Point):
             name = (action.name + "Loc" +
-                    " ".join(str(p) for p in [tgt.x, tgt.y, tgt.z])
+                    " ".join(str(p) for p in [tgt.x, tgt.y, tgt.z]))
         task = Task(name)
         task._updateActions = lambda action_queue, object_db : \
             task.updateOnce(action, obj, action_queue)
@@ -60,18 +62,18 @@ class Task:
 Idle = Task("idle")
 
 CollectAll = Task("collectAll")
-def _collectAll(action_queue, object_db):
+def _collectAll(action_queue, object_db=dict()):
     """Collects all objects not in the home area."""
     actions_added = 0
     home_corners = rospy.get_param("home_area/corners",
                                    [[0.39,0.07], [0.39,0.29],
-                                    [0.62,0.29], [0.39,0.29]]]
+                                    [0.62,0.29], [0.39,0.29]])
     # Determine uncollected objects
-    uncollected = [oid if not objects.inArea(obj, objects.Area(home_corners))
-                   for oid, obj in object_db.iteritmes()]
+    uncollected = [oid for oid, obj in object_db.iteritems()
+                   if not objects.inArea(obj, Area(home_corners))]
     # Determine objects queued to be collected
-    queued = [o.id if a.name == actions.Collect.name
-              for a, o in list(action_queue.queue)]
+    queued = [o.id for a, o in list(action_queue.queue)
+              if a.name == actions.Collect.name]
     # Append actions for objects not already in queue
     for oid in uncollected:
         if oid not in queued:
@@ -84,12 +86,12 @@ def _collectAllCheck(action, obj):
     """Check that object is not already in home area before collecting."""
     home_corners = rospy.get_param("home_area/corners",
                                    [[0.39,0.07], [0.39,0.29],
-                                    [0.62,0.29], [0.39,0.29]]]
+                                    [0.62,0.29], [0.39,0.29]])
     # Assume undone if action is not Collect
     if action.name != actions.Collect.name:
         return True
     # Return true if object not in home area
-    return not objects.inArea(obj, objects.Area(home_corners)):
+    return not objects.inArea(obj, Area(home_corners))
 CollectAll._checkActionUndone = _collectAllCheck
 
 TrashAll = Task("trashAll")
@@ -100,11 +102,11 @@ def _trashAll(action_queue, object_db):
                                     [[-0.20,0.70], [-0.20,1.00],
                                      [0.10,1.00], [0.10,0.70]])
     # Determine untrashed objects
-    untrashed = [oid if not objects.inArea(obj, objects.Area(trash_corners))
-                 for oid, obj in object_db.iteritmes()]
+    untrashed = [oid for oid, obj in object_db.iteritems()
+                 if not objects.inArea(obj, Area(trash_corners))]
     # Determine objects queued to be trashed
-    queued = [o.id if a.name == actions.Trash.name
-              for a, o in list(action_queue.queue)]
+    queued = [o.id for a, o in list(action_queue.queue)
+              if a.name == actions.Trash.name]
     # Append actions for objects not already in queue
     for oid in untrashed:
         if oid not in queued:
@@ -122,5 +124,5 @@ def _trashAllCheck(action, obj):
     if action.name != actions.Trash.name:
         return True
     # Return true if object not in home area
-    return not objects.inArea(obj, objects.Area(trash_corners)):
+    return not objects.inArea(obj, objects.Area(trash_corners))
 TrashAll._checkActionUndone = _trashAllCheck

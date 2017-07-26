@@ -42,17 +42,43 @@
 	    output="screen" name="object_tracker">
       </node>
 
-      <!-- Task manager node, unused in manual mode -->
-      <node pkg="ownage_bot" type="task_manager.py"
-            name="task_manager" output="screen" unless="$(arg manual)">
-      </node>
-
-      <!-- Text control node, unused in manual mode -->
-      <node pkg="ownage_bot" type="text_control.py"
-            name="text_control" output="screen" unless="$(arg manual)">
+      <!-- Object collector node, unused in manual and simulation modes -->
+      <node pkg="ownage_bot" type="object_collector.py"
+            name="object_collector" output="screen" unless="$(arg manual)">
       </node>
     </group>
-        
+
+    <!-- Object classifier node-->
+    <node pkg="ownage_bot" type="object_classifier.py"
+          name="object_classifier" output="screen">
+      <param name="w_color" type="double" value="1"/>
+      <param name="w_pos" type="double" value="1"/>
+      <param name="w_prox" type="double" value="1"/>
+      <param name="metric_learn_log" type="bool" value="false"/>      
+    </node>
+    
+    <!-- Object tester node, only runs in simulation -->
+    <node pkg="ownage_bot" type="object_tester.py"
+          name="object_tester" output="screen"
+  	      if="$(arg simulation)">
+      <!-- Greedy collection - tries to collect unowned if true -->
+      <param name="greedy" type="bool" value="false"/>
+      <!-- Online or offline training -->
+      <param name="online" type="bool" value="true"/>
+      <!-- Number of simulation trials -->
+      <param name="trials" type="int" value="100"/>
+      <!-- Number of simulated (non-avatar) objects -->
+      <param name="n_objs" type="int" value="100"/>
+      <!-- Number of simulated avatars -->
+      <param name="n_avatars" type="int" value="2"/>
+      <!-- Number of training examples given to classifier -->
+      <param name="n_examples" type="int" value="10"/>
+      <!-- Metrics which object_tester uses to generate clusters -->
+      <rosparam param="metrics">
+        ['color', 'position', 'proximity']
+      </rosparam>
+    </node>
+    
   </group>
 
   <!-- provides actions on Baxter's arms -->

@@ -26,7 +26,7 @@
 #include "robot_interface/gripper.h"
 
 #include "ownage_bot/ObjectMsg.h"
-#include "ownage_bot/LocateObject.h"
+#include "ownage_bot/LookupObject.h"
 #include "ownage_bot/CallAction.h"
 
 // Quartenion for vertical orientation
@@ -293,11 +293,18 @@ protected:
     bool notImplemented();
 
     /**
-     * Goes to the home position, and "releases" the gripper
+     * Goes to the home position.
      *
      * @return        true/false if success/failure
      */
     bool goHome();
+
+    /**
+     * Moves end point to the target location.
+     *
+     * @return        true/false if success/failure
+     */
+    bool moveToLocation();
 
     /**
      * Wrapper for Gripper:open() so that it can fit the action_db specifications

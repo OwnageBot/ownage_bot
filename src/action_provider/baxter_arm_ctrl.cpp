@@ -25,7 +25,7 @@ BaxterArmCtrl::BaxterArmCtrl(string _name, string _limb,
     cancel_srv = nh.advertiseService(cancel, &BaxterArmCtrl::cancelCb, this);
 
     lookup_obj_client =
-        nh.serviceClient<LocateObject>("/ownage_bot/lookup_object");
+        nh.serviceClient<LookupObject>("/ownage_bot/lookup_object");
 
     insertAction(ACTION_HOME, &BaxterArmCtrl::goHome, TARGET_NONE);
     insertAction(ACTION_RELEASE, &BaxterArmCtrl::releaseObject, TARGET_NONE);
@@ -450,7 +450,7 @@ bool BaxterArmCtrl::goHome()
 bool BaxterArmCtrl::moveToLocation()
 {
   Point tgt = tgt_location;
-  return goToPose(tgt.x, tgt.y, tgt.z, VERTICAL_ORI));
+  return goToPose(tgt.x, tgt.y, tgt.z, VERTICAL_ORI);
 }
 
 bool BaxterArmCtrl::findObject()
@@ -487,7 +487,7 @@ bool BaxterArmCtrl::offerObject()
               getLimb().c_str(), srv.request.id);
     return false;
   }
-  ros::Duration(0.05).sleep();
+  Point p = srv.response.object.position;
   // Hover above last-remembered location and offer obj
   if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI)) {
     ROS_ERROR("[%s] Failed to go to object location!\n", getLimb().c_str());
