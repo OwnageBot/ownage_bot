@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import rospy
-from Queue import Queue
+import Queue
 from std_msgs.msg import UInt32
 from std_msgs.msg import String
 from ownage_bot import *
@@ -21,7 +21,7 @@ class TaskManager:
         # Database of available actions
         self.action_db = dict(zip([a.name for a in actions.db], actions.db))
         # Queue of action-target pairs
-        self.action_queue = Queue()
+        self.action_queue = Queue.Queue()
         self.avatar_ids = rospy.get_param("avatar_ids", [])
         self.input_sub = rospy.Subscriber("text_input", String, self.inputCb)
         self.feedback_pub = rospy.Publisher("feedback", FeedbackMsg,
@@ -91,8 +91,11 @@ class TaskManager:
 
         # Keep performing requested tasks/actions
         while not rospy.is_shutdown():
-            # Get next action-target pair, blocks until one is available
-            action, tgt = self.action_queue.get(True)
+            # Get next action-target pair
+            try:
+                action, tgt = self.action_queue.get(True, 0.5)
+            except Queue.Empty:
+                pass
             # Evaluate all rules applicable to current action
             for rule in self.rule_db:
                 if action != rule.action:
