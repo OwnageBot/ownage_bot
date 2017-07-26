@@ -24,7 +24,11 @@ class Action:
 
     def call(self, target=None):
         """Calls action interface after some checks."""
-        return self._call(target)
+        try:
+            r = self._call(target)
+            return r
+        except rospy.ROSException:
+            return CallActionResponse(False, "")
 
 # Pre-defined actions
 

@@ -87,10 +87,11 @@ class TaskManager:
         "Callback that updates actions based on world state."
         try:
             rospy.wait_for_service("list_objects", 0.5)
+            resp = self.listObjects()
         except rospy.ROSException:
-            rospy.logerror("list_objects service not available")
+            rospy.logwarn("list_objects service not available")
             return
-        olist = [Object(msg) for msg in self.listObjects().objects]
+        olist = [Object(msg) for msg in resp.objects]
         object_db = dict(zip([o.id for o in olist], olist))
         self.current_task.updateActions(self.action_queue, object_db)
 
@@ -110,7 +111,7 @@ class TaskManager:
             try:
                 action, tgt = self.action_queue.get(True, 0.5)
             except Queue.Empty:
-                pass
+                continue
             # Evaluate all rules applicable to current action
             for rule in self.rule_db:
                 if action != rule.action:

@@ -14,13 +14,13 @@ class Object:
         if msg is not None:
             if not isinstance(msg, ObjectMsg):
                 raise TypeError("Copy constructor expects ObjectMsg.")
-            uncopyable = ["owners", "ownership"] 
-            for k, v in msg.__dict__.items():
-                if k in uncopyable:
-                    continue
-                if type(v) is tuple:
-                    v = list(v)
-                self.__dict__[k] = copy.deepcopy(v)
+            copyable = ["last_update", "position", "orientation"
+                        "proximities", "color", "is_avatar", "is_landmark"]
+            for attr in copyable():
+                val = getattr(msg, attr)
+                if type() is tuple:
+                    val = list(val)
+                self.__dict__[attr] = copy.deepcopy(val)
             self.ownership = dict(zip(obj_msg.owners, obj_msg.ownership))
             return
 
