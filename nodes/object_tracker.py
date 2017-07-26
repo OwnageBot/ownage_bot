@@ -9,6 +9,7 @@ from geometry_msgs.msg import Pose
 from ownage_bot.msg import *
 from ownage_bot.srv import *
 from ownage_bot import *
+from ownage_bot import Object
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from collections import deque, OrderedDict

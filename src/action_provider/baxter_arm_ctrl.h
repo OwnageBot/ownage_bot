@@ -300,7 +300,7 @@ protected:
     bool goHome();
 
     /**
-     * Moves end point to the target x-y location.
+     * Moves end point to the target location.
      *
      * @return        true/false if success/failure
      */
