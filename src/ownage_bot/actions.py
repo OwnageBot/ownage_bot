@@ -98,7 +98,7 @@ Trash._call = _trash
 Collect = Action("collect", Object, [Find, PickUp, GoHome, PutDown])
 def _collect(target):
     ret = None
-    for a in [Find, PickUp, GoHome, PutDown]:
+    for a in [Find, PickUp, GoHome, PutDown, GoHome]:
         ret = a.call(target)
         if not ret.success:
             return ret

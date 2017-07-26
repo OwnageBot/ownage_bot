@@ -12,11 +12,11 @@ class Task:
         # Human-readable name
         self.name = name
         # Whether task has been completed
-        self.done = False
+        self.finished = False
         # Default implementation of updateActions
         self._updateActions = lambda action_queue, object_db : 0;
         # Default implementation of checkActionUndone
-        self._checkActionUndone = lambda action, obj : True
+        self._checkActionUndone = lambda action, tgt : False
 
     def updateActions(self, action_queue, object_db):
         """Updates the queue of actions to perform based on the object list.
@@ -25,21 +25,21 @@ class Task:
         object_db -- a dict of (id, Object) pairs
 
         Returns the number of actions added."""
-        if not self.done:
+        if not self.finished:
             return self._updateActions(action_queue, object_db)
         return 0
         
     def updateOnce(self, action, tgt, action_queue):
         """Prototype action to be used for one-shot tasks."""
-        if not self.done:
+        if not self.finished:
             action_queue.put((action, tgt))
-            self.done = True
+            self.finished = True
             return 1
         return 0
 
-    def checkActionUndone(self, action, obj):
+    def checkActionUndone(self, action, tgt):
         """Double checks if action is still undone."""
-        return self._checkActionUndone(action, obj)
+        return self._checkActionUndone(action, tgt)
     
     @staticmethod
     def oneShot(action, tgt=None):
@@ -56,6 +56,7 @@ class Task:
         task = Task(name)
         task._updateActions = lambda action_queue, object_db : \
             task.updateOnce(action, tgt, action_queue)
+        task._checkActionUndone = lambda action, tgt : True
         return task
         
 # Pre-defined high-level tasks
@@ -65,6 +66,7 @@ CollectAll = Task("collectAll")
 def _collectAll(action_queue, object_db=dict()):
     """Collects all objects not in the home area."""
     actions_added = 0
+    act_list = list(action_queue.queue)
     home_corners = rospy.get_param("home_area/corners",
                                    [[0.39,0.07], [0.39,0.29],
                                     [0.62,0.29], [0.39,0.29]])
@@ -72,13 +74,18 @@ def _collectAll(action_queue, object_db=dict()):
     uncollected = [oid for oid, obj in object_db.iteritems()
                    if not objects.inArea(obj, Area(home_corners))]
     # Determine objects queued to be collected
-    queued = [o.id for a, o in list(action_queue.queue)
+    queued = [o.id for a, o in act_list
               if a.name == actions.Collect.name]
+    # Scan for more objects if there are no uncollected ones
+    if (len(uncollected) == 0 and len(queued) == 0 and 
+        all(a.name != actions.Scan.name for a, o in act_list)):
+        action_queue.put((actions.Scan, None))
+        actions_added = actions_added + 1
     # Append actions for objects not already in queue
     for oid in uncollected:
         if oid not in queued:
             action_queue.put((actions.Collect, object_db[oid]))
-            actions_added = actions_added + 1    
+            actions_added = actions_added + 1
     return actions_added
 CollectAll._updateActions = _collectAll
 
@@ -86,7 +93,7 @@ def _collectAllCheck(action, obj):
     """Check that object is not already in home area before collecting."""
     home_corners = rospy.get_param("home_area/corners",
                                    [[0.39,0.07], [0.39,0.29],
-                                    [0.62,0.29], [0.39,0.29]])
+                                    [0.62,0.29], [0.62,0.07]])
     # Assume undone if action is not Collect
     if action.name != actions.Collect.name:
         return True
@@ -98,6 +105,7 @@ TrashAll = Task("trashAll")
 def _trashAll(action_queue, object_db):
     """Trashes all objects not in the trash area."""
     actions_added = 0    
+    act_list = list(action_queue.queue)
     trash_corners = rospy.get_param("trash_area/corners",
                                     [[-0.20,0.70], [-0.20,1.00],
                                      [0.10,1.00], [0.10,0.70]])
@@ -105,8 +113,13 @@ def _trashAll(action_queue, object_db):
     untrashed = [oid for oid, obj in object_db.iteritems()
                  if not objects.inArea(obj, Area(trash_corners))]
     # Determine objects queued to be trashed
-    queued = [o.id for a, o in list(action_queue.queue)
+    queued = [o.id for a, o in act_list
               if a.name == actions.Trash.name]
+    # Scan for more objects if there are no untrashed ones
+    if (len(untrashed) == 0 and len(queued) == 0 and 
+        all(a.name != actions.Scan.name for a, o in act_list)):
+        action_queue.put((actions.Scan, None))
+        actions_added = actions_added + 1
     # Append actions for objects not already in queue
     for oid in untrashed:
         if oid not in queued:

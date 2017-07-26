@@ -39,7 +39,6 @@ bool ARucoCtrl::reachObject()
   double y = getMarkerPos().y;
   double z =       getPos().z;
 
-  printf("Going to: %g %g %g", x, y, z);
   if (!goToPose(x, y, z, VERTICAL_ORI,"loose"))
   {
     return false;

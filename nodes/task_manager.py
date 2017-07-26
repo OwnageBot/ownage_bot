@@ -77,11 +77,16 @@ class TaskManager:
     def inputCb(self, msg):
         """Handles incoming text input."""
         task, feedback, interrupt = self.parseInput(msg.data)
+        self.current_task = task
         if interrupt:
+            # Cancel current action and empty action queue
             actions.Cancel.call()
+            while self.action_queue.qsize() > 0:
+                try:
+                    self.action_queue.get(False)
+                except Queue.Empty:
+                    continue
         self.sendFeedback(feedback)
-        if not task is None:
-            self.current_task = task
 
     def updateCb(self, event):
         "Callback that updates actions based on world state."
@@ -111,6 +116,12 @@ class TaskManager:
             try:
                 action, tgt = self.action_queue.get(True, 0.5)
             except Queue.Empty:
+                continue
+            # Check if action still needs to be done
+            if isinstance(tgt, Object):
+                # Get most recent information about object
+                tgt = Object(self.lookupObject(tgt.id).object)
+            if not self.current_task.checkActionUndone(action, tgt):
                 continue
             # Evaluate all rules applicable to current action
             for rule in self.rule_db:

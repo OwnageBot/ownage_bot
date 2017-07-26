@@ -64,4 +64,4 @@ def dist(obj1, obj2):
 
 def inArea(obj, area):
     """Checks if object is located in area."""
-    return area.path.contains_point((obj.position.x, obj.position.y))
+    return bool(area.path.contains_point((obj.position.x, obj.position.y)))

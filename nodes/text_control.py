@@ -10,6 +10,7 @@ if __name__ == '__main__':
             data = raw_input('> ')
             input_pub.publish(String(data))
         except (KeyboardInterrupt, EOFError):
+            input_pub.publish(String("cancel"))
             print "Closing text prompt."
             break
 
