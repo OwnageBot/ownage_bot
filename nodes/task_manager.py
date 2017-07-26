@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import rospy
+from rospy.exceptions import ROSException
 import Queue
 from std_msgs.msg import UInt32
 from std_msgs.msg import String
@@ -85,7 +86,11 @@ class TaskManager:
 
     def updateCb(self, event):
         "Callback that updates actions based on world state."
-        rospy.wait_for_service("list_objects", 1.0)
+        try:
+            rospy.wait_for_service("list_objects", 0.5)
+        except ROSException:
+            rospy.logerror("list_objects service not available")
+            return
         olist = [Object(msg) for msg in self.listObjects().objects]
         object_db = dict(zip([o.id for o in olist], olist))
         self.current_task.updateActions(self.action_queue, object_db)
