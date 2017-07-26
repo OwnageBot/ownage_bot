@@ -15,7 +15,7 @@ class TaskManager:
         # Duration in seconds between action updates
         self.update_latency = rospy.get_param("task_update", 0.5)
         # Current task being performed
-        self.current_task = None
+        self.current_task = tasks.Idle
         # Database of rules to follow
         self.rule_db = [rules.DoNotTouchRed, rules.DoNotTrashBlue]
         # Database of available actions
@@ -38,11 +38,23 @@ class TaskManager:
     def parseInput(self, data):
         "Parses text input and returns commands."
         task = tasks.Idle
+        feedback = None
+        interrupt = True
+
         args = data.split()
-        if args[0] in self.action_db:
+
+        if len(args) == 0:
+            return task, feedback, interrupt
+        if args[0] == "list":
+            # List available actions
+            print "Available actions:"
+            for a in self.action_db.iterkeys():
+                print a
+            return task, feedback, interrupt
+        elif args[0] in self.action_db:
             # Construct one-shot task if syntax matches
             action = self.action_db[args[0]]
-            if action.tgtype is None:
+            if action.tgtype is type(None):
                 task = Task.oneShot(action, None)
             elif len(args) >= 2:
                 if action.tgtype == Object:
@@ -54,14 +66,12 @@ class TaskManager:
                     task = Task.oneShot(action, loc)
         else:
             # Try one of the higher-level tasks
-            if data == "collectAll":
+            if args[0] == "collectAll":
                 task = tasks.CollectAll
-            elif data == "trashAll":
+            elif args[0] == "trashAll":
                 task = tasks.TrashAll
         if task == tasks.Idle:
             print "Could not parse input, defaulting to idle task."
-        feedback = None
-        interrupt = True
         return task, feedback, interrupt
 
     def inputCb(self, msg):
@@ -73,8 +83,9 @@ class TaskManager:
         if not task is None:
             self.current_task = task
 
-    def updateCb(self):
+    def updateCb(self, event):
         "Callback that updates actions based on world state."
+        rospy.wait_for_service("list_objects", 1.0)
         olist = [Object(msg) for msg in self.listObjects().objects]
         object_db = dict(zip([o.id for o in olist], olist))
         self.current_task.updateActions(self.action_queue, object_db)
@@ -109,4 +120,4 @@ if __name__ == '__main__':
     rospy.init_node('task_manager')
     task_manager = TaskManager()
     task_manager.main()
-
+    rospy.spin()
