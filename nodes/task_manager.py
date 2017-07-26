@@ -125,11 +125,13 @@ class TaskManager:
                 continue
             # Evaluate all rules applicable to current action
             for rule in self.rule_db:
-                if action != rule.action:
+                if rule.action not in ([action] + action.dependencies):
                     continue
                 if rule.detype == Rule.forbidden and rule.evaluate(tgt):
+                    print "Cannot violate rule:", rule
                     break;
                 elif rule.detype == Rule.allowed and not rule.evaluate(tgt):
+                    print "Cannot violate rule:", rule
                     break;
             else:
                 # Call action if rules allow for it

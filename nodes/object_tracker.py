@@ -75,16 +75,16 @@ class ObjectTracker:
             if k in self.object_db:
                 avatar = self.object_db[k]
                 obj.proximities[i] = objects.dist(obj, avatar)
-        # if marker.id in [2, 12, 19]:
-        #     obj.color = 0
-        # elif marker.id in [4, 5, 9, 10]:
-        #     obj.color = 1
-        # elif marker.id in [1, 3, 6]:
-        #    obj.color = 2
+        if marker.id in [2, 12, 19]:
+            obj.color = 0
+        elif marker.id in [4, 5, 9, 10]:
+            obj.color = 1
+        elif marker.id in [1, 3, 6]:
+           obj.color = 2
         # One-time subscribe for image data
-        image_msg = rospy.wait_for_message(
-             "/aruco_marker_publisher/result", Image)
-        obj.color = self.determineColor(image_msg, marker)
+        # image_msg = rospy.wait_for_message(
+        #      "/aruco_marker_publisher/result", Image)
+        # obj.color = self.determineColor(image_msg, marker)
         return obj
 
     def ARucoCb(self, msg):

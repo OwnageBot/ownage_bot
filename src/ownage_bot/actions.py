@@ -19,7 +19,7 @@ class Action:
     def __init__(self, name="", tgtype=type(None), dependencies=[]):
         self.name = name # Human-readable name
         self.tgtype = tgtype # Target type
-        self.dependencies = [] # List of action dependencies
+        self.dependencies = dependencies # List of action dependencies
         self._call = lambda obj=None : None # Implementation of call()
 
     def call(self, target=None):
