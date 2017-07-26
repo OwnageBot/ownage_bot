@@ -41,7 +41,9 @@
       <node pkg="ownage_bot" type="object_tracker.py"
 	    output="screen" name="object_tracker">
       </node>
+    </group>
 
+    <group unless="$(arg manual)">
       <!-- Task manager node, unused in manual mode -->
       <node pkg="ownage_bot" type="task_manager.py"
             name="task_manager" output="screen" unless="$(arg manual)">
@@ -52,13 +54,18 @@
             name="text_control" output="screen" unless="$(arg manual)">
       </node>
     </group>
-        
   </group>
 
   <!-- provides actions on Baxter's arms -->
   <node pkg="ownage_bot" type="action_provider"
       	name="action_provider" output="screen"
-	unless="$(arg simulation)">
+      	unless="$(arg simulation)">
+  </node>
+  
+  <!-- provides dummy actions in simulation -->
+  <node pkg="ownage_bot" type="dummy_action_provider"
+      	name="action_provider" output="screen"
+	      if="$(arg simulation)">
   </node>
 
   <!-- show image from camera -->
