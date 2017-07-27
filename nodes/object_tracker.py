@@ -6,6 +6,8 @@ import numpy as np
 from std_msgs.msg import UInt32
 from aruco_msgs.msg import MarkerArray
 from geometry_msgs.msg import Pose
+from baxter_core_msgs.msg import EndpointState, EndEffectorState
+from human_robot_collaboration_msgs.msg import ArmState
 from ownage_bot.msg import *
 from ownage_bot.srv import *
 from ownage_bot import *
@@ -19,6 +21,11 @@ class ObjectTracker:
     def __init__(self):
         self.latency = rospy.get_param("tracker_latency", 0.1)
         self.object_db = dict()
+
+        # Flag 
+        self.cur_action = ""
+        self.prev_aciton = ""
+        self.gripped_id = -1
 
         # Margins around ARuco tag for color determination
         self.in_offset = rospy.get_param("in_offset", 1)
@@ -37,6 +44,9 @@ class ObjectTracker:
         # Subscribers and clients
         self.marker_sub = rospy.Subscriber("/aruco_marker_publisher/markers",
                                            MarkerArray, self.ARucoCb)
+        self.action_sub = rospy.Subscriber("/action_provider/left/state",
+                                           ArmState, self.actionCb)
+        self.endpoint_sub = None
 
         # Computer vision
         self.cv_bridge = CvBridge();
@@ -46,7 +56,8 @@ class ObjectTracker:
                          (35, 55, 115)] # Blue
         # List of basic colors in LAB color space
         self.lab_db = np.asarray(self.color_db, dtype="uint8")[... , None]
-        self.lab_db = cv.cvtColor(np.swapaxes(self.lab_db, 1, 2), cv.COLOR_RGB2LAB)
+        self.lab_db = cv.cvtColor(np.swapaxes(self.lab_db, 1, 2),
+                                  cv.COLOR_RGB2LAB)
         cv.namedWindow("Mask")
 
     def insertObject(self, marker):
@@ -100,6 +111,37 @@ class ObjectTracker:
                   rospy.Duration(self.latency)):
                 # Update object if update period has lapsed
                 self.updateObject(m)
+
+    def actionCb(self, msg):
+        """Callback upon change in current action."""
+        self.prev_action = self.cur_action
+        self.cur_action = msg.action
+        if self.cur_action == self.prev_action:
+            return
+        if self.cur_action == "get":
+            # Start tracking object at endpoint
+            self.gripped_id = int(msg.object)
+            topic = "/robot/limb/left/endpoint_state"
+            self.endpoint_sub = \
+                rospy.Subscriber(topic, EndpointState, self.endpointCb)
+        elif self.cur_action in ["put", "release"]:
+            # Stop tracking object at endpoint
+            self.gripped_id = -1
+            self.endpoint_sub.unregister()
+            self.endpoint_sub = None
+
+    def endpointCb(self, msg):
+        """Callback for endpoint state, used to track gripped objects."""
+        if self.gripped_id < 0:
+            return
+        # Update gripped object's position in place
+        obj = self.object_db[self.gripped_id]
+        t_now = rospy.get_rostime()
+        if (t_now - obj.last_update) > rospy.Duration(self.latency):
+            topic = "/robot/end_effector/left_gripper"
+            state = rospy.wait_for_message(topic, EndEffectorState)
+            if state.gripping:
+                obj.position = msg.pose.position
 
     def determineColor(self, msg, marker):
         """Determines color of the currently tracked object."""

@@ -128,7 +128,6 @@ bool BaxterArmCtrl::serviceCb(CallAction::Request &req,
         return true;
     }
   
-    setAction(action);
     string target = action_db[action].target;
 
     if (target == TARGET_OBJECT)
@@ -140,6 +139,7 @@ bool BaxterArmCtrl::serviceCb(CallAction::Request &req,
       setTargetLocation(req.location);
     }
 
+    setAction(action);
     res.success = false;
 
     startThread();
@@ -634,7 +634,7 @@ bool BaxterArmCtrl::publishState()
 
     msg.state  = string(getState());
     msg.action = getAction();
-    msg.object = "";
+    msg.object = to_string(getTargetObject().id);
 
     state_pub.publish(msg);
 
