@@ -62,8 +62,8 @@ bool ARucoCtrl::reachObject()
     {
       cnt_ik_fail = 0;
 
-      // Use loose collision detection to avoid over-pushing
-      if(hasCollidedIR("strict"))
+      // Check IR and force sensors for collision
+      if(hasCollidedIR("strict") || getWrench().force.z < REACH_THRESHOLD)
       {
         ROS_DEBUG("Collision!");
         return true;

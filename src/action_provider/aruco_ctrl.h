@@ -15,6 +15,8 @@
 
 // Offset between gripper and IR sensor so that picking up works
 #define IR_OFFSET (0.015)
+// Force threshold for releasing object
+#define REACH_THRESHOLD (-15)
 
 class ARucoCtrl : public BaxterArmCtrl, public ARucoClient
 {
