@@ -20,6 +20,11 @@ class Rule:
             if not condition.apply(obj):
                 return False
         return True
+
+    def toString(self):
+        return " ".join([self.action.name, "on"] +
+                        [p.name for p in self.conditions] +
+                        ["target","is",self.detype])
         
 # List of pre-defined rules
 DoNotTouchRed = Rule([predicates.Red], actions.PickUp)
