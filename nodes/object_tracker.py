@@ -176,13 +176,13 @@ class ObjectTracker:
         """ Service callback: returns position of particular object"""
         if req.id in self.object_db:
             obj = self.object_db[req.id]
-            return LookupObjectResponse(True, obj.asMessage())
+            return LookupObjectResponse(True, obj.toMsg())
         else:
             return LookupObjectResponse(False, ObjectMsg())
 
     def listObjectsCb(self, req):
         """ Service callback: returns list of tracked objects"""
-        return ListObjectsResponse([obj.asMessage() for
+        return ListObjectsResponse([obj.toMsg() for
                                     obj in self.object_db.values()])
 
 if __name__ == '__main__':

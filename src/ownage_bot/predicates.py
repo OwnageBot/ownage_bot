@@ -7,20 +7,26 @@ class Predicate:
         self.name = name # Human-readable name
         self.n_args = len(argtypes) # Number of arguments
         self.argtypes = argtypes # List of argument types
+        self.parent = self # Parent predicate is self if not derived
+        self.binding = None # (loc, arg) tuple if bound
         self._apply = lambda *args : True # Implementation of predicate
 
     def bind(self, arg, arg_loc):
-        """Creates new predicate by binding argument at arg_id."""
+        """Derive new predicate by binding argument at arg_id."""
         if arg_loc >= self.n_args:
             raise ValueError("Argument index is out of range.")
         if not isinstance(arg, self.argtypes[arg_loc]):
             raise TypeError("Bound argument is the wrong type.")
         bound = self.__class__()
-        bound.name = "%sBoundTo%s%iAt%i".format(
+        bound.name = "{}BoundTo{}{}At{}".format(
             self.name, arg.__class__.__name__, arg.id, arg_loc)
         bound.n_args = self.n_args - 1;
+        bound.argtypes = [t for (i,t) in enumerate(self.argtypes) if
+                          i != arg_loc]
+        bound.parent = self
+        bound.binding = (arg_loc, arg)
         bound._apply = lambda *args : \
-            self._apply(*[a if (i == arg_loc) else arg
+            self._apply(*[arg if (i == arg_loc) else a
                         for (i,a) in enumerate(args)])
     
     def apply(self, *args):
@@ -53,4 +59,4 @@ IsOwned._apply = lambda obj: any(map(lambda o:o>0.8,
                                      obj.ownership.iteritems()))
 
 InArea = Predicate("inArea", [Object, Area])
-InArea._apply = lambda obj, area: inArea(obj, area)
+InArea._apply = lambda obj, area: objects.inArea(obj, area)

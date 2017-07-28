@@ -35,7 +35,7 @@ class Object:
         self.is_avatar = False # Whether object is an avatar
         self.is_landmark = False # Whether object is a landmark
             
-    def asMessage(self):
+    def toMsg(self):
         """Converts object to a ROS message."""
         msg = ObjectMsg()
         uncopyable = ["ownership"] 

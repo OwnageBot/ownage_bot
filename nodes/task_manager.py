@@ -15,7 +15,7 @@ class TaskManager:
         # Duration in seconds between action updates
         self.update_latency = rospy.get_param("task_update", 0.5)
         # Current task being performed
-        self.current_task = tasks.Idle
+        self.cur_task = tasks.Idle
         # Database of rules to follow
         self.rule_db = [rules.DoNotTouchRed, rules.DoNotTrashBlue]
         # Database of available actions
@@ -77,7 +77,7 @@ class TaskManager:
     def inputCb(self, msg):
         """Handles incoming text input."""
         task, feedback, interrupt = self.parseInput(msg.data)
-        self.current_task = task
+        self.cur_task = task
         if interrupt:
             # Cancel current action and empty action queue
             actions.Cancel.call()
@@ -98,7 +98,7 @@ class TaskManager:
             return
         olist = [Object(msg) for msg in resp.objects]
         object_db = dict(zip([o.id for o in olist], olist))
-        self.current_task.updateActions(self.action_queue, object_db)
+        self.cur_task.updateActions(self.action_queue, object_db)
 
     def main(self):
         """Main loop which manages tasks and responds to commands."""
@@ -121,7 +121,7 @@ class TaskManager:
             if isinstance(tgt, Object):
                 # Get most recent information about object
                 tgt = Object(self.lookupObject(tgt.id).object)
-            if not self.current_task.checkActionUndone(action, tgt):
+            if not self.cur_task.checkActionUndone(action, tgt):
                 continue
             # Evaluate all rules applicable to current action
             for rule in self.rule_db:

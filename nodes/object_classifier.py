@@ -75,7 +75,7 @@ class ObjectClassifier:
             for obj in objects:
                 if not obj.is_avatar:
                     self.classifyObject(obj)
-        return ListObjectsResponse([o.asMessage() for o in objects])
+        return ListObjectsResponse([o.toMsg() for o in objects])
 
     def handleReset(self, req):
         """Handles reset service request. Clears interaction log."""
