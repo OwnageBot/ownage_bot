@@ -49,6 +49,11 @@
             name="task_manager" output="screen" unless="$(arg manual)">
       </node>
 
+      <!-- Dialog manager node, unused in manual mode -->
+      <node pkg="ownage_bot" type="dialog_manager.py"
+            name="dialog_manager" output="screen" unless="$(arg manual)">
+      </node>
+
       <!-- Text control node, unused in manual mode -->
       <node pkg="ownage_bot" type="text_control.py"
             name="text_control" output="screen" unless="$(arg manual)">

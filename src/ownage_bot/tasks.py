@@ -139,3 +139,10 @@ def _trashAllCheck(action, obj):
     # Return true if object not in home area
     return not objects.inArea(obj, objects.Area(trash_corners))
 TrashAll._checkActionUndone = _trashAllCheck
+
+# List of available tasks for each robotic platform
+if rospy.get_param("platform", "baxter") == "baxter":
+    # Only Baxter is currently supported
+    db = [Idle, CollectAll, TrashAll]
+else:
+    db = []

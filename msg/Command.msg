@@ -1,15 +1,11 @@
 Header header
 # Name of task or action
-String name
-
+string name
 # Whether one-shot action or higher-level task
 bool oneshot
-
 # Whether current task should be interrupted
 bool interrupt
-
 # Target object
-ownage_bot/ObjectMsg object
-
+int32 obj_id
 # Target location
 geometry_msgs/Point location

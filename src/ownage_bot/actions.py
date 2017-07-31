@@ -59,7 +59,7 @@ Scan._call = _scan
 
 PickUp = Action("pickUp", Object)
 def _pickUp(target):
-    return _service_left("get", target.asMessage(), Point())
+    return _service_left("get", target.toMsg(), Point())
 PickUp._call = _pickUp
     
 PutDown = Action("putDown")
@@ -74,12 +74,12 @@ Release._call = _release
 
 Find = Action("find", Object)
 def _find(target):
-    return _service_left("find", target.asMessage(), Point())
+    return _service_left("find", target.toMsg(), Point())
 Find._call = _find
 
 Offer = Action("offer", Object)
 def _offer(target):
-    return _service_left("offer", target.asMessage(), Point())
+    return _service_left("offer", target.toMsg(), Point())
 Offer._call = _offer
 
 Trash = Action("trash", Object, [Find, PickUp, MoveTo, Release])
@@ -112,6 +112,7 @@ Replace._call = _replace
 
 # List of available actions for each robotic platform
 if rospy.get_param("platform", "baxter") == "baxter":
+    # Only Baxter is currently supported
     db = [Cancel, GoHome, MoveTo, Scan, PickUp, PutDown,
           Release, Find, Offer, Trash, Collect, Replace]
 else:
