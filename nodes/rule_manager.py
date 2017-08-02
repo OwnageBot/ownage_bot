@@ -32,3 +32,8 @@ class RuleManager:
 
     def instructionCb(self. msg):
         pass
+
+if __name__ == '__main__':
+    rospy.init_node('rule_manager')
+    rule_manager = RuleManager()
+    rospy.spin()
