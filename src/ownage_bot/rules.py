@@ -9,30 +9,36 @@ class Rule:
     allowed = "allowed"
     obligatory = "obligatory"
     
-    def __init__(self, conditions=[], action=actions.Empty, detype="forbidden"):
-        self.conditions = conditions # List of predicates that have to be true
-        self.action = action # Action to be performed
-        self.detype = detype # Deontic operator type
+    def __init__(self, conditions=[], action=actions.Empty,
+                 detype="forbidden"):
+        # List of predicate-substitution pairs 
+        self.conditions = conditions
+         # Action to be performed
+        self.action = action
+         # Deontic operator type
+        self.detype = detype
         
     def evaluate(self, obj):
         """Evaluates if object satisfies the predicates."""
-        for condition in self.conditions:
-            if not condition.apply(obj):
-                return False
-        return True
+        for p, sub in self.conditions:
+            # Replace None with the object in substitution list
+            sub = [arg if arg not is None else obj for arg in sub]
+            if not p.apply(sub):
+                return 0.0
+        return 1.0
 
     def toString(self):
         return " ".join([self.action.name, "on"] +
-                        [p.name for p in self.conditions] +
+                        [p.name for p, sub in self.conditions] +
                         ["target","is",self.detype])
         
 # List of pre-defined rules
-DoNotTouchRed = Rule([predicates.Red], actions.PickUp)
-DoNotTouchGreen = Rule([predicates.Green], actions.PickUp)
-DoNotTouchBlue = Rule([predicates.Blue], actions.PickUp)
-DoNotTouchOwned = Rule([predicates.IsOwned], actions.PickUp)
+DoNotTouchRed = Rule([(predicates.Red, None)], actions.PickUp)
+DoNotTouchGreen = Rule([(predicates.Green, None)], actions.PickUp)
+DoNotTouchBlue = Rule([(predicates.Blue, None)], actions.PickUp)
+DoNotTouchOwned = Rule([(predicates.IsOwned, None)], actions.PickUp)
 
-DoNotTrashRed = Rule([predicates.Red], actions.Trash)
-DoNotTrashGreen = Rule([predicates.Green], actions.Trash)
-DoNotTrashBlue = Rule([predicates.Blue], actions.Trash)
-DoNotTrashOwned = Rule([predicates.IsOwned], actions.Trash)
+DoNotTrashRed = Rule([(predicates.Red, None)], actions.Trash)
+DoNotTrashGreen = Rule([(predicates.Green, None)], actions.Trash)
+DoNotTrashBlue = Rule([(predicates.Blue, None)], actions.Trash)
+DoNotTrashOwned = Rule([(predicates.IsOwned, None)], actions.Trash)
