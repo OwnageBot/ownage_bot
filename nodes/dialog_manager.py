@@ -24,6 +24,8 @@ class DialogManager:
         self.c_words_PoS = ["VB"]  # For commands
         self.s_words_PoS = ["IN"]  # For statements
 
+        self.command_pub = rospy.Publisher("command", TaskMsg, queue_size=10)
+
     def inputCb(self, msg):
         """Handles text input and publishes commands."""
         name = tasks.Idle.name
@@ -66,7 +68,7 @@ class DialogManager:
         elif args[0] in self.task_db:
             # Try one of the higher-level tasks
             name = args[0]
-            cmd = Command(name=name, oneshot=False, interrupt=True,
+            cmd = TaskMsg(name=name, oneshot=False, interrupt=True,
                           obj_id=obj_id, location=location)
             self.command_pub.publish(cmd)
             return

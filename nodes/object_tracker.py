@@ -37,7 +37,7 @@ class ObjectTracker:
         # Publishers and servers
         self.new_obj_pub = rospy.Publisher("new_object",
                                            UInt32, queue_size = 10)
-        self.loc_obj_srv = rospy.Service("lookup_object", LookupObject,
+        self.lkp_obj_srv = rospy.Service("lookup_object", LookupObject,
                                          self.lookupObjectCb)
         self.lst_obj_srv = rospy.Service("list_objects", ListObjects,
                                          self.listObjectsCb)

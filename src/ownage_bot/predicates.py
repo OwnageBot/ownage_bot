@@ -1,5 +1,5 @@
 import objects
-from objects import Object, Area
+from objects import Object, Agent, Area
 
 class Predicate:
     """Functions which apply to one or more objects, return true or false."""    
@@ -8,7 +8,7 @@ class Predicate:
         self.n_args = len(argtypes) # Number of arguments
         self.argtypes = argtypes # List of argument types
         self.parent = self # Parent predicate is self if not derived
-        self.binding = None # (loc, arg) tuple if bound
+        self.binding = (-1, -1) # (loc, arg) tuple if bound
         self._apply = lambda *args : True # Implementation of predicate
 
     def bind(self, arg, arg_loc):
@@ -51,8 +51,8 @@ Blue._apply = lambda obj : (obj.color == 2)
 Near = Predicate("near", [Object, Object])
 Near._apply = lambda obj1, obj2: objects.dist(obj1, obj2) < 0.4
 
-Owns = Predicate("owns", [int, Object])
-Owns._apply = lambda agent, obj: obj.ownership[agent] > 0.8
+OwnedBy = Predicate("owns", [Object, Agent])
+OwnedBy._apply = lambda obj, agent: obj.ownership[agent.id] > 0.8
 
 IsOwned = Predicate("isOwned", [Object])
 IsOwned._apply = lambda obj: any(map(lambda o:o>0.8,
@@ -60,3 +60,10 @@ IsOwned._apply = lambda obj: any(map(lambda o:o>0.8,
 
 InArea = Predicate("inArea", [Object, Area])
 InArea._apply = lambda obj, area: objects.inArea(obj, area)
+
+# List of available predicates for each robotic platform
+if rospy.get_param("platform", "baxter") == "baxter":
+    # Only Baxter is currently supported
+    db = [Red, Green, Blue, Near, OwnedBy, IsOwned, InArea]
+else:
+    db = []

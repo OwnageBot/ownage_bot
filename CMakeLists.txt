@@ -65,7 +65,9 @@ add_message_files(
   FILES
   ObjectMsg.msg
   FeedbackMsg.msg
-  Command.msg
+  TaskMsg.msg
+  FactMsg.msg
+  RuleMsg.msg
 )
 
 ## Generate services in the 'srv' folder

@@ -26,6 +26,7 @@ class Object:
 
         # Otherwise use default constructor
         self.id = -1
+        self.name = ""
         self.last_update = rospy.get_rostime()
         self.position = Point()
         self.orientation = Quaternion()
@@ -47,10 +48,18 @@ class Object:
         msg.ownership = self.ownership.values()
         return msg
 
+class Agent:
+    """Represents an agent that can own and act on objects."""
+    def __init__(self, id, name, avatar_id=-1):
+        self.id = id # Unique ID
+        self.name = name # Human-readable name
+        self.avatar_id = avatar_id # Object ID of avatar representing agent
+    
 class Area:
     """Defines a 2D polygonal area."""
     def __init__(self, points):
         """Takes a list of tuples and stores them."""
+        self.name = ""
         self.n_sides = len(points)
         self.points = np.array(points)
         self.path = mptPath.Path(self.points)

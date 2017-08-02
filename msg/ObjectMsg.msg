@@ -1,6 +1,8 @@
 Header header
 # ARuco ID of the object
 int32 id
+# Human-readable name
+string name
 # Last time these object properties were updated
 time last_update
 # Absolute position of the object

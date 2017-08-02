@@ -26,7 +26,7 @@ class TaskManager:
         # Queue of action-target pairs
         self.action_queue = Queue.Queue()
         self.avatar_ids = rospy.get_param("avatar_ids", [])
-        self.command_sub = rospy.Subscriber("command", Command, self.commandCb)
+        self.command_sub = rospy.Subscriber("command", TaskMsg, self.commandCb)
         self.feedback_pub = rospy.Publisher("feedback", FeedbackMsg,
                                             queue_size=10)
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
