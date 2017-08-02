@@ -16,7 +16,7 @@ class DialogManager:
         
         # Subscribers and publishers
         self.input_sub = rospy.Subscriber("text_input", String, self.inputCb)
-        self.command_pub = rospy.Publisher("command", Command, queue_size=10)
+        self.command_pub = rospy.Publisher("command", TaskMsg, queue_size=10)
 
     def inputCb(self, msg):
         "Handles text input and publishes commands."
@@ -42,14 +42,14 @@ class DialogManager:
                     obj_id = int(args[1])
                 elif action.tgtype == Point:
                     location = Point(*[float(s) for s in args[1].split(',')])
-            cmd = Command(name=name, oneshot=True, interrupt=True,
+            cmd = TaskMsg(name=name, oneshot=True, interrupt=True,
                           obj_id=obj_id, location=location)
             self.command_pub.publish(cmd)
             return
         elif args[0] in self.task_db:
             # Try one of the higher-level tasks
             name = args[0]
-            cmd = Command(name=name, oneshot=False, interrupt=True,
+            cmd = TaskMsg(name=name, oneshot=False, interrupt=True,
                           obj_id=obj_id, location=location)
             self.command_pub.publish(cmd)
             return
