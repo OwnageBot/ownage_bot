@@ -5,5 +5,7 @@ string action
 string[] predicates
 # List of argument substitution lists
 string[][] args
-# Deontic operating type
+# Deontic operator type
 string detype
+# Truth value between 0.0 and 1.0
+float32 truth

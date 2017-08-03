@@ -41,11 +41,11 @@ class Rule:
         tup = (msg.predicates, msg.args, msg.action, msg.detype)
         return hash(tup)
         
-    def evaluate(self, obj):
-        """Evaluates if object satisfies the predicates."""
+    def evaluate(self, tgt):
+        """Evaluates if target satisfies the predicates."""
         for p, subst in self.conditions:
             # Replace None with the object in substitution list
-            sub = [arg if arg not is None else obj for arg in sub]
+            sub = [arg if arg not is None else tgt for arg in sub]
             if not p.apply(sub):
                 return 0.0
         return 1.0

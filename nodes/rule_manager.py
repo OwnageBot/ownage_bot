@@ -1,12 +1,19 @@
 #!/usr/bin/env python
 import rospy
+from collections import namedtuple
 from geometry_msgs.msg import Point
 from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
 
+# Named tuple for performance metric info
+PerfMetric = namedtuple('PerfMetric',
+                        ['tp', 'tn', 'fp', 'fn',
+                         'prec', 'rec', 'acc', 'm_est'])
+
 class RuleManager:
     """Manages, updates and learns (ownership) rules."""
+    
     def __init__(self):
         # Databases of available predicates and actions
         self.predicate_db = dict(zip([p.name for p in predicates.db],
@@ -44,7 +51,7 @@ class RuleManager:
         # Only update ruleset if there are enough facts to induct from
         if len(self.fact_db[msg.predicate]) >= 2:
             # Only update rules that correspond to action
-            self.updateRuleSet(msg.predicate)
+            self.updateRuleSet(msg.predicate, msg.truth)
 
     def insertFact(self, fact):
         """Insert fact into fact database in appropriate format.
@@ -66,7 +73,7 @@ class RuleManager:
             tgt = tuple(tgt.split())
 
         # Overwrite old value if fact already exists
-        self.fact_db[action.name][tgt] = fact.confidence
+        self.fact_db[action.name][tgt] = fact.truth
 
     def ruleInputCb(self. msg):
         """Updates candidate rule database, considers activating them."""
@@ -74,10 +81,10 @@ class RuleManager:
         rule = Rule.fromMsg(msg)
 
         # Overwrites old value if candidate already exists
-        self.cand_rule_db[action.name][rule] = msg.confidence
-        self.updateRuleSet(action.name, rule)
+        self.cand_rule_db[action.name][rule] = msg.truth
+        self.updateRuleSet(action.name, msg.truth, rule)
 
-    def updateRuleSet(self, act_name, cand_rule=None):
+    def updateRuleSet(self, act_name, truth, cand_rule=None):
         """Evaluates rules for the named action, updates if necessary."""
 
         if len(self.fact_db[act_name]) > 0:
@@ -85,9 +92,12 @@ class RuleManager:
             self.growRuleSet(act_name, cand_rule)
         elif cand_rule is not None:
             # If there are no facts, just use candidate rules
-            self.fact_db[act_name].add(cand_rule)
+            if truth > 0.5:
+                self.active_rule_db[act_name].add(cand_rule)
+            else:
+                self.active_rule_db[act_name].remove(cand_rule)
 
-        # Prune ruleset (e.g. merge rules that can be merged)
+        # Prune rule set (e.g. merge rules that can be merged)
         self.pruneRuleSet(act_name, cand_rule)
 
     def growRuleSet(self, act_name, cand_rule=None):
@@ -132,8 +142,28 @@ class RuleManager:
             
     def evalRuleSet(self, rule_set, fact_set):
         """Evaluates rule set and returns a performance metric tuple."""
-        pass
-        
+        n_facts = len(fact_set)
+
+    def evalRule(self, rule, fact_set):
+        """Evaluates performance of a rule."""
+        n_facts = len(fact_set)
+        n_true = sum(fact_set.values())
+        n_false = n_facts - n_true
+        tp, tn, fp, fn = 0.0, 0.0, 0.0, 0.0
+        for k, truth in fact_set.items():
+            tgt = (self.lookupObject(k) if
+                   type(k) == int else Point(*k))
+            prediction = rule.evaluate(tgt)
+            tpi, tni = min(truth, predict), min(1-truth, 1-predict)
+            fpi, fni = max(0, (1-truth)-tni), max(0, truth-tpi)
+            tp, tn = tp + tpi, tn + tni
+            fp, fn = fp + fpi, fn + fni
+        prec = tp / (tp + fp)
+        rec = tp / (tp + fn)
+        acc = (tp + tn) / n
+        m_est = (tp + self.m_param * n_true/n_false) / (tp + fp)
+        return PerfMetric(tp, tn, fp, fn, prec, rec, acc, m_est)
+            
 if __name__ == '__main__':
     rospy.init_node('rule_manager')
     rule_manager = RuleManager()
