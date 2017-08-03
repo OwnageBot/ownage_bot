@@ -19,7 +19,13 @@ class RuleManager:
         self.cand_rule_db = dict()
         # Database of action facts (e.g. whether object X can be picked up)
         self.fact_db = dict()
-        
+
+        # Initialize databases with empty dicts/sets
+        for a in self.action_db.iterkeys():
+            self.active_rule_db[a] = set()
+            self.cand_rule_db[a] = dict()
+            self.fact_db[a] = dict()
+
         # Subscribers
         self.fact_input_sub = rospy.Subscriber("fact_input", FactMsg,
                                                self.factInputCb)
@@ -49,8 +55,6 @@ class RuleManager:
         The value stored is the confidence in the fact being true.
         """
         action = self.action_db[fact.predicate]
-        if action.name not in self.fact_db:
-            self.fact_db[action.name] = dict()
         if len(fact.args) != 1:
             raise TypeError("Action fact should have exactly one argument.")
         tgt = fact.args[0]
@@ -65,15 +69,54 @@ class RuleManager:
     def ruleInputCb(self. msg):
         """Updates candidate rule database, considers activating them."""
         action = self.action_db[msg.action]
-        if action.name not in self.cand_rule_db:
-            self.cand_rule_db[action.name] = dict()
         rule = Rule.fromMsg(msg)
         # Overwrites old value if candidate already exists
         self.cand_rule_db[action.name][rule] = msg.confidence
-        self.updateRuleSet(action.name)
+        self.updateRuleSet(action.name, rule)
 
-    def updateRuleSet(self, act_name):
-        pass
+    def updateRuleSet(self, act_name, cand_rule=None):
+        """Evaluates rules for the named action, updates if necessary."""
+        rule_set = self.active_rule_db[act_name]
+        fact_set = self.fact_db[act_name]
+
+        # If there are no facts to check against, just use candidate rules
+        if len(fact_set) == 0:
+            if cand_rule is not None:
+                rule_set.add(cand_rule)
+            return
+
+        # Consider adding rules if accuracy is too low
+        perf = self.evalRuleSet(rule_set, fact_set)
+        while perf.acc < 0.9:
+            if cand_rule is None:
+                new_rule = self.guessRule(act_name)
+            else:
+                new_rule = cand_rule
+
+            # Add new rule and evaluate improvement
+            while True:
+                if new_rule in rule_set:
+                    self.refineRule(new_rule)
+                    continue
+                rule_set.add(new_rule)
+                new_perf = self.evalRuleSet(rule_set, fact_set)
+
+                # Check if stopping criterion is true
+                if new_perf.fp == 0 or (new_perf.tp - perf.tp == 0):
+                    rule_set.remove(new_rule)
+                    break
+
+                # Refine rule (shoud select best refinement)
+                new_rule = self.refineRule(new_rule)
+
+            # Break if accuracy does not improve, else keep going
+            new_perf = self.evalRuleSet(rule_set, fact_set)
+            if new_perf.acc <= perf.acc:
+                rule_set.remove(new_rule)
+                break
+
+        # Prune ruleset (e.g. merge rules that can be merged)
+        self.pruneRuleSet(rule_set, fact_set)
 
 if __name__ == '__main__':
     rospy.init_node('rule_manager')
