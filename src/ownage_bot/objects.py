@@ -50,7 +50,7 @@ class Object:
 
 class Agent:
     """Represents an agent that can own and act on objects."""
-    def __init__(self, id, name, avatar_id=-1):
+    def __init__(self, id, name="", avatar_id=-1):
         self.id = id # Unique ID
         self.name = name # Human-readable name
         self.avatar_id = avatar_id # Object ID of avatar representing agent
@@ -61,8 +61,8 @@ class Area:
         """Takes a list of tuples and stores them."""
         self.name = ""
         self.n_sides = len(points)
-        self.points = np.array(points)
-        self.path = mptPath.Path(self.points)
+        self.points = points
+        self.path = mptPath.Path(np.array(self.points))
                                                     
 def dist(obj1, obj2):
     """Calculates Euclidean distance between two objects."""
