@@ -15,6 +15,9 @@ class RuleManager:
     """Manages, updates and learns (ownership) rules."""
     
     def __init__(self):
+        # Learning parameters
+        self.growThreshold = rospy.get_param("grow_threshold", 0.9)
+        
         # Databases of available predicates and actions
         self.predicate_db = dict(zip([p.name for p in predicates.db],
                                      predicates.db))
@@ -34,7 +37,7 @@ class RuleManager:
             self.fact_db[a] = dict()
 
         # Subscribers
-        self.fact_input_sub = rospy.Subscriber("fact_input", FactMsg,
+        self.fact_input_sub = rospy.Subscriber("fact_input", PredicateMsg,
                                                self.factInputCb)
         self.rule_input_sub = rospy.Subscriber("rule_input", RuleMsg,
                                                 self.ruleInputCb)
@@ -107,7 +110,7 @@ class RuleManager:
         
         # Consider adding rules if accuracy is too low
         perf = self.evalRuleSet(rule_set, fact_set)
-        while perf.acc < 0.9:
+        while perf.acc < self.growThreshold:
             # Start from candidate rule if available
             new_rule = (cand_rule if cand_rule not is None else
                         self.guessRule(act_name))
@@ -143,17 +146,13 @@ class RuleManager:
     def evalRuleSet(self, rule_set, fact_set):
         """Evaluates rule set and returns a performance metric tuple."""
         n_facts = len(fact_set)
-
-    def evalRule(self, rule, fact_set):
-        """Evaluates performance of a rule."""
-        n_facts = len(fact_set)
         n_true = sum(fact_set.values())
         n_false = n_facts - n_true
         tp, tn, fp, fn = 0.0, 0.0, 0.0, 0.0
         for k, truth in fact_set.items():
             tgt = (self.lookupObject(k) if
                    type(k) == int else Point(*k))
-            prediction = rule.evaluate(tgt)
+            prediction = Rule.evaluateOr(rule_set, tgt)
             tpi, tni = min(truth, predict), min(1-truth, 1-predict)
             fpi, fni = max(0, (1-truth)-tni), max(0, truth-tpi)
             tp, tn = tp + tpi, tn + tni

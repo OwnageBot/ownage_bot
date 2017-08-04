@@ -1,47 +1,90 @@
 import objects
 from objects import Object, Agent, Area
+from ownage_bot.msg import *
 
 class Predicate:
-    """Functions which apply to one or more objects, return true or false."""    
+    """Functional representation of object properties and relations."""
+    
     def __init__(self, name="", argtypes=[]):
         self.name = name # Human-readable name
         self.n_args = len(argtypes) # Number of arguments
         self.argtypes = argtypes # List of argument types
-        self.parent = self # Parent predicate is self if not derived
-        self.binding = (-1, -1) # (loc, arg) tuple if bound
+        self._negated = False # Whether predicate is negated
+        self._bindings = [None] * self.n_args  # All arguments intially free
         self._apply = lambda *args : True # Implementation of predicate
 
-    def __hash__(self):
-        """Hash using only name and argtypes."""
-        return hash(tuple(self.name, tuple(self.argtypes)))
-        
-    def bind(self, arg, arg_loc):
-        """Derive new predicate by binding argument at arg_id."""
-        if arg_loc >= self.n_args:
-            raise ValueError("Argument index is out of range.")
-        if not isinstance(arg, self.argtypes[arg_loc]):
-            raise TypeError("Bound argument is the wrong type.")
-        bound = self.__class__()
-        bound.name = "{}BoundTo{}{}At{}".format(
-            self.name, arg.__class__.__name__, arg.id, arg_loc)
-        bound.n_args = self.n_args - 1;
-        bound.argtypes = [t for (i,t) in enumerate(self.argtypes) if
-                          i != arg_loc]
-        bound.parent = self
-        bound.binding = (arg_loc, arg)
-        bound._apply = lambda *args : \
-            self._apply(*[arg if (i == arg_loc) else a
-                        for (i,a) in enumerate(args)])
+    def __eq__(self, other):
+        """Check for equality of name, argtypes, bindings and negation."""
+        if isinstance(other, self.__class__):
+            return (self.name == other.name &&
+                    self.argtypes == other.argtypes &&
+                    self._bindStrs() == other._bindStrs() &&
+                    self._negated == other._negated)
+            return True
+        return NotImplemented
+
+    def __ne__(self, other):
+        if isinstance(other, self.__class__):
+            return not self == other
+        return NotImplemented
     
-    def apply(self, *args):
-        """Does type check, then applies implementation."""
+    def __hash__(self):
+        """Hash using name, bindings, and negation."""
+        return hash((self.name, self._negated, self._bindStrs()))
+
+    def _bindStrs(self):
+        """Convert bindings to tuple of strings."""
+        return tuple('' if b is None else b.toStr() for b in self._bindings)
+    
+    def bind(self, args):
+        """Bind arguments to copy of predicate."""
         if len(args) != self.n_args:
             raise ValueError("Wrong number of arguments.")
-        for t, a in zip(self.argtypes, args):
+        for a, t in zip(args, self.argtypes):
+            if not isinstance(a, t) and a is not None:
+                raise TypeError("Wrong argument type.")
+        bound = self.__class__(self.name, self.argtypes)
+        bound._bindings = list(args)
+        bound._apply = self._apply
+        return bound
+
+    def negate(self):
+        negation = self.__class__(self.name, self.argtypes)
+        negation._bindings = list(self._bindings)
+        negation._apply = self._apply
+        negation._negated = not self.negated
+        return negation
+    
+    def apply(self, *args):
+        """Applies implementation with bindings and negation."""
+        # Substitute arguments into empty slots
+        args = list(reversed(args))
+        all_args = [args.pop() if a is None else a for a in self._bindings]
+        if None in all_args:
+            raise ValueError("Wrong number of arguments.")
+        for t, a in zip(self.argtypes, all_args):
             if not isinstance(a, t):
                 raise TypeError("Argument is the wrong type.")
-        return self._apply(*args)
-            
+        val = float(self._apply(*all_args))
+        return (1.0-val) if self._negated else val
+    
+    def toMsg(self):
+        """Convert to PredicateMsg."""
+        msg = PredicateMsg(predicate=self.name, negated=self._negated)
+        msg.bindings = self._bindStrs()
+        msg.truth = -1.0 if None in self._bindings else self.apply()
+        return msg
+
+    @classmethod
+    def fromMsg(cls, msg):
+        """Convert from message by looking up database."""
+        p = db[msg.predicate] # Base predicate properties should be unmodified
+        bindings = [None if s == '' else t.fromStr(s)
+                   for t, s in zip(p.argtypes, msg.bindings)]
+        p = p.bind(bindings) # This creates a new Predicate object
+        p._negated = msg.negated # Which can safely be modified
+        return p
+    
 # List of pre-defined predicates
 Red = Predicate("red", [Object])
 Red._apply = lambda obj : (obj.color == 0)

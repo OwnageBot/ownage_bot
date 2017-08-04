@@ -64,10 +64,10 @@ catkin_python_setup()
 add_message_files(
   FILES
   ObjectMsg.msg
-  FeedbackMsg.msg
-  TaskMsg.msg
-  FactMsg.msg
+  PredicateMsg.msg
   RuleMsg.msg
+  TaskMsg.msg
+  FeedbackMsg.msg
 )
 
 ## Generate services in the 'srv' folder

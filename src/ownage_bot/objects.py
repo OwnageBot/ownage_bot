@@ -4,27 +4,15 @@ import rospy
 import numpy as np
 import matplotlib.path as mptPath
 from ownage_bot.msg import ObjectMsg
+from ownage_bot.srv import LookupObject
 from geometry_msgs.msg import Point, Quaternion
+
+_lookupObject = rospy.ServiceProxy("lookup_object", LookupObject)
 
 class Object:
     """Represents objects in the workspace and their properties."""
             
-    def __init__(self, msg=None):
-        # Copy construct from ObjectMsg
-        if msg is not None:
-            if not isinstance(msg, ObjectMsg):
-                raise TypeError("Copy constructor expects ObjectMsg.")
-            copyable = ["id", "last_update", "position", "orientation",
-                        "proximities", "color", "is_avatar", "is_landmark"]
-            for attr in copyable:
-                val = getattr(msg, attr)
-                if type(val) is tuple:
-                    val = list(val)
-                self.__dict__[attr] = copy.deepcopy(val)
-            self.ownership = dict(zip(msg.owners, msg.ownership))
-            return
-
-        # Otherwise use default constructor
+    def __init__(self):
         self.id = -1
         self.name = ""
         self.last_update = rospy.get_rostime()
@@ -35,7 +23,22 @@ class Object:
         self.ownership = dict() # Dictionary of ownership probabilities
         self.is_avatar = False # Whether object is an avatar
         self.is_landmark = False # Whether object is a landmark
-            
+
+    def __eq__(self, other):
+        """Objects are equal if their ids are."""
+        if isinstance(other, self.__class__):
+            return self.id == other.id
+        return NotImplemented
+        
+    def __ne__(self, other):
+        if isinstance(other, self.__class__):
+            return not self == other
+        return NotImplemented
+
+    def __hash__(self):
+        """Hash only the ID."""
+        return hash(self.id)
+        
     def toMsg(self):
         """Converts object to a ROS message."""
         msg = ObjectMsg()
@@ -48,22 +51,100 @@ class Object:
         msg.ownership = self.ownership.values()
         return msg
 
+    def toStr(self):
+        """Minimal string representation of object."""
+        return str(self.id)
+    
+    @classmethod
+    def fromMsg(cls, msg):
+        """Copy constructor from ObjectMsg."""
+        obj = cls()
+        if not isinstance(msg, ObjectMsg):
+            raise TypeError("Copy constructor expects ObjectMsg.")
+        copyable = ["id", "last_update", "position", "orientation",
+                    "proximities", "color", "is_avatar", "is_landmark"]
+        for attr in copyable:
+            val = getattr(msg, attr)
+            if type(val) is tuple:
+                val = list(val)
+                self.__dict__[attr] = copy.deepcopy(val)
+                self.ownership = dict(zip(msg.owners, msg.ownership))
+            return
+
+    @classmethod
+    def fromStr(cls, s):
+        """Convert ID string to Object by looking up database."""
+        return cls.fromID(int(s))
+
+    @classmethod
+    def fromID(cls, oid):
+        """Convert ID to Object by looking up database."""
+        return cls.fromMsg(_lookupObject(oid).object)
+    
 class Agent:
     """Represents an agent that can own and act on objects."""
     def __init__(self, id, name="", avatar_id=-1):
         self.id = id # Unique ID
         self.name = name # Human-readable name
         self.avatar_id = avatar_id # Object ID of avatar representing agent
+
+    def __eq__(self, other):
+        """Agents are equal if their ids are."""
+        if isinstance(other, self.__class__):
+            return self.id == other.id
+        return NotImplemented
+        
+    def __ne__(self, other):
+        if isinstance(other, self.__class__):
+            return not self == other
+        return NotImplemented
+
+    def __hash__(self):
+        """Hash only the ID."""
+        return hash(self.id)
+
+    def toStr(self):
+        """Minimal string representation."""
+        return str(self.id)
+
+    @classmethod
+    def fromStr(cls, s):
+        """Convert to Agent."""
+        return cls(int(s))
     
 class Area:
     """Defines a 2D polygonal area."""
     def __init__(self, points):
-        """Takes a list of tuples and stores them."""
+        """Takes an iterable of 2-tuples and stores them."""
         self.name = ""
         self.n_sides = len(points)
-        self.points = points
+        self.points = tuple(points)
         self.path = mptPath.Path(np.array(self.points))
-                                                    
+
+    def __eq__(self, other):
+        """Areas are equal if their vertices are."""
+        if isinstance(other, self.__class__):
+            return self.points == other.points
+        return NotImplemented
+        
+    def __ne__(self, other):
+        if isinstance(other, self.__class__):
+            return not self == other
+        return NotImplemented
+
+    def __hash__(self):
+        """Hash only the vertices."""
+        return hash(self.points)
+
+    def toStr(self):
+        """Minimal string representation."""
+        return str(self.points)
+
+    @classmethod
+    def fromStr(cls, s):
+        """Convert to Agent."""
+        return cls(eval(s))
+                
 def dist(obj1, obj2):
     """Calculates Euclidean distance between two objects."""
     p1 = obj1.position

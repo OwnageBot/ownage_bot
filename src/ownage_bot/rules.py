@@ -2,9 +2,6 @@ import objects
 import predicates
 import actions
 from ownage_bot.msg import *
-from ownage_bot.srv import LookupObject
-
-_lookupObject = rospy.ServiceProxy("lookup_object", LookupObject)
 
 class Rule:
     """Condition-action pairs that the robot should follow."""    
@@ -18,52 +15,58 @@ class Rule:
                  detype="forbidden"):
         # Action to be performed
         self.action = action
-        # List of predicate-substitution pairs 
-        self.conditions = conditions
+        # Set of predicates that have to be true for the rule to follow
+        self.conditions = set(conditions)
         # Deontic operator type
         self.detype = detype
 
     def __eq__(self, other):
         """Rules are equal if their conditions, actions and types are."""
         if isinstance(other, self.__class__):
-            return self.__hash__() == other.__hash__()
+            return (self.action.name == other.action.name &&
+                    self.conditions == other.conditions &&
+                    self.detype == other.detype)
         return NotImplemented
 
     def __ne__(self, other):
-        """Define a non-equality test"""
         if isinstance(other, self.__class__):
             return not self == other
         return NotImplemented
 
     def __hash__(self):
-        """Hash using only names, ids, and points."""
-        msg = self.toMsg()
-        tup = (msg.predicates, msg.args, msg.action, msg.detype)
-        return hash(tup)
+        """Hash using action name, condition hash and detype."""
+        return hash((self.action.name, tuple(self.conditions), self.detype))
         
     def evaluate(self, tgt, exclusions=set()):
         """Evaluates if target satisfies the predicates."""
         truth = 1.0
         # Iterate through all non-excluded predicates
-        for p, sub in self.conditions if p, sub not in exclusions:
-            # Replace None with the target in substitution list
-            sub = [arg if arg not is None else tgt for arg in sub]
-            truth *= p.apply(sub)
+        for p in self.conditions if p not in exclusions:
+            truth *= p.apply(tgt)
         return truth
 
-    @staticmethod
-    def evaluateAnd(rule_set, tgt):
-        """Evaluates probabilistic conjunction of predicates in rule set."""
+    @classmethod
+    def evaluateAnd(cls, rule_set, tgt):
+        """Evaluates probabilistic conjunction of rules."""
+
         truth = 1.0
-        exclusions = []
+        exclusions = set()
         for r in rule_set:
+            # Check for complementary predicates
+            if any([p.negate() in exclusions for p in r.conditions]):
+                return 0.0
             truth *= r.evaluate(tgt, exclusions)
-            exclusions += r.conditions
+            # Return early if possible
+            if truth == 0.0:
+                break
+            # Do not double-count identical predicates
+            exclusions.add(r.conditions)
         return truth
 
-    @staticmethod
-    def evaluateOr(rule_set, tgt, exclusions=set()):
-        """Evaluates probabilistic disjunction of predicates in rule set."""
+    @classmethod
+    def evaluateOr(cls, rule_set, tgt, exclusions=set()):
+        """Evaluates probabilistic disjunction of rules."""
+
         # Calculate truth probability of the first rule
         rule_set = set(rule_set)
         cur = rule_set.pop()
@@ -75,14 +78,14 @@ class Rule:
 
         # Break up complement of first rule into disjoint parts
         # e.g. !(A*B*C) -> (!A|!B|!C) -> (!A + A*!B + A*B*!C)
-        predicates = list(cur.conditions)
+        conditions = list(cur.conditions)
         p_parts = [] # e.g. [A, A*!B, A*B*!C]
         p_part_probs = [] # e.g. [P(!A), P(A*!B), P(A*B*!C)]
         p_conj_probs = [1.0] # e.g. [1.0, P(A), P(A*B), P(A*B*C)]
         p_remainders = [] # Remainder rule sets for each part
-        for i, p in enumerate(predicates):
+        for i, p in enumerate(conditions):
             p_prob = p.apply(tgt)
-            p_parts = predicates[0:i-1] + [p.negate()]
+            p_parts = conditions[0:i-1] + [p.negate()]
             p_part_probs.append((1-p_prob) * p_conj_probs[-1])
             p_conj_probs.append(p_prob * p_conj_probs[-1])
             p_remainders.append(set(rule_set))
@@ -95,12 +98,13 @@ class Rule:
 
         # Recursively calculate probability of the remainder
         for prob, part, remainder in zip(p_part_probs, p_remainders):
-            # Exclude potentially identitical predicates (idempotency)
-            truth += prob * Rule.evaluateOr(remainder, tgt, exclusions=part)
+            # Exclude potentially identical predicates (idempotency)
+            truth += prob * cls.evaluateOr(remainder, tgt,
+                                           exclusions.union(part))
                     
         return truth
     
-    def toString(self):
+    def toStr(self):
         return " ".join([self.action.name, "on"] +
                         [p.name for p, sub in self.conditions] +
                         ["target","is",self.detype])
@@ -108,24 +112,18 @@ class Rule:
     def toMsg(self):
         """Convert to ROS message."""
         msg = RuleMsg()
-        msg.action = self.action.name
-        predicates, args = zip(*self.conditions)
-        msg.predicates = tuple([p.name for p in predicates])
-        msg.args = tuple(tuple(Rule.argsToStrings(p, a))
-                         for p, a in self.conditions)
+        msg.action = self.action.name        
+        msg.conditions = tuple(c.toMsg() for c in self.conditions)
         msg.detype = self.detype
-        msg.confidence = 1.0
+        msg.truth = 1.0
         
-    @staticmethod
-    def fromMsg(msg):
+    @classmethod
+    def fromMsg(cls, msg):
         """Convert from ROS message."""
         action = actions.db[msg.action]
-        rule = Rule([], action, msg.detype)
-        for p_name, arg_strs in zip(msg.predicates, msg.args):
-            p = predicates.db[p_name]
-            subst = Rule.stringsToArgs(p, arg_strs)
-            rule.conditions.append((p, subst))
-        return rule
+        conditions = [predicates.Predicate.fromMsg(c) for
+                      c in msg.conditions]
+        return cls(action, conditions, msg.detype)
 
     @staticmethod
     def argsToStrings(predicate, args):

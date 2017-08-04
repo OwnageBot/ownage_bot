@@ -47,7 +47,7 @@ class TaskManager:
             if action.tgtype is type(None):
                 task = Task.oneShot(action, None)
             elif action.tgtype == Object:
-                obj = Object(self.lookupObject(cmd.obj_id).object)
+                obj = Object.fromID(cmd.obj_id)
                 task = Task.oneShot(action, obj)
             elif action.tgtype == Point:
                 task = Task.oneShot(action, cmd.location)
@@ -71,7 +71,7 @@ class TaskManager:
         except rospy.ROSException:
             rospy.logwarn("list_objects service not available")
             return
-        olist = [Object(msg) for msg in resp.objects]
+        olist = [Object.fromMsg(msg) for msg in resp.objects]
         object_db = dict(zip([o.id for o in olist], olist))
         self.cur_task.updateActions(self.action_queue, object_db)
 
@@ -95,7 +95,7 @@ class TaskManager:
             # Check if action still needs to be done
             if isinstance(tgt, Object):
                 # Get most recent information about object
-                tgt = Object(self.lookupObject(tgt.id).object)
+                tgt = Object.fromID(tgt.id)
             if not self.cur_task.checkActionUndone(action, tgt):
                 continue
             # Evaluate all rules applicable to current action
@@ -103,10 +103,10 @@ class TaskManager:
                 if rule.action not in ([action] + action.dependencies):
                     continue
                 if rule.detype == Rule.forbidden and rule.evaluate(tgt):
-                    print "Cannot violate rule:", rule.toString()
+                    print "Cannot violate rule:", rule.toStr()
                     break;
                 elif rule.detype == Rule.allowed and not rule.evaluate(tgt):
-                    print "Cannot violate rule:", rule.toString()
+                    print "Cannot violate rule:", rule.toStr()
                     break;
             else:
                 # Call action if rules allow for it
