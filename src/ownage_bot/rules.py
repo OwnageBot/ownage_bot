@@ -41,15 +41,65 @@ class Rule:
         tup = (msg.predicates, msg.args, msg.action, msg.detype)
         return hash(tup)
         
-    def evaluate(self, tgt):
+    def evaluate(self, tgt, exclusions=set()):
         """Evaluates if target satisfies the predicates."""
-        for p, subst in self.conditions:
-            # Replace None with the object in substitution list
+        truth = 1.0
+        # Iterate through all non-excluded predicates
+        for p, sub in self.conditions if p, sub not in exclusions:
+            # Replace None with the target in substitution list
             sub = [arg if arg not is None else tgt for arg in sub]
-            if not p.apply(sub):
-                return 0.0
-        return 1.0
+            truth *= p.apply(sub)
+        return truth
 
+    @staticmethod
+    def evaluateAnd(rule_set, tgt):
+        """Evaluates probabilistic conjunction of predicates in rule set."""
+        truth = 1.0
+        exclusions = []
+        for r in rule_set:
+            truth *= r.evaluate(tgt, exclusions)
+            exclusions += r.conditions
+        return truth
+
+    @staticmethod
+    def evaluateOr(rule_set, tgt, exclusions=set()):
+        """Evaluates probabilistic disjunction of predicates in rule set."""
+        # Calculate truth probability of the first rule
+        rule_set = set(rule_set)
+        cur = rule_set.pop()
+        truth = cur.evaluate(tgt, exclusions)
+
+        # Bottom out if no more rules
+        if len(rule_set) == 0:
+            return truth
+
+        # Break up complement of first rule into disjoint parts
+        # e.g. !(A*B*C) -> (!A|!B|!C) -> (!A + A*!B + A*B*!C)
+        predicates = list(cur.conditions)
+        p_parts = [] # e.g. [A, A*!B, A*B*!C]
+        p_part_probs = [] # e.g. [P(!A), P(A*!B), P(A*B*!C)]
+        p_conj_probs = [1.0] # e.g. [1.0, P(A), P(A*B), P(A*B*C)]
+        p_remainders = [] # Remainder rule sets for each part
+        for i, p in enumerate(predicates):
+            p_prob = p.apply(tgt)
+            p_parts = predicates[0:i-1] + [p.negate()]
+            p_part_probs.append((1-p_prob) * p_conj_probs[-1])
+            p_conj_probs.append(p_prob * p_conj_probs[-1])
+            p_remainders.append(set(rule_set))
+
+        # Remove rules with complementary predicates
+        for r in rule_set:
+            for i, part in enumerate(p_parts):
+                if any(c.negate() in r.conditions for c in part):
+                    p_remainders[i].remove(r)
+
+        # Recursively calculate probability of the remainder
+        for prob, part, remainder in zip(p_part_probs, p_remainders):
+            # Exclude potentially identitical predicates (idempotency)
+            truth += prob * Rule.evaluateOr(remainder, tgt, exclusions=part)
+                    
+        return truth
+    
     def toString(self):
         return " ".join([self.action.name, "on"] +
                         [p.name for p, sub in self.conditions] +

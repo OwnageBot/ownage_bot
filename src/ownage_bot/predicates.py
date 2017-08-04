@@ -11,6 +11,10 @@ class Predicate:
         self.binding = (-1, -1) # (loc, arg) tuple if bound
         self._apply = lambda *args : True # Implementation of predicate
 
+    def __hash__(self):
+        """Hash using only name and argtypes."""
+        return hash(tuple(self.name, tuple(self.argtypes)))
+        
     def bind(self, arg, arg_loc):
         """Derive new predicate by binding argument at arg_id."""
         if arg_loc >= self.n_args:
