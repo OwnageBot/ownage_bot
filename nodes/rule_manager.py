@@ -159,7 +159,7 @@ class RuleManager:
         else:
             self.uncoverRule(given_rule, truth)
 
-    def coverRule(self, given_rule, truth):
+    def coverRule(self, given_rule, truth, force=False):
         """Cover given positive rule if not already covered."""
         rule_set = self.active_rule_db[given_rule.action.name]
         fact_set = self.fact_db[given_rule.action.name]
@@ -186,16 +186,29 @@ class RuleManager:
                                                score_f)
 
         # Add specialized rule if false positive fraction is low enough
-        if new_score <= self.add_rule_thresh * n_neg:
+        if force or new_score <= self.add_rule_thresh * n_neg:
             rule_set.add(new_rule)
         else:
             print "Cannot add given rule without too many false positives."
         
-    def uncoverRule(self, given_rule, truth):
+    def uncoverRule(self, given_rule, truth, force=False):
         """Uncover negative rule by refining existing rules."""
         rule_set = self.active_rule_db[given_rule.action.name]
         fact_set = self.fact_db[given_rule.action.name]
+        
+        # Check that removing given rule will not uncover too many positives
+        if not force:
+            pos_facts = {k: v for k, v in fact_set.items() if v >= 0.5} 
+            n_covered = len(filter(pos_facts.keys(),
+                                   lambda t : given_rule.evaluate(t) >= 0.5))
+            if n_covered > self.sub_rule_thresh * len(pos_facts):
+                print "Cannot remove rule without too many false negatives."
+            return
 
+        # Scores rules according to false negative value
+        score_f = lambda r, fs : sum([max(val - r.evaluate(tgt), 0) for
+                                      tgt, val in fs.items()])
+        
         # Find set of active rules with non-empty intersections
         cover_rules = [r for r in rule_set if
                        all([c.negate() not in r.conditions
@@ -221,10 +234,7 @@ class RuleManager:
             # Candidate rules must not cover the intersection
             uncover_f = (lambda r :
                          not r.conditions.issubset(inter_rule.conditions))
-            # Score candidate rules according to false negative value
-            score_f = lambda r, fs : sum([max(val - r.evaluate(tgt), 0) for
-                                         tgt, val in fs.items()])
-
+        
             # Find refinements that cover previously covered positive facts
             new_set = set()
             remain_facts = pos_facts
