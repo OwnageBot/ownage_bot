@@ -16,7 +16,9 @@ class RuleManager:
     
     def __init__(self):
         # Learning parameters
-        self.growThreshold = rospy.get_param("grow_threshold", 0.9)
+        self.grow_thresh = rospy.get_param("grow_threshold", 0.9)
+        self.score_thresh = 0.9
+        self.max_cand = 3
         
         # Databases of available predicates and actions
         self.predicate_db = dict(zip([p.name for p in predicates.db],
@@ -25,15 +27,15 @@ class RuleManager:
 
         # Database of actively-followed rules
         self.active_rule_db = dict()
-        # Database of candidate rules instructed by users
-        self.cand_rule_db = dict()
+        # Database of rules given by users
+        self.given_rule_db = dict()
         # Database of action facts (e.g. whether object X can be picked up)
         self.fact_db = dict()
 
         # Initialize databases with empty dicts/sets
         for a in self.action_db.iterkeys():
             self.active_rule_db[a] = set()
-            self.cand_rule_db[a] = dict()
+            self.given_rule_db[a] = dict()
             self.fact_db[a] = dict()
 
         # Subscribers
@@ -46,28 +48,15 @@ class RuleManager:
         #                                   self.lookupRulesCb)
 
     def factInputCb(self, msg):
-        """Updates fact database and re-evaluates rule set."""
+        """Updates fact database, then tries to cover new fact."""
         # Ignore facts which are not about actions
         if msg.predicate not in self.action_db:
             return
-        self.insertFact(msg)
-        # Only update ruleset if there are enough facts to induct from
-        if len(self.fact_db[msg.predicate]) >= 2:
-            # Only update rules that correspond to action
-            self.updateRuleSet(msg.predicate, msg.truth)
 
-    def insertFact(self, fact):
-        """Insert fact into fact database in appropriate format.
-        Fact database is a dict of dicts. The outer dict is indexed by the
-        name of the action, the inner dict is indexed by the target.
-
-        Targets are represented by ID for Objects and as a tuple for Points.
-        The value stored is the confidence in the fact being true.
-        """
         action = self.action_db[fact.predicate]
-        if len(fact.args) != 1:
+        if len(msg.args) != 1:
             raise TypeError("Action fact should have exactly one argument.")
-        tgt = fact.args[0]
+        tgt = msg.args[0]
 
         # Make sure target is represented in a hashable way
         if action.tgtype == Object:
@@ -76,34 +65,128 @@ class RuleManager:
             tgt = tuple(tgt.split())
 
         # Overwrite old value if fact already exists
-        self.fact_db[action.name][tgt] = fact.truth
+        self.fact_db[action.name][tgt] = msg.truth
 
+        # Update rules to accomodate new fact
+        self.accomFact(action.name, tgt, msg.truth)
+        
+    def accomFact(self, act_name, tgt, truth):
+        """Tries to accommodate the new fact by modifying rule base."""
+        rule_set = self.active_rule_db[act_name]
+        prediction = Rule.evaluateOr(rule_set, tgt)       
+
+        if round(truth) == round(prediction):
+            # If the truth is predicted, no need to update rules
+            return
+        elif round(truth):
+            self.coverFact(act_name, tgt, truth)
+        elif not round(truth):
+            self.uncoverFact(act_name, tgt, truth)
+
+    def coverFact(self, act_name, tgt, truth):
+        """Covers positive fact via general-to-specific search for a rule."""
+        rule_set = self.active_rule_db[act_name]
+        fact_set = self.fact_db[act_name]
+        neg_facts = {k: v for k, v in fact_set.items() if v < 0.5}
+
+        # Search only for currently inactive rules
+        inactive_f = lambda r : r not in rule_set
+        # Candidate rules must cover the new fact
+        cover_f = lambda r : r.evaluate(tgt) >= truth
+        # Compute score as false positive value for each candidate rule
+        score_f = lambda r : sum([max(r.evaluate(n_tgt) - n_val, 0) for
+                                  n_tgt, n_val in neg_facts.items()])
+
+        # Search for rule starting with empty rule
+        init_rule = Rule(self.action_db[act_name], conditions=[])
+        new_rule = self.ruleSearch(init_rule, self.score_thresh, score_f,
+                                   [inactive_f, cover_f])
+
+        # Add new rule if one is found
+        if new_rule != init_rule:
+            rule_set.add(new_rule)
+
+    def uncoverFact(self, act_name, tgt, truth):
+        """Uncover negative fact by refining overly general rules."""
+        rule_set = self.active_rule_db[act_name]
+        fact_set = self.fact_db[act_name]
+
+        # Find set of high-certainty covering rules
+        cover_rules = [r for r in rule_set if r.evaluate(tgt) >= 0.5]
+
+        # Candidate rules must *not* cover the new fact
+        uncover_f = lambda r : r.evaluate(tgt) < truth
+
+        # Refine each rule to uncover new fact while still covering others
+        for init_rule in cover_rules:
+            # Find set of covered positive facts
+            pos_facts = {k: v for k, v in fact_set.items()
+                         if v >= 0.5 and init_rule.evaluate(k) >= 0.5}
+
+            # Compute score as false negative value for each candidate rule
+            score_f = lambda r : sum([max(p_val - r.evaluate(p_tgt), 0) for
+                                      p_tgt, p_val in pos_facts.items()])
+
+            # Search for rule starting with covering rule
+            new_rule = self.ruleSearch(init_rule, self.score_thresh, score_f,
+                                       [uncover_f])
+
+            # Replace old rule with new rule if one is found
+            if new_rule != init_rule:
+                rule_set.remove(init_rule)
+                rule_set.add(new_rule)
+
+    def ruleSearch(self, init_rule, score_thresh, score_f, filters=[]):
+        """Performs general to specific search for best-scoring rule."""
+        best_rule, best_score = init_rule, score_thresh
+        cand_rules = [best_rule]
+            
+        while len(cand_rules) > 0:
+            # Construct list of refinements from previous candidates
+            new_rules = sum([self.refineRule(r) for r in cand_rules])
+            # Select rules which match filters
+            for f in filters:
+                new_rules = filter(new_rules, f)
+            # Return if no more rules
+            if len(new_rules) == 0:
+                return best_rule
+            # Compute and sort by scores
+            scores = [score_f(r) for r in new_rules]
+            sort_rules = sorted(zip(new_rules, scores), key=lambda p:p[1])
+            # Select top few candidates for next round of refinement
+            cand_rules = [r for r, s in sort_rules[0:self.max_cand]]
+            # Check if best candidate beats best rule
+            if sort_rules[0][1] < best_score:
+                best_rule = cand_rules[0]
+
+        return best_rule
+                     
     def ruleInputCb(self. msg):
-        """Updates candidate rule database, considers activating them."""
+        """Updates given rule database, considers activating them."""
         action = self.action_db[msg.action]
         rule = Rule.fromMsg(msg)
 
-        # Overwrites old value if candidate already exists
-        self.cand_rule_db[action.name][rule] = msg.truth
+        # Overwrites old value if given rule already exists
+        self.given_rule_db[action.name][rule] = msg.truth
         self.updateRuleSet(action.name, msg.truth, rule)
 
-    def updateRuleSet(self, act_name, truth, cand_rule=None):
+    def updateRuleSet(self, act_name, truth, given_rule=None):
         """Evaluates rules for the named action, updates if necessary."""
 
         if len(self.fact_db[act_name]) > 0:
-            # Grow rule set (e.g. add / refine candidate rules)
-            self.growRuleSet(act_name, cand_rule)
+            # Grow rule set (e.g. add / refine given rules)
+            self.growRuleSet(act_name, given_rule)
         elif cand_rule is not None:
-            # If there are no facts, just use candidate rules
+            # If there are no facts, just use given rules
             if truth > 0.5:
-                self.active_rule_db[act_name].add(cand_rule)
+                self.active_rule_db[act_name].add(given_rule)
             else:
-                self.active_rule_db[act_name].remove(cand_rule)
+                self.active_rule_db[act_name].remove(given_rule)
 
         # Prune rule set (e.g. merge rules that can be merged)
-        self.pruneRuleSet(act_name, cand_rule)
+        self.pruneRuleSet(act_name, given_rule)
 
-    def growRuleSet(self, act_name, cand_rule=None):
+    def growRuleSet(self, act_name, given_rule=None):
         """Grow rule set via modified ProbFOIL algorithm."""
         rule_set = self.active_rule_db[act_name]
         fact_set = self.fact_db[act_name]
@@ -111,8 +194,8 @@ class RuleManager:
         # Consider adding rules if accuracy is too low
         perf = self.evalRuleSet(rule_set, fact_set)
         while perf.acc < self.growThreshold:
-            # Start from candidate rule if available
-            new_rule = (cand_rule if cand_rule not is None else
+            # Start from givenidate rule if available
+            new_rule = (given_rule if given_rule not is None else
                         self.guessRule(act_name))
 
             # Repeatedly evaluate and refine rule
@@ -138,7 +221,7 @@ class RuleManager:
                 rule_set.remove(new_rule)
                 break
 
-    def pruneRuleSet(self, act_name, cand_rule=None):
+    def pruneRuleSet(self, act_name, given_rule=None):
         """Prunes the active ruleset for the named action."""
         rule_set = self.active_rule_db[act_name]
         fact_set = self.fact_db[act_name]            
