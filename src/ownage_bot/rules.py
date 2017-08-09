@@ -103,7 +103,20 @@ class Rule:
                                            exclusions.union(part))
                     
         return truth
-    
+
+    @classMethod
+    def intersect(cls, r1, r2, negate_check=True):
+        """Returns logical intersection of two rules."""
+        if r1.action.name != r2.action.name || r1.detype != r2.detype:
+            raise TypeError("Actions and deontic types must match.")
+        new = cls(r1.action, r1.conditions.union(r2.conditions), r1.detype)
+        if negate_check:
+            for c in new.conditions:
+                if c.negate in new.conditions:
+                    new.conditions = set()
+                    return new
+        return new
+                
     def toStr(self):
         return " ".join([self.action.name, "on"] +
                         [p.name for p, sub in self.conditions] +

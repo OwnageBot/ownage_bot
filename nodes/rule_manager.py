@@ -17,7 +17,10 @@ class RuleManager:
     def __init__(self):
         # Learning parameters
         self.grow_thresh = rospy.get_param("grow_threshold", 0.9)
-        self.score_thresh = 0.9
+        self.add_fact_thresh = 0.9
+        self.sub_fact_thresh = 0.9
+        self.add_rule_thresh = 0.1
+        self.sub_rule_thresh = 0.1
         self.max_cand = 3
         
         # Databases of available predicates and actions
@@ -60,27 +63,34 @@ class RuleManager:
 
         # Make sure target is represented in a hashable way
         if action.tgtype == Object:
-            tgt = int(tgt)
+            # Object properties are looked up and stored at time of receipt
+            tgt = Object.fromStr(tgt)
         elif action.tgtype == Point:
-            tgt = tuple(tgt.split())
+            tgt = tuple(tgt.split()) #TODO: Make location targets hashable
 
         # Overwrite old value if fact already exists
         self.fact_db[action.name][tgt] = msg.truth
-
         # Update rules to accomodate new fact
         self.accomFact(action.name, tgt, msg.truth)
+
+    def ruleInputCb(self, msg):
+        """Updates given rule database, considers activating them."""
+        action = self.action_db[msg.action]
+        rule = Rule.fromMsg(msg)
+
+        # Overwrites old value if given rule already exists
+        self.given_rule_db[action.name][rule] = msg.truth
+        # Accomdate the given rule
+        self.accomRule(rule, truth)
         
     def accomFact(self, act_name, tgt, truth):
         """Tries to accommodate the new fact by modifying rule base."""
         rule_set = self.active_rule_db[act_name]
         prediction = Rule.evaluateOr(rule_set, tgt)       
 
-        if round(truth) == round(prediction):
-            # If the truth is predicted, no need to update rules
-            return
-        elif round(truth):
+        if truth >= 0.5 and prediction < 0.5:
             self.coverFact(act_name, tgt, truth)
-        elif not round(truth):
+        elif truth < 0.5 and prediction >= 0.5:
             self.uncoverFact(act_name, tgt, truth)
 
     def coverFact(self, act_name, tgt, truth):
@@ -89,7 +99,7 @@ class RuleManager:
         fact_set = self.fact_db[act_name]
         neg_facts = {k: v for k, v in fact_set.items() if v < 0.5}
 
-        # Search only for currently inactive rules
+        # Search only for inactive rules (pointless to refine active rules) 
         inactive_f = lambda r : r not in rule_set
         # Candidate rules must cover the new fact
         cover_f = lambda r : r.evaluate(tgt) >= truth
@@ -99,13 +109,16 @@ class RuleManager:
 
         # Search for rule starting with empty rule
         init_rule = Rule(self.action_db[act_name], conditions=[])
-        new_rule = self.ruleSearch(init_rule, self.score_thresh, score_f,
-                                   [inactive_f, cover_f])
+        score_thresh = self.add_fact_thresh
+        new_rule, new_score = self.ruleSearch(init_rule, score_thresh,
+                                              score_f, [inactive_f, cover_f])
 
         # Add new rule if one is found
         if new_rule != init_rule:
             rule_set.add(new_rule)
-
+        else:
+            print "Cannot find rule that to cover new fact."
+            
     def uncoverFact(self, act_name, tgt, truth):
         """Uncover negative fact by refining overly general rules."""
         rule_set = self.active_rule_db[act_name]
@@ -128,16 +141,116 @@ class RuleManager:
                                       p_tgt, p_val in pos_facts.items()])
 
             # Search for rule starting with covering rule
-            new_rule = self.ruleSearch(init_rule, self.score_thresh, score_f,
-                                       [uncover_f])
+            score_thresh = self.sub_fact_thresh
+            new_rule, new_score = self.ruleSearch(init_rule, score_thresh,
+                                                  score_f, [uncover_f])
 
             # Replace old rule with new rule if one is found
             if new_rule != init_rule:
                 rule_set.remove(init_rule)
                 rule_set.add(new_rule)
+            else:
+                print "Cannot refine rule to uncover new fact."
 
+    def accomRule(self, given_rule, truth):
+        """Tries to accommodate the given rule by modifying rule base."""
+        if truth >= 0.5:
+            self.coverRule(given_rule, truth)
+        else:
+            self.uncoverRule(given_rule, truth)
+
+    def coverRule(self, given_rule, truth):
+        """Cover given positive rule if not already covered."""
+        rule_set = self.active_rule_db[given_rule.action.name]
+        fact_set = self.fact_db[given_rule.action.name]
+        neg_facts = {k: v for k, v in fact_set.items() if v < 0.5}
+        n_neg = len(neg_facts)
+        
+        # Do nothing if given rule is specialization of an active rule
+        for r in rule_set:
+            if r.conditions.issubset(given_rule.conditions):
+                return
+
+        # Score candidate rules according to false positive value 
+        score_f = lambda r : sum([max(r.evaluate(tgt) - val, 0) for
+                                  tgt, val in neg_facts.items()])
+        given_score = score_f(given_rule)
+
+        # Terminate early if there are no false positives
+        if given_score == 0:
+            rule_set.add(given_rule)
+            return
+            
+        # Specialize rule so that false positives are minimized
+        new_rule, new_score  = self.ruleSearch(given_rule, given_score,
+                                               score_f)
+
+        # Add specialized rule if false positive fraction is low enough
+        if new_score <= self.add_rule_thresh * n_neg:
+            rule_set.add(new_rule)
+        else:
+            print "Cannot add given rule without too many false positives."
+        
+    def uncoverRule(self, given_rule, truth):
+        """Uncover negative rule by refining existing rules."""
+        rule_set = self.active_rule_db[given_rule.action.name]
+        fact_set = self.fact_db[given_rule.action.name]
+
+        # Find set of active rules with non-empty intersections
+        cover_rules = [r for r in rule_set if
+                       all([c.negate() not in r.conditions
+                            for c in given_rule.conditions])]
+
+        # Refine covering rules to uncover intersection with given rule
+        for init_rule in cover_rules:
+            # Get logical intersection of given rule with covering rule
+            inter_rule = Rule.intersect(given_rule, init_rule,
+                                        negate_check=False)
+
+            # If intersection is equal to covering rule, remove covering rule
+            if init_rule == inter_rule:
+                rule_set.remove(init_rule)
+                continue
+            
+            # Find positive facts covered by init_rule but not inter_rule
+            pos_facts = {k: v for k, v in fact_set.items()
+                         if v >= 0.5 and init_rule.evaluate(k) >= 0.5
+                         and inter_rule.evaluate(k) < 0.5}
+            n_pos = len(pos_facts)
+            
+            # Candidate rules must not cover the intersection
+            uncover_f = (lambda r :
+                         not r.conditions.issubset(inter_rule.conditions))
+            # Score candidate rules according to false negative value
+            score_f = lambda r, fs : sum([max(val - r.evaluate(tgt), 0) for
+                                         tgt, val in fs.items()])
+
+            # Find refinements that cover previously covered positive facts
+            new_set = set()
+            remain_facts = pos_facts
+            while len(remain_facts) > 0:
+                # Find refinement that best covers remaining facts
+                new_rule, new_score = \
+                    self.ruleSearch(init_rule, len(remain_facts),
+                                    lambda r : score_f(r, remain_facts),
+                                    [uncover_f])
+                if new_rule == init_rule:
+                    print "Cannot find any more suitable refinements."
+                    break
+                new_set.add(new_rule)
+                # Remove sufficiently covered facts
+                remain_facts = {k : v for k, v in remain_facts.items()
+                                if new_rule.evaluate(k) > 0.5}
+
+            # Replace old rule with set of refinements
+            if len(new_set) != 0:
+                rule_set.remove(init_rule)
+                rule_set.update(new_set)
+            else:
+                print "Cannot find set of suitable refinements."            
+            
     def ruleSearch(self, init_rule, score_thresh, score_f, filters=[]):
-        """Performs general to specific search for best-scoring rule."""
+        """Performs general to specific search for minimal-scoring rule."""
         best_rule, best_score = init_rule, score_thresh
         cand_rules = [best_rule]
             
@@ -158,69 +271,8 @@ class RuleManager:
             # Check if best candidate beats best rule
             if sort_rules[0][1] < best_score:
                 best_rule = cand_rules[0]
-
-        return best_rule
-                     
-    def ruleInputCb(self. msg):
-        """Updates given rule database, considers activating them."""
-        action = self.action_db[msg.action]
-        rule = Rule.fromMsg(msg)
-
-        # Overwrites old value if given rule already exists
-        self.given_rule_db[action.name][rule] = msg.truth
-        self.updateRuleSet(action.name, msg.truth, rule)
-
-    def updateRuleSet(self, act_name, truth, given_rule=None):
-        """Evaluates rules for the named action, updates if necessary."""
-
-        if len(self.fact_db[act_name]) > 0:
-            # Grow rule set (e.g. add / refine given rules)
-            self.growRuleSet(act_name, given_rule)
-        elif cand_rule is not None:
-            # If there are no facts, just use given rules
-            if truth > 0.5:
-                self.active_rule_db[act_name].add(given_rule)
-            else:
-                self.active_rule_db[act_name].remove(given_rule)
-
-        # Prune rule set (e.g. merge rules that can be merged)
-        self.pruneRuleSet(act_name, given_rule)
-
-    def growRuleSet(self, act_name, given_rule=None):
-        """Grow rule set via modified ProbFOIL algorithm."""
-        rule_set = self.active_rule_db[act_name]
-        fact_set = self.fact_db[act_name]
-        
-        # Consider adding rules if accuracy is too low
-        perf = self.evalRuleSet(rule_set, fact_set)
-        while perf.acc < self.growThreshold:
-            # Start from givenidate rule if available
-            new_rule = (given_rule if given_rule not is None else
-                        self.guessRule(act_name))
-
-            # Repeatedly evaluate and refine rule
-            while True:
-                # Skip if rule is already in ruleset
-                if new_rule in rule_set:
-                    new_rule = self.refineRule(new_rule)
-                    continue
-                # Add rule and evaluate performance
-                rule_set.add(new_rule)
-                new_perf = self.evalRuleSet(rule_set, fact_set)
-                # Check if stopping criterion is true
-                if new_perf.fp == 0 or (new_perf.tp - perf.tp == 0):
-                    break
-                # Refine rule (should select best refinement)
-                rule_set.remove(new_rule)
-                new_rule = self.refineRule(new_rule)
-
-            # Break if accuracy does not improve, else keep adding more
-            new_perf = self.evalRuleSet(rule_set, fact_set)
-            if new_perf.acc <= perf.acc:
-                # Get rid of rule added in inner loop
-                rule_set.remove(new_rule)
-                break
-
+        return best_rule, best_score
+                             
     def pruneRuleSet(self, act_name, given_rule=None):
         """Prunes the active ruleset for the named action."""
         rule_set = self.active_rule_db[act_name]
@@ -232,9 +284,7 @@ class RuleManager:
         n_true = sum(fact_set.values())
         n_false = n_facts - n_true
         tp, tn, fp, fn = 0.0, 0.0, 0.0, 0.0
-        for k, truth in fact_set.items():
-            tgt = (self.lookupObject(k) if
-                   type(k) == int else Point(*k))
+        for tgt, truth in fact_set.items():
             prediction = Rule.evaluateOr(rule_set, tgt)
             tpi, tni = min(truth, predict), min(1-truth, 1-predict)
             fpi, fni = max(0, (1-truth)-tni), max(0, truth-tpi)
