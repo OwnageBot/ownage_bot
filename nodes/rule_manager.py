@@ -205,59 +205,17 @@ class RuleManager:
                 print "Cannot remove rule without too many false negatives."
             return
 
-        # Scores rules according to false negative value
-        score_f = lambda r, fs : sum([max(val - r.evaluate(tgt), 0) for
-                                      tgt, val in fs.items()])
-        
-        # Find set of active rules with non-empty intersections
-        cover_rules = [r for r in rule_set if
-                       all([c.negate() not in r.conditions
-                            for c in given_rule.conditions])]
+        # TODO: Refire rule to minimize positive coverage?
 
-        # Refine covering rules to uncover intersection with given rule
-        for init_rule in cover_rules:
-            # Get logical intersection of given rule with covering rule
-            inter_rule = Rule.intersect(given_rule, init_rule,
-                                        negate_check=False)
-
-            # If intersection is equal to covering rule, remove covering rule
-            if init_rule == inter_rule:
-                rule_set.remove(init_rule)
+        # Logically subtract given rule from each active rule
+        for r in list(rule_set):
+            remainder = Rule.difference(r, given_rule)
+            # Skip if intersection is empty
+            if r in remainder:
                 continue
-            
-            # Find positive facts covered by init_rule but not inter_rule
-            pos_facts = {k: v for k, v in fact_set.items()
-                         if v >= 0.5 and init_rule.evaluate(k) >= 0.5
-                         and inter_rule.evaluate(k) < 0.5}
-            n_pos = len(pos_facts)
-            
-            # Candidate rules must not cover the intersection
-            uncover_f = (lambda r :
-                         not r.conditions.issubset(inter_rule.conditions))
-        
-            # Find refinements that cover previously covered positive facts
-            new_set = set()
-            remain_facts = pos_facts
-            while len(remain_facts) > 0:
-                # Find refinement that best covers remaining facts
-                new_rule, new_score = \
-                    self.ruleSearch(init_rule, len(remain_facts),
-                                    lambda r : score_f(r, remain_facts),
-                                    [uncover_f])
-                if new_rule == init_rule:
-                    print "Cannot find any more suitable refinements."
-                    break
-                new_set.add(new_rule)
-                # Remove sufficiently covered facts
-                remain_facts = {k : v for k, v in remain_facts.items()
-                                if new_rule.evaluate(k) > 0.5}
-
-            # Replace old rule with set of refinements
-            if len(new_set) != 0:
-                rule_set.remove(init_rule)
-                rule_set.update(new_set)
-            else:
-                print "Cannot find set of suitable refinements."            
+            # Replace rule with remainder
+            rule_set.remove(r)
+            rule_set &= remainder
             
     def ruleSearch(self, init_rule, score_thresh, score_f, filters=[]):
         """Performs general to specific search for minimal-scoring rule."""

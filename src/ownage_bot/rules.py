@@ -105,18 +105,33 @@ class Rule:
         return truth
 
     @classMethod
-    def intersect(cls, r1, r2, negate_check=True):
+    def difference(cls, r1, r2):
+        """Returns logical subtraction of r2 from r1 as a rule set."""
+        if r1.action.name != r2.action.name || r1.detype != r2.detype:
+            raise TypeError("Actions and deontic types must match.")
+        remainder = set()
+        for c in r2.conditions:
+            # Return first rule if their intersection is empty
+            if c.negate() in r1.conditions():
+                return set([r1])
+            # Intersect first rule with negation of each predicate
+            new = cls(r1.action, r1.conditions, r1.detype)
+            new.conditions.add(c.negate())
+            remainder.add(new)
+        return remainder
+
+    @classMethod
+    def intersect(cls, r1, r2):
         """Returns logical intersection of two rules."""
         if r1.action.name != r2.action.name || r1.detype != r2.detype:
             raise TypeError("Actions and deontic types must match.")
-        new = cls(r1.action, r1.conditions.union(r2.conditions), r1.detype)
-        if negate_check:
-            for c in new.conditions:
-                if c.negate in new.conditions:
-                    new.conditions = set()
-                    return new
+        new = cls(r1.action, r1.conditions, r1.detype)
+        for c in r2.conditions:
+            if c.negate() in r1.conditions:
+                return cls(r1.action, [], r1.detype)
+            new.conditions.add(c)
         return new
-                
+    
     def toStr(self):
         return " ".join([self.action.name, "on"] +
                         [p.name for p, sub in self.conditions] +
