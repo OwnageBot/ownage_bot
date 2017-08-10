@@ -128,29 +128,30 @@ class RuleManager:
         # Find set of high-certainty covering rules
         cover_rules = [r for r in rule_set if r.evaluate(tgt) >= 0.5]
 
-        # Candidate rules must *not* cover the new fact
-        uncover_f = lambda r : r.evaluate(tgt) < truth
+        # Candidate rules must cover negative fact
+        cover_f = lambda r : r.evaluate(tgt) >= (1-truth)
 
-        # Refine each rule to uncover new fact while still covering others
+        # Subtract minimal rule that covers new fact from each covering rule
         for init_rule in cover_rules:
             # Find set of covered positive facts
             pos_facts = {k: v for k, v in fact_set.items()
                          if v >= 0.5 and init_rule.evaluate(k) >= 0.5}
 
-            # Compute score as false negative value for each candidate rule
-            score_f = lambda r : sum([max(p_val - r.evaluate(p_tgt), 0) for
+            # Compute score as true positive value for each candidate rule
+            score_f = lambda r : sum([min(p_val, r.evaluate(p_tgt)) for
                                       p_tgt, p_val in pos_facts.items()])
 
-            # Search for rule starting with covering rule
+            # Search for rule that minimizes positive facts covered
             score_thresh = self.sub_fact_thresh
             new_rule, new_score, success = \
                 self.ruleSearch(init_rule, score_thresh,
-                                score_f, [uncover_f])
+                                score_f, [cover_f])
 
-            # Replace old rule with new rule if one is found
+            # Subtract found rule from covering rule
             if success:
+                remainder = Rule.difference(init_rule, new_rule)
                 rule_set.remove(init_rule)
-                rule_set.add(new_rule)
+                rule_set &= remainder
             else:
                 print "Cannot uncover fact without too many false negatives."
 
@@ -209,9 +210,9 @@ class RuleManager:
             print "Cannot subtract rule without too many false negatives."
             return
         
-        # Logically subtract given rule from each active rule
+        # Logically subtract (refined) given rule from each active rule
         for r in list(rule_set):
-            remainder = Rule.difference(r, given_rule)
+            remainder = Rule.difference(r, new_rule)
             # Skip if intersection is empty
             if r in remainder:
                 continue
