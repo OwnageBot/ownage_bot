@@ -17,8 +17,8 @@ class RuleManager:
     def __init__(self):
         # Learning parameters
         self.grow_thresh = rospy.get_param("grow_threshold", 0.9)
-        self.add_fact_thresh = 0.9
-        self.sub_fact_thresh = 0.9
+        self.add_fact_thresh = 0.5
+        self.sub_fact_thresh = 0.5
         self.add_rule_thresh = 0.1
         self.sub_rule_thresh = 0.1
         self.max_cand = 3
@@ -110,14 +110,15 @@ class RuleManager:
         # Search for rule starting with empty rule
         init_rule = Rule(self.action_db[act_name], conditions=[])
         score_thresh = self.add_fact_thresh
-        new_rule, new_score = self.ruleSearch(init_rule, score_thresh,
-                                              score_f, [inactive_f, cover_f])
+        new_rule, new_score, success = \
+            self.ruleSearch(init_rule, score_thresh,
+                            score_f, [inactive_f, cover_f])
 
         # Add new rule if one is found
-        if new_rule != init_rule:
+        if success:
             rule_set.add(new_rule)
         else:
-            print "Cannot find rule that to cover new fact."
+            print "Cannot cover fact without too many false positives."
             
     def uncoverFact(self, act_name, tgt, truth):
         """Uncover negative fact by refining overly general rules."""
@@ -142,15 +143,16 @@ class RuleManager:
 
             # Search for rule starting with covering rule
             score_thresh = self.sub_fact_thresh
-            new_rule, new_score = self.ruleSearch(init_rule, score_thresh,
-                                                  score_f, [uncover_f])
+            new_rule, new_score, success = \
+                self.ruleSearch(init_rule, score_thresh,
+                                score_f, [uncover_f])
 
             # Replace old rule with new rule if one is found
-            if new_rule != init_rule:
+            if success:
                 rule_set.remove(init_rule)
                 rule_set.add(new_rule)
             else:
-                print "Cannot refine rule to uncover new fact."
+                print "Cannot uncover fact without too many false negatives."
 
     def accomRule(self, given_rule, truth):
         """Tries to accommodate the given rule by modifying rule base."""
@@ -174,19 +176,14 @@ class RuleManager:
         # Score candidate rules according to false positive value 
         score_f = lambda r : sum([max(r.evaluate(tgt) - val, 0) for
                                   tgt, val in neg_facts.items()])
-        given_score = score_f(given_rule)
-
-        # Terminate early if there are no false positives
-        if given_score == 0:
-            rule_set.add(given_rule)
-            return
             
         # Specialize rule so that false positives are minimized
-        new_rule, new_score  = self.ruleSearch(given_rule, given_score,
-                                               score_f)
+        score_thresh = self.add_rule_thresh * n_neg
+        new_rule, new_score, success = \
+            self.ruleSearch(given_rule, score_thresh, score_f)
 
         # Add specialized rule if false positive fraction is low enough
-        if force or new_score <= self.add_rule_thresh * n_neg:
+        if force or success:
             rule_set.add(new_rule)
         else:
             print "Cannot add given rule without too many false positives."
@@ -195,18 +192,23 @@ class RuleManager:
         """Uncover negative rule by refining existing rules."""
         rule_set = self.active_rule_db[given_rule.action.name]
         fact_set = self.fact_db[given_rule.action.name]
+        pos_facts = {k: v for k, v in fact_set.items() if v >= 0.5} 
+        n_pos = len(pos_facts)        
         
-        # Check that removing given rule will not uncover too many positives
-        if not force:
-            pos_facts = {k: v for k, v in fact_set.items() if v >= 0.5} 
-            n_covered = len(filter(pos_facts.keys(),
-                                   lambda t : given_rule.evaluate(t) >= 0.5))
-            if n_covered > self.sub_rule_thresh * len(pos_facts):
-                print "Cannot remove rule without too many false negatives."
+        # Score candidate rules according to true positive value 
+        score_f = lambda r : sum([min(r.evaluate(tgt), val) for
+                                  tgt, val in pos_facts.items()])
+
+        # Specialize rule so that true positives are minimized
+        score_thresh = self.sub_fact_thresh * n_pos
+        new_rule, new_score, success = \
+            self.ruleSearch(given_rule, score_thresh, score_f)
+
+        # Terminate if rule to be removed covers too many positive facts
+        if not force && not success:
+            print "Cannot subtract rule without too many false negatives."
             return
-
-        # TODO: Refire rule to minimize positive coverage?
-
+        
         # Logically subtract given rule from each active rule
         for r in list(rule_set):
             remainder = Rule.difference(r, given_rule)
@@ -219,10 +221,14 @@ class RuleManager:
             
     def ruleSearch(self, init_rule, score_thresh, score_f, filters=[]):
         """Performs general to specific search for minimal-scoring rule."""
-        best_rule, best_score = init_rule, score_thresh
+        best_rule, best_score = init_rule, score_f(init_rule)
         cand_rules = [best_rule]
-            
+        success = (all([f(init_rule) for f in filters]) and
+                   best_score <= score_thresh)
         while len(cand_rules) > 0:
+            # Terminate if score beats threshold
+            if success:
+                break
             # Construct list of refinements from previous candidates
             new_rules = sum([self.refineRule(r) for r in cand_rules])
             # Select rules which match filters
@@ -237,9 +243,10 @@ class RuleManager:
             # Select top few candidates for next round of refinement
             cand_rules = [r for r, s in sort_rules[0:self.max_cand]]
             # Check if best candidate beats best rule
-            if sort_rules[0][1] < best_score:
-                best_rule = cand_rules[0]
-        return best_rule, best_score
+            if len(sort_rules) > 0 and sort_rules[0][1] < best_score:
+                best_rule, best_score = sort_rules[0]
+                success = best_score <= score_thresh
+        return best_rule, best_score, success
                              
     def pruneRuleSet(self, act_name, given_rule=None):
         """Prunes the active ruleset for the named action."""
