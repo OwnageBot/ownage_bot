@@ -115,7 +115,7 @@ class RuleManager:
 
         # Add new rule if one is found
         if success:
-            rule_set.add(new_rule)
+            self.mergeRule(rule_set, new_rule)
         else:
             print "Cannot cover fact without too many false positives."
             
@@ -150,7 +150,8 @@ class RuleManager:
             if success:
                 remainder = Rule.difference(init_rule, new_rule)
                 rule_set.remove(init_rule)
-                rule_set &= remainder
+                for new in remainder:
+                    self.mergeRule(rule_set, new)
             else:
                 print "Cannot uncover fact without too many false negatives."
 
@@ -170,7 +171,7 @@ class RuleManager:
         
         # Do nothing if given rule is specialization of an active rule
         for r in rule_set:
-            if r.conditions.issubset(given_rule.conditions):
+            if r.conditions <= given_rule.conditions:
                 return
 
         # Score candidate rules according to false positive value 
@@ -184,7 +185,7 @@ class RuleManager:
 
         # Add specialized rule if false positive fraction is low enough
         if force or success:
-            rule_set.add(new_rule)
+            self.mergeRule(rule_set, new_rule)
         else:
             print "Cannot add given rule without too many false positives."
         
@@ -217,7 +218,8 @@ class RuleManager:
                 continue
             # Replace rule with remainder
             rule_set.remove(r)
-            rule_set &= remainder
+            for new in remainder:
+                self.mergeRule(rule_set, new)
             
     def ruleSearch(self, init_rule, score_thresh, score_f, filters=[]):
         """Performs general to specific search for minimal-scoring rule."""
@@ -260,13 +262,32 @@ class RuleManager:
             n1 = Rule(rule.action, rule.conditions, rule.detype)
             n2 = Rule(rule.action, rule.conditions, rule.detype)
             n1.conditions.add(p)
-            n2.conditions.add(p)
+            n2.conditions.add(p.negate)
             refinements += [n1, n2]
     
-    def pruneRuleSet(self, act_name, given_rule=None):
-        """Prunes the active ruleset for the named action."""
-        rule_set = self.active_rule_db[act_name]
-        fact_set = self.fact_db[act_name]            
+    def mergeRule(self, rule_set, new):
+        """Merge new rule into rule set."""
+        # Merge with adjacent rules (e.g. (A & B) | (A & !B) -> A)
+        for r in list(rule_set):
+            sym_diff = new.conditions ^ r.conditions
+            if len(sym_diff) == 2:
+                c1, c2 = sym_diff.pop(), sym_diff.pop()
+                if c1 == c2.negate():
+                    new.conditions.discard(c1)
+                    new.conditions.discard(c2)
+                    rule_set.remove(r)
+
+        # Search for generalizations or specializations after merging
+        for r in list(rule_set):
+            # Do not add if generalization is already in rule set
+            if new.conditions <= r.conditions:
+                break
+            # Remove specializations that exist in rule set
+            if new.conditions >= r.conditions:
+                rule_set.remove(r)
+        else:
+            # Add rule if no generalizations found
+            rule_set.add(new)
             
     def evalRuleSet(self, rule_set, fact_set):
         """Evaluates rule set and returns a performance metric tuple."""
