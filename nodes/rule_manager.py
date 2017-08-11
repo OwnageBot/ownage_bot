@@ -16,12 +16,11 @@ class RuleManager:
     
     def __init__(self):
         # Learning parameters
-        self.grow_thresh = rospy.get_param("grow_threshold", 0.9)
-        self.add_fact_thresh = 0.5
-        self.sub_fact_thresh = 0.5
-        self.add_rule_thresh = 0.1
-        self.sub_rule_thresh = 0.1
-        self.max_cand = 3
+        self.add_fact_thresh = rospy.get_param("add_fact_thresh", 0.5)
+        self.sub_fact_thresh = rospy.get_param("sub_fact_thresh", 0.5)
+        self.add_rule_thresh = rospy.get_param("add_rule_thresh", 0.1)
+        self.sub_rule_thresh = rospy.get_param("sub_rule_thresh", 0.1)
+        self.max_cand_rules = rospy.get_param("max_cand_rules", 3)
         
         # Databases of available predicates and actions
         self.predicate_db = dict(zip([p.name for p in predicates.db],
@@ -242,13 +241,28 @@ class RuleManager:
             scores = [score_f(r) for r in new_rules]
             sort_rules = sorted(zip(new_rules, scores), key=lambda p:p[1])
             # Select top few candidates for next round of refinement
-            cand_rules = [r for r, s in sort_rules[0:self.max_cand]]
+            cand_rules = [r for r, s in sort_rules[0:self.max_cand_rules]]
             # Check if best candidate beats best rule
             if len(sort_rules) > 0 and sort_rules[0][1] < best_score:
                 best_rule, best_score = sort_rules[0]
                 success = best_score <= score_thresh
         return best_rule, best_score, success
-                             
+
+    def refineRule(self, rule, conditions=None):
+        """Return list of refinements by adding predicates to rule."""
+        refinements = []
+        if conditions = None:
+            conditions = self.predicate_db.values()
+        for p in conditions:
+            # Check for idempotency / complementation
+            if p in rule.conditions or p.negate() in rule.conditions:
+                continue
+            n1 = Rule(rule.action, rule.conditions, rule.detype)
+            n2 = Rule(rule.action, rule.conditions, rule.detype)
+            n1.conditions.add(p)
+            n2.conditions.add(p)
+            refinements += [n1, n2]
+    
     def pruneRuleSet(self, act_name, given_rule=None):
         """Prunes the active ruleset for the named action."""
         rule_set = self.active_rule_db[act_name]
