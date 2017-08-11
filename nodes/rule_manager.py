@@ -117,7 +117,9 @@ class RuleManager:
         if success:
             self.mergeRule(rule_set, new_rule)
         else:
-            print "Cannot cover fact without too many false positives."
+            rospy.logdebug(("Cannot cover fact with [%s]" + 
+                            "w/o too many false positives."),
+                           new_rule.toPrint())
             
     def uncoverFact(self, act_name, tgt, truth):
         """Uncover negative fact by refining overly general rules."""
@@ -153,7 +155,9 @@ class RuleManager:
                 for new in remainder:
                     self.mergeRule(rule_set, new)
             else:
-                print "Cannot uncover fact without too many false negatives."
+                rospy.logdebug(("Cannot uncover fact from [%s]" +
+                                " w/o too much false negatives."),
+                                init_rule.toPrint())
 
     def accomRule(self, given_rule, truth):
         """Tries to accommodate the given rule by modifying rule base."""
@@ -187,7 +191,8 @@ class RuleManager:
         if force or success:
             self.mergeRule(rule_set, new_rule)
         else:
-            print "Cannot add given rule without too many false positives."
+            rospy.logdebug("Cannot add [%s] w/o too much over-covering.",
+                           new_rule.toPrint())
         
     def uncoverRule(self, given_rule, truth, force=False):
         """Uncover negative rule by refining existing rules."""
@@ -207,7 +212,8 @@ class RuleManager:
 
         # Terminate if rule to be removed covers too many positive facts
         if not force && not success:
-            print "Cannot subtract rule without too many false negatives."
+            rospy.logdebug("Cannot subtract [%s] w/o too much uncovering.",
+                           new_rule.toPrint())
             return
         
         # Logically subtract (refined) given rule from each active rule

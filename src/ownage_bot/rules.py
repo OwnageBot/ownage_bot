@@ -132,9 +132,10 @@ class Rule:
             new.conditions.add(c)
         return new
     
-    def toStr(self):
+    def toPrint(self):
+        """Converts to human-readable string."""
         return " ".join([self.action.name, "on"] +
-                        [p.name for p, sub in self.conditions] +
+                        [p.toPrint() for p in self.conditions] +
                         ["target","is",self.detype])
 
     def toMsg(self):

@@ -103,10 +103,10 @@ class TaskManager:
                 if rule.action not in ([action] + action.dependencies):
                     continue
                 if rule.detype == Rule.forbidden and rule.evaluate(tgt):
-                    print "Cannot violate rule:", rule.toStr()
+                    print "Cannot violate rule:", rule.toPrint()
                     break;
                 elif rule.detype == Rule.allowed and not rule.evaluate(tgt):
-                    print "Cannot violate rule:", rule.toStr()
+                    print "Cannot violate rule:", rule.toPrint()
                     break;
             else:
                 # Call action if rules allow for it

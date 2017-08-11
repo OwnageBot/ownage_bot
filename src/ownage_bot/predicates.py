@@ -52,7 +52,7 @@ class Predicate:
         negation = self.__class__(self.name, self.argtypes)
         negation._bindings = list(self._bindings)
         negation._apply = self._apply
-        negation._negated = not self.negated
+        negation._negated = not self._negated
         return negation
     
     def apply(self, *args):
@@ -67,6 +67,12 @@ class Predicate:
                 raise TypeError("Argument is the wrong type.")
         val = float(self._apply(*all_args))
         return (1.0-val) if self._negated else val
+
+    def toPrint(self):
+        """Converts to human-readable string."""
+        pre = "not" if self._negated: else ""
+        pos = " ".join([b.toStr() for b in self._bindings if b is not None])
+        return " ".join([pre, self.name, pos]).strip()
     
     def toMsg(self):
         """Convert to PredicateMsg."""
@@ -74,7 +80,7 @@ class Predicate:
         msg.bindings = self._bindStrs()
         msg.truth = -1.0 if None in self._bindings else self.apply()
         return msg
-
+    
     @classmethod
     def fromMsg(cls, msg):
         """Convert from message by looking up database."""
@@ -98,7 +104,7 @@ Blue._apply = lambda obj : (obj.color == 2)
 Near = Predicate("near", [Object, Object])
 Near._apply = lambda obj1, obj2: objects.dist(obj1, obj2) < 0.4
 
-OwnedBy = Predicate("owns", [Object, Agent])
+OwnedBy = Predicate("ownedBy", [Object, Agent])
 OwnedBy._apply = lambda obj, agent: obj.ownership[agent.id] > 0.8
 
 IsOwned = Predicate("isOwned", [Object])
