@@ -1,7 +1,7 @@
 import rospy
 from std_srvs.srv import Trigger
 from geometry_msgs.msg import Point
-from objects import Object
+from objects import Object, Location
 from ownage_bot.msg import ObjectMsg
 from ownage_bot.srv import CallAction, CallActionResponse
 

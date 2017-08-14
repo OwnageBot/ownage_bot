@@ -7,7 +7,6 @@ from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
 
-
 class DialogManager:
     """Manages dialog with users, generates replies and parses instructions."""
 
@@ -18,22 +17,20 @@ class DialogManager:
         
         # Subscribers and publishers
         self.input_sub = rospy.Subscriber("text_input", String, self.inputCb)
-        self.command_pub = rospy.Publisher("command", Command, queue_size=10)
+        self.command_pub = rospy.Publisher("command", TaskMsg, queue_size=10)
+
         # Sentence type will be determined by the PoS of the initial word
         self.q_words_PoS = ["WP", "WP$", "WDT"]  # For questions
         self.c_words_PoS = ["VB"]  # For commands
         self.s_words_PoS = ["IN"]  # For statements
 
-        self.command_pub = rospy.Publisher("command", TaskMsg, queue_size=10)
-
     def inputCb(self, msg):
         """Handles text input and publishes commands."""
         name = tasks.Idle.name
-        obj_id = -1
-        location = Point()
 
         args = msg.data.split()
         pos_tag_args = nltk.pos_tag(args)
+
         if len(args) == 0:
             return
         if args[0] == "list":
@@ -42,9 +39,23 @@ class DialogManager:
             for a in self.action_db.iterkeys():
                 print a
             return
-        # Expects commond of the form:
-        # "if x true and owns a b true then z false"
+        elif args[0] in self.action_db:
+            # Try one of the higher-level tasks
+            name = args[0]
+            tgt = args[1]
+            cmd = TaskMsg(name=name, oneshot=False, interrupt=True, target=tgt)
+            self.command_pub.publish(cmd)
+            return
+        elif args[0] in self.task_db:
+            # Try one of the higher-level tasks
+            name = args[0]
+            cmd = TaskMsg(name=name, oneshot=False, interrupt=True, target="")
+            self.command_pub.publish(cmd)
+            return
         elif pos_tag_args[0][1] in self.c_words_PoS
+        # Expects command of the form:
+        # "if x true and owns a b true then z false"
+
         # Chunks predicates and action
 
             grammar = r"""
@@ -64,13 +75,6 @@ class DialogManager:
             action = preds.pop()
             print(action)
             # TODO Update predicate/rule db
-            return
-        elif args[0] in self.task_db:
-            # Try one of the higher-level tasks
-            name = args[0]
-            cmd = TaskMsg(name=name, oneshot=False, interrupt=True,
-                          obj_id=obj_id, location=location)
-            self.command_pub.publish(cmd)
             return
         if name == tasks.Idle.name:
             print "Could not parse input, defaulting to idle task."
