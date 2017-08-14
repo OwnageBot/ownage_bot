@@ -47,9 +47,9 @@ def _goHome(target):
     return _service_left("home", ObjectMsg(), Point())
 GoHome._call = _goHome
 
-MoveTo = Action("moveTo", Point)
+MoveTo = Action("moveTo", Location)
 def _moveTo(target):
-    return _service_left("move", ObjectMsg(), target)
+    return _service_left("move", ObjectMsg(), Point(*target.position))
 MoveTo._call = _moveTo
 
 Scan = Action("scan")

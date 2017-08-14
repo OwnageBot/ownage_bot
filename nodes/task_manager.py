@@ -52,11 +52,9 @@ class TaskManager:
             action = self.action_db[cmd.name]
             if action.tgtype is type(None):
                 task = Task.oneShot(action, None)
-            elif action.tgtype == Object:
-                obj = Object.fromID(cmd.obj_id)
-                task = Task.oneShot(action, obj)
-            elif action.tgtype == Point:
-                task = Task.oneShot(action, cmd.location)
+            else:
+                tgt = action.tgtype.fromStr(cmd.target)
+                task = Task.oneShot(action, tgt)
         elif cmd.name in self.task_db:
             task = self.task_db[cmd.name]
         self.cur_task = task
@@ -93,7 +91,8 @@ class TaskManager:
         """Returns true if rules forbid action on target."""
         for a in (action.dependencies + [action]):
             rule_set = self.lookupRules(a.name).rule_set
-            if Rule.evaluateOr(tgt) >= 0.5:
+            rule_set = [Rule.fromMsg(r) for r in rule_set]
+            if Rule.evaluateOr(rule_set, tgt) >= 0.5:
                 return True
         return False
     

@@ -55,10 +55,7 @@ class RuleManager:
         """Returns action permission for requested action-target pair."""
         if req.action in self.fact_db:
             action = self.action_db[req.action]
-            if action.tgtype == Object:
-                tgt = Object.fromStr(req.target)
-            elif action.tgtype == Point:
-                tgt = tuple(req.target.split())
+            tgt = action.tgtype.fromStr(req.target)
             if tgt in self.fact_db[action.name]:
                 perm = self.fact_db[action.name][tgt]
                 return LookupPermResponse(perm)
@@ -84,14 +81,7 @@ class RuleManager:
         action = self.action_db[fact.predicate]
         if len(msg.args) != 1:
             raise TypeError("Action fact should have exactly one argument.")
-        tgt = msg.args[0]
-
-        # Make sure target is represented in a hashable way
-        if action.tgtype == Object:
-            # Object properties are looked up and stored at time of receipt
-            tgt = Object.fromStr(tgt)
-        elif action.tgtype == Point:
-            tgt = tuple(tgt.split()) #TODO: Make location targets hashable
+        tgt = action.tgtype.fromStr(msg.args[0])
 
         # Overwrite old value if fact already exists
         self.fact_db[action.name][tgt] = msg.truth

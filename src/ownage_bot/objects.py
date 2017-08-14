@@ -109,7 +109,7 @@ class Agent:
 
     @classmethod
     def fromStr(cls, s):
-        """Convert to Agent."""
+        """Convert to Agent from string."""
         return cls(int(s))
     
 class Area:
@@ -142,9 +142,42 @@ class Area:
 
     @classmethod
     def fromStr(cls, s):
-        """Convert to Agent."""
+        """Convert to Area from string."""
         return cls(eval(s))
-                
+
+class Location:
+    """Defines a location in space."""
+    def __init__(self, point):
+        """Takes a 3-tuple and stores it."""
+        if len(point) != 3:
+            raise ValueError("Position should be in 3 dimensions.")
+        self.name = ""
+        self.position = tuple(point)
+
+    def __eq__(self, other):
+        """Locations are equal if their vertices are."""
+        if isinstance(other, self.__class__):
+            return self.position == other.position
+        return NotImplemented
+        
+    def __ne__(self, other):
+        if isinstance(other, self.__class__):
+            return not self == other
+        return NotImplemented
+
+    def __hash__(self):
+        """Hash only the vertices."""
+        return hash(self.position)
+
+    def toStr(self):
+        """Minimal string representation."""
+        return str(self.position)
+
+    @classmethod
+    def fromStr(cls, s):
+        """Convert to Location."""
+        return cls(eval(s))
+    
 def dist(obj1, obj2):
     """Calculates Euclidean distance between two objects."""
     p1 = obj1.position
