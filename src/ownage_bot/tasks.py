@@ -15,7 +15,7 @@ class Task:
         self.finished = False
         # Default implementation of updateActions
         self._updateActions = lambda action_queue, object_db : 0;
-        # Default implementation of checkActionUndone
+        # Default implementation of checkActionDone
         self._checkActionUndone = lambda action, tgt : False
 
     def updateActions(self, action_queue, object_db):
@@ -37,9 +37,9 @@ class Task:
             return 1
         return 0
 
-    def checkActionUndone(self, action, tgt):
-        """Double checks if action is still undone."""
-        return self._checkActionUndone(action, tgt)
+    def checkActionDone(self, action, tgt):
+        """Double checks if action is already done."""
+        return self._checkActionDone(action, tgt)
     
     @staticmethod
     def oneShot(action, tgt=None):
@@ -56,7 +56,7 @@ class Task:
         task = Task(name)
         task._updateActions = lambda action_queue, object_db : \
             task.updateOnce(action, tgt, action_queue)
-        task._checkActionUndone = lambda action, tgt : True
+        task._checkActionDone = lambda action, tgt : False
         return task
         
 # Pre-defined high-level tasks
@@ -96,10 +96,10 @@ def _collectAllCheck(action, obj):
                                     [0.62,0.29], [0.62,0.07]])
     # Assume undone if action is not Collect
     if action.name != actions.Collect.name:
-        return True
-    # Return true if object not in home area
-    return not objects.inArea(obj, Area(home_corners))
-CollectAll._checkActionUndone = _collectAllCheck
+        return False
+    # Return true if object in home area
+    return objects.inArea(obj, Area(home_corners))
+CollectAll._checkActionDone = _collectAllCheck
 
 TrashAll = Task("trashAll")
 def _trashAll(action_queue, object_db):
@@ -135,10 +135,10 @@ def _trashAllCheck(action, obj):
                                      [0.10,1.00], [0.10,0.70]])
     # Assume undone if action is not Trash
     if action.name != actions.Trash.name:
-        return True
-    # Return true if object not in home area
-    return not objects.inArea(obj, objects.Area(trash_corners))
-TrashAll._checkActionUndone = _trashAllCheck
+        return False
+    # Return true if object in home area
+    return objects.inArea(obj, objects.Area(trash_corners))
+TrashAll._checkActionDone = _trashAllCheck
 
 # List of available tasks for each robotic platform
 if rospy.get_param("platform", "baxter") == "baxter":

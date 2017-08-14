@@ -26,11 +26,17 @@ class TaskManager:
         # Queue of action-target pairs
         self.action_queue = Queue.Queue()
         self.avatar_ids = rospy.get_param("avatar_ids", [])
+
+        # Subscribers and publishers
         self.command_sub = rospy.Subscriber("command", TaskMsg, self.commandCb)
         self.feedback_pub = rospy.Publisher("feedback", FeedbackMsg,
                                             queue_size=10)
+
+        # Look up clients for object permissions, and rules
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
         self.lookupObject = rospy.ServiceProxy("lookup_object", LookupObject)
+        self.lookupPerm = rospy.ServiceProxy("lookup_perm", LookupPerm)
+        self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
 
     def sendFeedback(self, feedback):
         """Gives feedback for rule learning."""
@@ -63,8 +69,8 @@ class TaskManager:
                 except Queue.Empty:
                     continue
 
-    def updateCb(self, event):
-        "Callback that updates actions based on world state."
+    def updateActions(self):
+        "Updates actions based on world state."
         try:
             rospy.wait_for_service("list_objects", 0.5)
             resp = self.listObjects()
@@ -75,6 +81,22 @@ class TaskManager:
         object_db = dict(zip([o.id for o in olist], olist))
         self.cur_task.updateActions(self.action_queue, object_db)
 
+    def checkPerms(self, action, tgt):
+        """Returns true if action on specific target is forbidden."""
+        for a in (action.dependencies + [action]):
+            perm = self.lookupPerm(action.name, tgt.toStr()).perm
+            if perm >= 0.5:
+                return True
+        return False
+
+    def checkRules(self, action, tgt):
+        """Returns true if rules forbid action on target."""
+        for a in (action.dependencies + [action]):
+            rule_set = self.lookupRules(a.name).rule_set
+            if Rule.evaluateOr(tgt) >= 0.5:
+                return True
+        return False
+    
     def main(self):
         """Main loop which manages tasks and responds to commands."""
         
@@ -82,35 +104,28 @@ class TaskManager:
         rospy.wait_for_service("/action_provider/service_left")
         actions.GoHome.call()
 
-        # Periodically update actions based on world state
-        rospy.Timer(rospy.Duration(self.update_latency), self.updateCb)
-
         # Keep performing requested tasks/actions
         while not rospy.is_shutdown():
+            # Update action queue for current task
+            self.updateActions()
             # Get next action-target pair
             try:
                 action, tgt = self.action_queue.get(True, 0.5)
             except Queue.Empty:
                 continue
-            # Check if action still needs to be done
             if isinstance(tgt, Object):
                 # Get most recent information about object
                 tgt = Object.fromID(tgt.id)
-            if not self.cur_task.checkActionUndone(action, tgt):
+            # Check if action still needs to be done
+            if self.cur_task.checkActionDone(action, tgt):
                 continue
-            # Evaluate all rules applicable to current action
-            for rule in self.rule_db:
-                if rule.action not in ([action] + action.dependencies):
-                    continue
-                if rule.detype == Rule.forbidden and rule.evaluate(tgt):
-                    print "Cannot violate rule:", rule.toPrint()
-                    break;
-                elif rule.detype == Rule.allowed and not rule.evaluate(tgt):
-                    print "Cannot violate rule:", rule.toPrint()
-                    break;
-            else:
-                # Call action if rules allow for it
-                resp = action.call(tgt)
+            # Check if action is forbidden by permissions or rules
+            if self.checkPerm(action, tgt) or self.checkRules(action, tgt):
+                rospy.logwarn("%s on %s is forbidden",
+                              action.name, tgt.toStr())
+                continue
+            # Call action if all checks pass
+            resp = action.call(tgt)
 
 if __name__ == '__main__':
     rospy.init_node('task_manager')

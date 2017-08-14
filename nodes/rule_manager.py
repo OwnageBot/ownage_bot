@@ -46,9 +46,35 @@ class RuleManager:
         self.rule_input_sub = rospy.Subscriber("rule_input", RuleMsg,
                                                 self.ruleInputCb)
         # Servers
-        # self.lkp_rule_srv = rospy.Service("lookup_rules", LookupRules,
-        #                                   self.lookupRulesCb)
+        self.lkp_perm_srv = rospy.Service("lookup_perm", LookupPerm,
+                                           self.lookupPermCb)
+        self.lkp_rule_srv = rospy.Service("lookup_rules", LookupRules,
+                                           self.lookupRulesCb)
 
+    def lookupPermCb(self, req):
+        """Returns action permission for requested action-target pair."""
+        if req.action in self.fact_db:
+            action = self.action_db[req.action]
+            if action.tgtype == Object:
+                tgt = Object.fromStr(req.target)
+            elif action.tgtype == Point:
+                tgt = tuple(req.target.split())
+            if tgt in self.fact_db[action.name]:
+                perm = self.fact_db[action.name][tgt]
+                return LookupPermResponse(perm)
+        # Reports non forbidden if not in database
+        return LookupPermResponse(0.0)
+        
+    def lookupRulesCb(self, req):
+        """Returns rule set for requested action."""
+        if req.action in self.active_rule_db:
+            rule_set = [r.toMsg() for r in self.active_rule_db[req.action]]
+        else:
+            rule_set = []
+            rospy.logwarn("Action %s not recognized, no rules to lookup.",
+                          req.action)
+        return LookupRulesResponse(rule_set)
+        
     def factInputCb(self, msg):
         """Updates fact database, then tries to cover new fact."""
         # Ignore facts which are not about actions

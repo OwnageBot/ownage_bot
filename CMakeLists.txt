@@ -76,6 +76,8 @@ add_service_files(
   CallAction.srv
   ListObjects.srv
   LookupObject.srv
+  LookupPerm.srv
+  LookupRules.srv
 )
 
 ## Generate actions in the 'action' folder
