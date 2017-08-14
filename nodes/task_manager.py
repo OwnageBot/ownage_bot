@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 import rospy
+import threading
 import Queue
-from std_msgs.msg import UInt32
-from std_msgs.msg import String
 from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
@@ -24,8 +23,8 @@ class TaskManager:
         self.task_db = dict(zip([t.name for t in tasks.db], tasks.db))
 
         # Queue of action-target pairs
+        self.q_lock = threading.Lock()
         self.action_queue = Queue.Queue()
-        self.avatar_ids = rospy.get_param("avatar_ids", [])
 
         # Subscribers and publishers
         self.command_sub = rospy.Subscriber("command", TaskMsg, self.commandCb)
@@ -61,11 +60,10 @@ class TaskManager:
         # Cancel current action and empty action queue if interrupt is true
         if cmd.interrupt:
             actions.Cancel.call()
+            self.q_lock.acquire()
             while self.action_queue.qsize() > 0:
-                try:
-                    self.action_queue.get(False)
-                except Queue.Empty:
-                    continue
+                self.action_queue.get(False)
+            self.q_lock.release()
 
     def updateActions(self):
         "Updates actions based on world state."
@@ -77,7 +75,9 @@ class TaskManager:
             return
         olist = [Object.fromMsg(msg) for msg in resp.objects]
         object_db = dict(zip([o.id for o in olist], olist))
+        self.q_lock.acquire()
         self.cur_task.updateActions(self.action_queue, object_db)
+        self.q_lock.release()
 
     def checkPerms(self, action, tgt):
         """Returns true if action on specific target is forbidden."""
@@ -108,9 +108,12 @@ class TaskManager:
             # Update action queue for current task
             self.updateActions()
             # Get next action-target pair
-            try:
+            self.q_lock.acquire()
+            if self.action_queue.qsize() > 0:
                 action, tgt = self.action_queue.get(True, 0.5)
-            except Queue.Empty:
+                self.q_lock.release()
+            else:
+                self.q_lock.release()
                 continue
             if isinstance(tgt, Object):
                 # Get most recent information about object
