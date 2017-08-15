@@ -34,7 +34,6 @@
 
 // Actions provided that are not defined in robot_utils/util.h
 #define ACTION_MOVE "move"
-#define ACTION_SCAN "scan"
 #define ACTION_FIND "find"
 #define ACTION_PUT "put"
 #define ACTION_OFFER "offer"
@@ -101,9 +100,6 @@ protected:
     // of this class is mandatory (through the virtual method
     // called setHomeConfiguration() )
     Eigen::VectorXd home_conf;
-    // Endpoint positions for corners of physical workspace
-    // Should also be set in setWorkspaceConfiguration.
-    std::vector< std::vector<double> > workspace_conf;
     // Location of last picked object
     geometry_msgs::Point last_pick_loc;
     // Endpoint position for home location
@@ -129,16 +125,8 @@ protected:
     };
 
     /**
-     * Action database, which pairs a string key, corresponding to the action name,
-     * with its relative action, which is an f_action.
-     *
-     * Please be aware that, by default, if the user calls an action with the wrong
-     * key or an action that is not available, the code will segfault. By C++
-     * standard: operator[] returns (*((insert(make_pair(x, T()))).first)).second
-     * Which means that if we are having a map of pointers to functions, a wrong key
-     * will segfault the software. A layer of protection has been put in place to
-     * avoid accessing a non-existing key (so this does not happen any more, but it
-     * is still worth knowing).
+     * Action database, which pairs a string key, corresponding to the
+     * action name, with its relative action, which is an f_action.
      */
     std::map <std::string, s_action> action_db;
 
@@ -147,7 +135,7 @@ protected:
      *
      * @param   name the action to be inserted
      * @param   f a pointer to the action, in the form bool action()
-     * @param   target "none", "object" or "location", the target type of the action
+     * @param   target "none", "object" or "location", the target type
      * @return    true/false if the insertion was successful or not
      */
     bool insertAction(const std::string &name, BaxterArmCtrl::f_action f,
@@ -206,11 +194,6 @@ protected:
      * Sets the joint-level configuration for the home position
      */
     virtual void setHomeConfiguration() { return; };
-
-    /**
-     * Sets the corner positions of the workspace
-     */
-    virtual void setWorkspaceConfiguration() { return; };
 
     /**
      * Recovers from errors during execution. It provides a basic interface,
@@ -347,12 +330,6 @@ protected:
      * @return true/false if success/failure
      */
     bool replaceObject();
-
-    /**
-     * Moves arm around the workspace so that the camera can gather data
-     * @return true/false if success/failure
-     */
-    bool scanWorkspace();
 
     /**
      * Waits a set amount of time for negative feedback before returning

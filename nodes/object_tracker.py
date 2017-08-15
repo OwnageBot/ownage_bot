@@ -173,7 +173,7 @@ class ObjectTracker:
         return colorId
 
     def lookupObjectCb(self, req):
-        """ Service callback: returns position of particular object"""
+        """ Returns properties of particular object"""
         if req.id in self.object_db:
             obj = self.object_db[req.id]
             return LookupObjectResponse(True, obj.toMsg())
@@ -181,7 +181,7 @@ class ObjectTracker:
             return LookupObjectResponse(False, ObjectMsg())
 
     def listObjectsCb(self, req):
-        """ Service callback: returns list of tracked objects"""
+        """Returns list of tracked objects"""
         return ListObjectsResponse([obj.toMsg() for
                                     obj in self.object_db.values()])
 

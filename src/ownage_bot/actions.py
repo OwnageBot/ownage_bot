@@ -54,7 +54,16 @@ MoveTo._call = _moveTo
 
 Scan = Action("scan")
 def _scan(target):
-    return _service_left("scan", ObjectMsg(), Point())
+    scan_path = rospy.get_param("scan_path/left",
+                                [[-0.05, 0.85, 0.30],
+                                 [0.473, 0.506, 0.274],
+                                 [0.731, 0.463, 0.277],
+                                 [0.685, -0.102, 0.221],
+                                 [0.507, -0.303, 0.218]])
+    ret = None
+    for p in scan_path:
+        ret = _service_left("move", ObjectMsg(), Point(*p))
+    return ret
 Scan._call = _scan
 
 PickUp = Action("pickUp", Object)
