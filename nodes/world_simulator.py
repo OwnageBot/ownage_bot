@@ -3,12 +3,10 @@ import math
 import random as r
 from copy import copy
 import rospy
-import std_msgs.msg
-import std_srvs.srv
-import geometry_msgs.msg
 import ownage_bot
 from ownage_bot.msg import *
 from ownage_bot.srv import *
+from geometry_msgs.msg import Point
 
 OBJECT_BASE_ID = 1
 AVATAR_BASE_ID = 100
@@ -16,14 +14,25 @@ AVATAR_BASE_ID = 100
 class WorldSimulator():
     """Generates and maintains a simulated world of objects and avatars."""
     
-    def __init__(self, scenario):
-        """Generates the environment depending on the scenario."""
+    def __init__(self):
+        """Sets up servers and databases."""
+        # Database of scenario generation functions
+        self.scenario_db = dict()
+        
         # Databases of simulated objects and agents
         self.object_db = dict()
         self.agent_db = dict()
 
+        # Robot location parameters
+        self.ground_lvl = 0.0
+        self.arm_lvl = 0.30
+        self.home_pos = Point(*rospy.get_param("home_area/center",
+                                               [0.50, 0.176, 0.20]))
+
         # Which object is currently gripped, -1 if none
         self.gripped = {"left": -1, "right": -1}
+        # Last pick up location for each arm
+        self.pick_loc = {"left": Point(), "right": Point()}
         
         # Servers that list objects and respond to actions
         self.lkp_obj_srv = \
@@ -37,6 +46,11 @@ class WorldSimulator():
             rospy.Service("/action_provider/service_right", CallAction,
                           lambda req : self.actionCb("right", req))
 
+        # Add some default scenarios
+        self.addScenario("blocks_world", self.genBlocksWorld)
+        self.addScenario("shared_desk", self.genSharedDesk)
+        self.addScenario("assembly_line", self.genAssemblyLine)
+        
     def lookupObjectCb(self, req):
         """ Returns properties of particular object"""
         if req.id in self.object_db:
@@ -102,9 +116,32 @@ class WorldSimulator():
                 resp.response = "No object is currently being held"
         elif req.action == "wait":
             pass
-        return CallActionResponse()
+        return resp
 
+    def addScenario(self, name, gen_f):
+        """Adds scenario to database."""
+        self.scenario_db[name] = gen_f
+
+    def genScenario(self, scenario):
+        """Generates specific scenario in database."""
+        gen_f = self.scenario_db[scenario]
+        return gen_f()
+
+    def genBlocksWorld(self):
+        """Generates a world of colored blocks."""
+        pass
+
+    def genSharedDesk(self):
+        """Generates a shared office deskspace."""
+        pass
+
+    def genAssemblyLine(self):
+        """Generates an assembly line with tools and parts."""
+        pass
+
+    
 if __name__ == '__main__':
     rospy.init_node('world_simulator')
     world_simulator = WorldSimulator()
+    world_simulator.genScenario("shared_desk")
     rospy.spin()                                 
