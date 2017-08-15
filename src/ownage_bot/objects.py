@@ -12,17 +12,22 @@ _lookupObject = rospy.ServiceProxy("lookup_object", LookupObject)
 class Object:
     """Represents objects in the workspace and their properties."""
             
-    def __init__(self):
-        self.id = -1
-        self.name = ""
+    def __init__(self, id=-1, name="",
+                 position=Point(), orientation=Quarterion(),
+                 color=-1, owners=[],
+                 is_avatar=False, is_landmark=False):
+        self.id = id
+        self.name = name
         self.last_update = rospy.get_rostime()
-        self.position = Point()
-        self.orientation = Quaternion()
+        self.position = position
+        self.orientation = orientation
         self.proximities = [] # List of distances to avatars
-        self.color = -1 # Red=0, Green=1, Blue=2
+        self.color = color # Red=0, Green=1, Blue=2
         self.ownership = dict() # Dictionary of ownership probabilities
-        self.is_avatar = False # Whether object is an avatar
-        self.is_landmark = False # Whether object is a landmark
+        self.is_avatar = is_avatar # Whether object is an avatar
+        self.is_landmark = is_landmark # Whether object is a landmark
+        for o in owners:
+            self.ownership[o] = 1.0
 
     def __eq__(self, other):
         """Objects are equal if their ids are."""
@@ -61,7 +66,7 @@ class Object:
         obj = cls()
         if not isinstance(msg, ObjectMsg):
             raise TypeError("Copy constructor expects ObjectMsg.")
-        copyable = ["id", "last_update", "position", "orientation",
+        copyable = ["id", "name", "last_update", "position", "orientation",
                     "proximities", "color", "is_avatar", "is_landmark"]
         for attr in copyable:
             val = getattr(msg, attr)
@@ -83,7 +88,7 @@ class Object:
     
 class Agent:
     """Represents an agent that can own and act on objects."""
-    def __init__(self, id, name="", avatar_id=-1):
+    def __init__(self, id=-1, name="", avatar_id=-1):
         self.id = id # Unique ID
         self.name = name # Human-readable name
         self.avatar_id = avatar_id # Object ID of avatar representing agent

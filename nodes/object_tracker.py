@@ -24,7 +24,7 @@ class ObjectTracker:
 
         # Flag 
         self.cur_action = ""
-        self.prev_aciton = ""
+        self.prev_action = ""
         self.gripped_id = -1
 
         # Margins around ARuco tag for color determination

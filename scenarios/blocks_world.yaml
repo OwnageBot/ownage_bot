@@ -1,0 +1,13 @@
+# Number of agents and objects
+n_agents : 3
+n_objects : 20
+# Variables to cluster objects by
+cluster_vars: ['color', 'position', 'proximity']
+# Range of radial distances between avatars and home position
+avatar_rng : [0.4, 0.8]
+# Range of radial distances between cluster centers and home position
+cluster_rng : [0.4, 0.8]
+# Radius of each physical cluster
+cluster_rad : 0.3
+# Physical range of objects if not clustering by position or proximity
+object_rng : [-1.0, 1.0]
