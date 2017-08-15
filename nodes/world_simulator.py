@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import math
 import random as r
+from copy import copy
 import rospy
 import std_msgs.msg
 import std_srvs.srv
@@ -20,6 +21,9 @@ class WorldSimulator():
         # Databases of simulated objects and agents
         self.object_db = dict()
         self.agent_db = dict()
+
+        # Which object is currently gripped, -1 if none
+        self.gripped = {"left": -1, "right": -1}
         
         # Servers that list objects and respond to actions
         self.lkp_obj_srv = \
@@ -48,6 +52,56 @@ class WorldSimulator():
         
     def actionCb(self, arm, req):
         """Updates the world based on requested action."""
+
+        resp = CallActionResponse(success=True)
+        req_id = req.object.id
+        gripped_id = self.gripped[arm]
+
+        if req.action == "home":
+            if gripped_id >= 0:
+                self.object_db[gripped_id].position = copy(self.home_pos)
+        elif req.action == "release":
+            if gripped_id >= 0:
+                self.object_db[gripped_id].position.z = self.ground_lvl
+                self.gripped[arm] = -1
+        elif req.action == "move":
+            if gripped_id >= 0:
+                self.object_db[gripped_id].position = copy(req.location)
+        elif req.action == "find":
+            if req_id not in self.object_db::
+                resp.success = False
+                resp.response = "Object {} does not exist".format(req_id)
+        elif req.action == "get":
+            if gripped_id >= 0:
+                resp.success = False
+                resp.response = "An object is already being held"
+            elif req_id in self.object_db:
+                self.gripped[arm] = req_id
+                self.pick_loc[arm] = copy(self.object_db[req_id].position)
+                self.object_db[req_id].position.z = self.arm_lvl
+            else:
+                resp.success = False
+                resp.response = "Object {} does not exist".format(req_id)
+        elif req.action == "put":
+            if gripped_id >= 0:
+                self.object_db[gripped_id].position.z = self.ground_lvl
+                self.gripped[arm] = -1
+            else:
+                resp.success = False
+                resp.response = "No object is currently being held"
+        elif req.action == "offer":
+            if gripped_id >= 0:
+                self.object_db[gripped_id].position = req.object.position
+                self.object_db[gripped_id].position.z = self.arm_lvl
+        elif req.action == "replace":
+            if gripped_id >= 0:
+                self.object_db[gripped_id].position = copy(self.pick_loc[arm])
+                self.gripped[arm] = -1
+            else:
+                resp.success = False
+                resp.response = "No object is currently being held"
+        elif req.action == "wait":
+            pass
         return CallActionResponse()
 
 if __name__ == '__main__':
