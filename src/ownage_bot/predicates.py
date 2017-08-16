@@ -37,7 +37,7 @@ class Predicate:
         return tuple('' if b is None else b.toStr() for b in self._bindings)
     
     def bind(self, args):
-        """Bind arguments to copy of predicate."""
+        """Bind arguments to copy of predicate, None leavs arg unbound."""
         if len(args) != self.n_args:
             raise ValueError("Wrong number of arguments.")
         for a, t in zip(args, self.argtypes):

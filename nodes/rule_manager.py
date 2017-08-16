@@ -272,11 +272,22 @@ class RuleManager:
                 success = best_score <= score_thresh
         return best_rule, best_score, success
 
-    def refineRule(self, rule, conditions=None):
+    def refineRule(self, rule):
         """Return list of refinements by adding predicates to rule."""
         refinements = []
-        if conditions = None:
-            conditions = self.predicate_db.values()
+        conditions = set(self.predicate_db.values())
+
+        # Exhaustively substitute all 2nd-place arguments
+        for p in list(conditions):
+            if p.n_args < 2:
+                continue
+            if p.n_args > 2:
+                raise TypeError("Only up to 2-place predicates supported.")
+            conditions.remove(p)
+            subs = p.argtypes[1].universe()
+            bound = [p.bind([None, s]) for s in subs]
+            conditions |= bound
+                
         for p in conditions:
             # Check for idempotency / complementation
             if p in rule.conditions or p.negate() in rule.conditions:
@@ -294,7 +305,9 @@ class RuleManager:
             sym_diff = new.conditions ^ r.conditions
             if len(sym_diff) == 2:
                 c1, c2 = sym_diff.pop(), sym_diff.pop()
-                if c1 == c2.negate():
+                if c1.name != c2.name:
+                    continue
+                elif c1 == c2.negate():
                     new.conditions.discard(c1)
                     new.conditions.discard(c2)
                     rule_set.remove(r)

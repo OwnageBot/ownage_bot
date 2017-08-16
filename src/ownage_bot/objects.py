@@ -7,11 +7,12 @@ from ownage_bot.msg import ObjectMsg
 from ownage_bot.srv import LookupObject
 from geometry_msgs.msg import Point, Quaternion
 
-_lookupObject = rospy.ServiceProxy("lookup_object", LookupObject)
-
 class Object:
     """Represents objects in the workspace and their properties."""
-            
+
+    _lookupObject = rospy.ServiceProxy("lookup_object", LookupObject)
+    _listObjects = rospy.ServiceProxy("list_objects", ListObjects)
+    
     def __init__(self, id=-1, name="",
                  position=Point(), orientation=Quarterion(),
                  color=-1, owners=[],
@@ -84,7 +85,12 @@ class Object:
     @classmethod
     def fromID(cls, oid):
         """Convert ID to Object by looking up database."""
-        return cls.fromMsg(_lookupObject(oid).object)
+        return cls.fromMsg(cls._lookupObject(oid).object)
+
+    @classmethod
+    def universe(cls):
+        """Returns the set of all known Objects."""
+        return set([cls.fromMsg(m) for m in cls._listObjects().objects])
     
 class Agent:
     """Represents an agent that can own and act on objects."""
@@ -116,12 +122,17 @@ class Agent:
     def fromStr(cls, s):
         """Convert to Agent from string."""
         return cls(int(s))
+
+    @classmethod
+    def universe(cls):
+        """Returns the set of all known Agents."""
+        return set([cls.fromMsg(m) for m in cls._listAgents().agents])
     
 class Area:
     """Defines a 2D polygonal area."""
-    def __init__(self, points):
+    def __init__(self, points, name=""):
         """Takes an iterable of 2-tuples and stores them."""
-        self.name = ""
+        self.name = name
         self.n_sides = len(points)
         self.points = tuple(points)
         self.path = mptPath.Path(np.array(self.points))
@@ -150,6 +161,16 @@ class Area:
         """Convert to Area from string."""
         return cls(eval(s))
 
+    @classmethod
+    def universe(cls):
+        """Returns the set of all known Areas (defined in param server)."""
+        area_set = set()
+        area_names = rospy.get_param("area_names", [])
+        for n in area_names:
+            points = rospy.get_param(n + "/corners",)
+            area_set.add(cls(points, name=n))
+        return area_set
+    
 class Location:
     """Defines a location in space."""
     def __init__(self, point):
