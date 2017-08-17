@@ -92,7 +92,7 @@ def _offer(target):
     return _service_left("offer", target.toMsg(), Point())
 Offer._call = _offer
 
-Trash = Action("trash", Object, [Find, PickUp, MoveTo, Release])
+Trash = Action("trash", Object, [Find, PickUp, Release])
 def _trash(target):
     trash_loc = rospy.get_param("trash_area/center", [-0.05, 0.85, 0.20])
     trash_loc = Location(trash_loc)
