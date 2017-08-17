@@ -243,9 +243,9 @@ class Category:
 
 class Color(Category):
     """Defines a color category."""
-    def __init__(self, name, hsv_range=((0,0,0),(0,0,0))):
+    def __init__(self, name, hsv_range=[[0,0,0],[0,0,0]]):
         self.name = name # Human-readable name
-        self.hsv_range = hsv_range
+        self.hsv_range = (tuple(hsv_range[0]), tuple(hsv_range[1]))
 
     def __hash__(self):
         return hash((self.name, self.hsv_range))

@@ -157,6 +157,11 @@ class WorldSimulator():
         cluster_rng = rospy.get_param("blocks_world/cluster_rng", [0.4, 0.8])
         cluster_rad = rospy.get_param("blocks_world/cluster_rad", 0.3)
         object_rng = rospy.get_param("blocks_world/object_rng", [-1.0, 1.0])
+
+        # Update color database
+        for c_id in range(n_agents + 1):
+            c_name = "color" + str(c_id)
+            rospy.set_param_raw("colors/" + c_name, [[0,0,0],[0,0,0]])
         
         # Generate agents and their avatars
         for i in range(n_agents):
