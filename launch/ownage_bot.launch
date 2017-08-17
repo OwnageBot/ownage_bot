@@ -65,8 +65,9 @@
     </node>
 
     <!-- Text control node, unused in manual mode -->
-    <node pkg="ownage_bot" type="text_control.py"
-          name="text_control" output="screen" unless="$(arg manual)">
+    <node pkg="ownage_bot" type="command_prompt.py"
+          name="command_prompt" output="screen" unless="$(arg manual)"
+	  launch-prefix="gnome-terminal --command">
     </node>
   </group>
 
