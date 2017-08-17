@@ -43,6 +43,10 @@ class WorldSimulator():
             rospy.Service("lookup_object", LookupObject, self.lookupObjectCb)
         self.lst_obj_srv = \
             rospy.Service("list_objects", ListObjects, self.listObjectsCb)
+        self.lkp_agt_srv = \
+            rospy.Service("lookup_object", LookupAgent, self.lookupAgentCb)
+        self.lst_agt_srv = \
+            rospy.Service("list_objects", ListAgents, self.listAgentsCb)
         self.act_l_srv = \
             rospy.Service("/action_provider/service_left", CallAction,
                           lambda req : self.actionCb("left", req))
@@ -71,8 +75,26 @@ class WorldSimulator():
         self.lock.acquire()
         obj_msgs = [obj.toMsg() for obj in self.object_db.values()]
         self.lock.release()
-        return ListObjectsResponse()
-        
+        return ListObjectsResponse(obj_msgs)
+
+    def lookupAgentCb(self, req):
+        """ Returns properties of requested agent."""
+        self.lock.acquire()
+        if req.id in self.agent_db:
+            agt = self.agent_db[req.id]
+            self.lock.release()
+            return LookupAgentResponse(True, agt.toMsg())
+        else:            
+            self.lock.release()
+            return LookupAgentResponse(False, AgentMsg())
+
+    def listAgentsCb(self, req):
+        """Returns list of all agents."""
+        self.lock.acquire()
+        agt_msgs = [agt.toMsg() for agt in self.agent_db.values()]
+        self.lock.release()
+        return ListAgentsResponse(agt_msgs)
+    
     def actionCb(self, arm, req):
         """Updates the world based on requested action."""
         self.lock.acquire()

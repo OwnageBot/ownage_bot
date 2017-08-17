@@ -23,8 +23,8 @@ class Rule:
     def __eq__(self, other):
         """Rules are equal if their conditions, actions and types are."""
         if isinstance(other, self.__class__):
-            return (self.action.name == other.action.name &&
-                    self.conditions == other.conditions &&
+            return (self.action.name == other.action.name and
+                    self.conditions == other.conditions and
                     self.detype == other.detype)
         return NotImplemented
 
@@ -41,8 +41,9 @@ class Rule:
         """Evaluates if target satisfies the predicates."""
         truth = 1.0
         # Iterate through all non-excluded predicates
-        for p in self.conditions if p not in exclusions:
-            truth *= p.apply(tgt)
+        for p in self.conditions:
+            if p not in exclusions:
+                truth *= p.apply(tgt)
         return truth
 
     @classmethod
@@ -104,10 +105,10 @@ class Rule:
                     
         return truth
 
-    @classMethod
+    @classmethod
     def difference(cls, r1, r2):
         """Returns logical subtraction of r2 from r1 as a rule set."""
-        if r1.action.name != r2.action.name || r1.detype != r2.detype:
+        if r1.action.name != r2.action.name or r1.detype != r2.detype:
             raise TypeError("Actions and deontic types must match.")
         remainder = set()
         for c in r2.conditions:
@@ -120,10 +121,10 @@ class Rule:
             remainder.add(new)
         return remainder
 
-    @classMethod
+    @classmethod
     def intersect(cls, r1, r2):
         """Returns logical intersection of two rules."""
-        if r1.action.name != r2.action.name || r1.detype != r2.detype:
+        if r1.action.name != r2.action.name or r1.detype != r2.detype:
             raise TypeError("Actions and deontic types must match.")
         new = cls(r1.action, r1.conditions, r1.detype)
         for c in r2.conditions:
@@ -153,44 +154,14 @@ class Rule:
         conditions = [predicates.Predicate.fromMsg(c) for
                       c in msg.conditions]
         return cls(action, conditions, msg.detype)
-
-    @staticmethod
-    def argsToStrings(predicate, args):
-        strings = []
-        for i, a in enumerate(args):
-            if a == None:
-                s = ''
-            elif predicate.argtypes[i] == objects.Object:
-                s = a.id
-            elif predicate.argtypes[i] == objects.Agent:
-                s = a.id                
-            elif predicate.argtypes[i] == objects.Area:
-                s = str(a.points)
-            strings.append(s)
-        return strings
-
-    @staticmethod
-    def stringsToArgs(predicate, strings):
-        args = []
-        for i, s in enumerate(strings):
-            if s == '':
-                a = None
-            elif predicate.argtypes[i] == objects.Object:
-                a = objects.Object(_lookupObject(int(s)))
-            elif predicate.argtypes[i] == objects.Agent:
-                a = objects.Agent(int(s))
-            elif predicate.argtypes[i] == objects.Area:
-                a = objects.Area(eval(s))
-            args.append(arg)
-        return args
     
 # List of pre-defined rules
-DoNotTouchRed = Rule(actions.PickUp, [(predicates.Red, [None])])
-DoNotTouchGreen = Rule(actions.PickUp, [(predicates.Green, [None])])
-DoNotTouchBlue = Rule(actions.PickUp, [(predicates.Blue, [None])])
-DoNotTouchOwned = Rule(actions.PickUp, [(predicates.IsOwned, [None])])
+DoNotTouchRed = Rule(actions.PickUp, [predicates.Red])
+DoNotTouchGreen = Rule(actions.PickUp, [predicates.Green])
+DoNotTouchBlue = Rule(actions.PickUp, [predicates.Blue])
+DoNotTouchOwned = Rule(actions.PickUp, [predicates.IsOwned])
 
-DoNotTrashRed = Rule(actions.Trash, [(predicates.Red, [None])])
-DoNotTrashGreen = Rule(actions.Trash, [(predicates.Green, [None])])
-DoNotTrashBlue = Rule(actions.Trash, [(predicates.Blue, [None])])
-DoNotTrashOwned = Rule(actions.Trash, [(predicates.IsOwned, [None])])
+DoNotTrashRed = Rule(actions.Trash, [predicates.Red])
+DoNotTrashGreen = Rule(actions.Trash, [predicates.Green])
+DoNotTrashBlue = Rule(actions.Trash, [predicates.Blue])
+DoNotTrashOwned = Rule(actions.Trash, [predicates.IsOwned])

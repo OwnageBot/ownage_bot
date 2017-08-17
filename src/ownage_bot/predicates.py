@@ -1,5 +1,6 @@
-import objects
-from objects import Object, Agent, Area
+import os
+import rospy
+from objects import *
 from ownage_bot.msg import *
 
 class Predicate:
@@ -16,9 +17,9 @@ class Predicate:
     def __eq__(self, other):
         """Check for equality of name, argtypes, bindings and negation."""
         if isinstance(other, self.__class__):
-            return (self.name == other.name &&
-                    self.argtypes == other.argtypes &&
-                    self._bindStrs() == other._bindStrs() &&
+            return (self.name == other.name and
+                    self.argtypes == other.argtypes and
+                    self._bindStrs() == other._bindStrs() and
                     self._negated == other._negated)
             return True
         return NotImplemented
@@ -70,7 +71,7 @@ class Predicate:
 
     def toPrint(self):
         """Converts to human-readable string."""
-        pre = "not" if self._negated: else ""
+        pre = "not" if self._negated else ""
         pos = " ".join([b.toStr() for b in self._bindings if b is not None])
         return " ".join([pre, self.name, pos]).strip()
     
@@ -102,7 +103,7 @@ Blue = Predicate("blue", [Object])
 Blue._apply = lambda obj : (obj.color == "blue")
 
 Near = Predicate("near", [Object, Object])
-Near._apply = lambda obj1, obj2: objects.dist(obj1, obj2) < 0.4
+Near._apply = lambda obj1, obj2: dist(obj1, obj2) < 0.4
 
 OwnedBy = Predicate("ownedBy", [Object, Agent])
 OwnedBy._apply = lambda obj, agent: obj.ownership[agent.id]
@@ -111,7 +112,7 @@ IsOwned = Predicate("isOwned", [Object])
 IsOwned._apply = lambda obj: max(obj.ownership.values())
 
 InArea = Predicate("inArea", [Object, Area])
-InArea._apply = lambda obj, area: objects.inArea(obj, area)
+InArea._apply = lambda obj, area: inArea(obj, area)
 
 OfCategory = Predicate("ofCategory", [Object, Category])
 OfCategory._apply = lambda obj, c: obj.categories[c]
@@ -120,7 +121,7 @@ IsColored = Predicate("isColored", [Object, Color])
 OfCategory._apply = lambda obj, col: obj.color == col
 
 # List of available predicates for each robotic platform
-if rospy.get_param("platform", "baxter") == "baxter":
+if os.getenv("OWNAGE_BOT_PLATFORM", "baxter") == "baxter":
     # Only Baxter is currently supported
     db = [Red, Green, Blue, Near, OwnedBy, IsOwned,
           InArea, OfCategory, IsColored]

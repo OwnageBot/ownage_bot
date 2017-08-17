@@ -1,7 +1,8 @@
+import os
 import rospy
 import objects
 import actions
-from objects import Object, Area
+from objects import Object, Area, Location
 from Queue import Queue
 from geometry_msgs.msg import Point
 
@@ -16,7 +17,7 @@ class Task:
         # Default implementation of updateActions
         self._updateActions = lambda action_queue, object_db : 0;
         # Default implementation of checkActionDone
-        self._checkActionUndone = lambda action, tgt : False
+        self._checkActionDone = lambda action, tgt : False
 
     def updateActions(self, action_queue, object_db):
         """Updates the queue of actions to perform based on the object list.
@@ -140,7 +141,7 @@ def _trashAllCheck(action, obj):
 TrashAll._checkActionDone = _trashAllCheck
 
 # List of available tasks for each robotic platform
-if rospy.get_param("platform", "baxter") == "baxter":
+if os.getenv("OWNAGE_BOT_PLATFORM", "baxter") == "baxter":
     # Only Baxter is currently supported
     db = [Idle, CollectAll, TrashAll]
 else:

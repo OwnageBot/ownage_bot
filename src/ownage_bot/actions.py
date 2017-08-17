@@ -1,3 +1,4 @@
+import os
 import rospy
 from std_srvs.srv import Trigger
 from geometry_msgs.msg import Point
@@ -120,7 +121,7 @@ def _replace(target):
 Replace._call = _replace
 
 # List of available actions for each robotic platform
-if rospy.get_param("platform", "baxter") == "baxter":
+if os.getenv("OWNAGE_BOT_PLATFORM", "baxter") == "baxter":
     # Only Baxter is currently supported
     db = [Cancel, GoHome, MoveTo, Scan, PickUp, PutDown,
           Release, Find, Offer, Trash, Collect, Replace]

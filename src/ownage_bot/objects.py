@@ -3,8 +3,8 @@ import copy
 import rospy
 import numpy as np
 import matplotlib.path as mptPath
-from ownage_bot.msg import ObjectMsg
-from ownage_bot.srv import LookupObject
+from ownage_bot.msg import *
+from ownage_bot.srv import *
 from geometry_msgs.msg import Point, Quaternion
 
 class Object:
@@ -14,7 +14,7 @@ class Object:
     _listObjects = rospy.ServiceProxy("list_objects", ListObjects)
     
     def __init__(self, id=-1, name="",
-                 position=Point(), orientation=Quarterion(),
+                 position=Point(), orientation=Quaternion(),
                  color="none", owners=[], categories=[], is_avatar=False):
         self.id = id
         self.name = name
@@ -47,7 +47,7 @@ class Object:
         return hash(self.id)
         
     def toMsg(self):
-        """Converts object to a ROS message."""
+        """Converts Object to a ROS message."""
         msg = ObjectMsg()
         uncopyable = ["ownership"] 
         for k, v in self.__dict__.items():
@@ -74,10 +74,10 @@ class Object:
             val = getattr(msg, attr)
             if type(val) is tuple:
                 val = list(val)
-            self.__dict__[attr] = copy.deepcopy(val)
-        self.ownership = dict(zip(msg.owners, msg.ownership))
-        self.categories = dict(zip(msg.categories, msg.categoriness))
-        return
+            obj.__dict__[attr] = copy.deepcopy(val)
+        obj.ownership = dict(zip(msg.owners, msg.ownership))
+        obj.categories = dict(zip(msg.categories, msg.categoriness))
+        return obj
 
     @classmethod
     def fromStr(cls, s):
@@ -100,7 +100,7 @@ class Agent:
     _lookupAgent = rospy.ServiceProxy("lookup_agent", LookupAgent)
     _listAgents = rospy.ServiceProxy("list_agents", ListAgents)
     
-;    def __init__(self, id=-1, name="", avatar_id=-1):
+    def __init__(self, id=-1, name="", avatar_id=-1):
         self.id = id # Unique ID
         self.name = name # Human-readable name
         self.avatar_id = avatar_id # Object ID of avatar representing agent
@@ -124,11 +124,32 @@ class Agent:
         """Minimal string representation."""
         return str(self.id)
 
+    def toMsg(self):
+        """Converts Agent to a ROS message."""
+        msg = AgentMsg()
+        for k, v in self.__dict__.items():
+            setattr(msg, k, copy.deepcopy(v))
+        return msg
+    
     @classmethod
     def fromStr(cls, s):
         """Convert to Agent from string."""
         return cls.fromMsg(cls._lookupAgent(int(s)).agent)
 
+    @classmethod
+    def fromMsg(cls, msg):
+        """Copy constructor from AgentMsg."""
+        agent = cls()
+        if not isinstance(msg, AgentMsg):
+            raise TypeError("Copy constructor expects AgentMsg.")
+        copyable = ["id", "name", "avatar_id"]
+        for attr in copyable:
+            val = getattr(msg, attr)
+            if type(val) is tuple:
+                val = list(val)
+            agent.__dict__[attr] = copy.deepcopy(val)
+        return agent
+    
     @classmethod
     def universe(cls):
         """Returns the set of all known Agents."""

@@ -64,6 +64,7 @@ catkin_python_setup()
 add_message_files(
   FILES
   ObjectMsg.msg
+  AgentMsg.msg
   PredicateMsg.msg
   RuleMsg.msg
   TaskMsg.msg
@@ -76,6 +77,8 @@ add_service_files(
   CallAction.srv
   ListObjects.srv
   LookupObject.srv
+  ListAgents.srv
+  LookupAgent.srv
   LookupPerm.srv
   LookupRules.srv
 )
