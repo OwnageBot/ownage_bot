@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import rospy
+import re
 from std_msgs.msg import String
 from geometry_msgs.msg import Point
 from ownage_bot import *
@@ -45,8 +46,35 @@ class DialogManager:
             cmd = TaskMsg(name=name, oneshot=False, interrupt=True, target="")
             self.command_pub.publish(cmd)
             return
-        else:
-            pass
+
+        # Try to match facts
+        match = re.match("(forbid|allow) (\S+) on (\d*)", msg.data)
+        if match:
+            action = match.group(2)
+            tgt = match.group(3)
+            truth = float(match.group(1) == "forbid")
+            fact = PredicateMsg(predicate=action, bindings=[tgt],
+                                negated=False, truth=truth)
+            self.output_pub.publish(str(fact))
+            return
+
+        # Try to match rules
+        match = re.match("(forbid|allow) (\S+) if (.+)", msg.data)
+        if match:
+            action = match.group(2)
+            truth = float(match.group(1) == "forbid")
+            pred_strs = match.group(3).strip().split(" and ")
+            conditions = []
+            for s in pred_strs:
+                pred_args = s.split()
+                predicate = pred_args[0] # Extract predicate name
+                pred_args[0] = "" # Leave first argument unbound
+                pred_msg = PredicateMsg(predicate, pred_args, False, 1.0)
+                conditions.append(pred_msg)
+            rule = RuleMsg(action, conditions, "forbidden", truth)
+            self.output_pub.publish(str(rule))
+            return
+        
         if name == tasks.Idle.name:
             print "Could not parse input, defaulting to idle task."
         
