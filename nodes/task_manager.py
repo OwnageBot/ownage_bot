@@ -79,10 +79,10 @@ class TaskManager:
         self.cur_task.updateActions(self.action_queue, object_db)
         self.q_lock.release()
 
-    def checkPerms(self, action, tgt):
+    def checkPerm(self, action, tgt):
         """Returns true if action on specific target is forbidden."""
         for a in (action.dependencies + [action]):
-            perm = self.lookupPerm(action.name, tgt.toStr()).perm
+            perm = self.lookupPerm(a.name, tgt.toStr()).perm
             if perm >= 0.5:
                 return True
         return False

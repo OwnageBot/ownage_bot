@@ -52,18 +52,18 @@ class DialogManager:
             cmd = TaskMsg(name=name, oneshot=False, interrupt=True, target="")
             self.command_pub.publish(cmd)
             return
-        elif pos_tag_args[0][1] in self.c_words_PoS
-        # Expects command of the form:
-        # "if x true and owns a b true then z false"
+        elif pos_tag_args[0][1] in self.c_words_PoS:
+            # Expects command of the form:
+            # "if x true and owns a b true then z false"
 
-        # Chunks predicates and action
+            # Chunks predicates and action
 
             grammar = r"""
             PREDS: {<.*>+}
                     }<RB|IN|CC>{
             """
             cp = nltk.RegexpParser(grammar)
-            result = cp.parse(tok_sent)
+            result = cp.parse(pos_tag_args)
             preds = [] # list of list of predicates
             action = [] # Action associated w predicate
             print(result)

@@ -4,7 +4,7 @@ import random as r
 import threading
 from copy import copy
 import rospy
-import ownage_bot
+from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
 from geometry_msgs.msg import Point
@@ -30,8 +30,8 @@ class WorldSimulator():
         self.home_pos = Point(*rospy.get_param("~home_pos", [0, 0, 0.30]))
         
         # Object and avatar base IDs
-        self.obj_base_id = rospy.getparam("~obj_base_id", 1)
-        self.avt_base_id = rospy.getparam("~avt_base_id", 100)        
+        self.obj_base_id = rospy.get_param("~obj_base_id", 1)
+        self.avt_base_id = rospy.get_param("~avt_base_id", 100)        
         
         # Which object is currently gripped, -1 if none
         self.gripped = {"left": -1, "right": -1}
@@ -114,7 +114,7 @@ class WorldSimulator():
             if gripped_id >= 0:
                 self.object_db[gripped_id].position = copy(req.location)
         elif req.action == "find":
-            if req_id not in self.object_db::
+            if req_id not in self.object_db:
                 resp.success = False
                 resp.response = "Object {} does not exist".format(req_id)
         elif req.action == "get":
@@ -183,7 +183,7 @@ class WorldSimulator():
         # Update color database
         for c_id in range(n_agents + 1):
             c_name = "color" + str(c_id)
-            rospy.set_param_raw("colors/" + c_name, [[0,0,0],[0,0,0]])
+            rospy.set_param("colors/" + c_name, [[0,0,0],[0,0,0]])
         
         # Generate agents and their avatars
         for i in range(n_agents):
@@ -218,7 +218,6 @@ class WorldSimulator():
                 centers.append(c)
 
         # Generate objects within each cluster
-        oids = range(obj_base_id, obj_base_id + n_objects)
         for i in range(n_objects):
             obj = Object(id=self.obj_base_id+i)
             c_id = i % (n_agents + 1) # Cluster ID, with 0 unowned

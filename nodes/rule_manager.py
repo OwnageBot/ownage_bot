@@ -16,11 +16,12 @@ class RuleManager:
     
     def __init__(self):
         # Learning parameters
-        self.add_fact_thresh = rospy.get_param("add_fact_thresh", 0.5)
-        self.sub_fact_thresh = rospy.get_param("sub_fact_thresh", 0.5)
-        self.add_rule_thresh = rospy.get_param("add_rule_thresh", 0.1)
-        self.sub_rule_thresh = rospy.get_param("sub_rule_thresh", 0.1)
-        self.max_cand_rules = rospy.get_param("max_cand_rules", 3)
+        self.add_fact_thresh = rospy.get_param("~add_fact_thresh", 0.5)
+        self.sub_fact_thresh = rospy.get_param("~sub_fact_thresh", 0.5)
+        self.add_rule_thresh = rospy.get_param("~add_rule_thresh", 0.1)
+        self.sub_rule_thresh = rospy.get_param("~sub_rule_thresh", 0.1)
+        self.max_cand_rules = rospy.get_param("~max_cand_rules", 3)
+        self.m_param = rospy.get_param("~m_param", 3)
         
         # Databases of available predicates and actions
         self.predicate_db = dict(zip([p.name for p in predicates.db],
@@ -78,7 +79,7 @@ class RuleManager:
         if msg.predicate not in self.action_db:
             return
 
-        action = self.action_db[fact.predicate]
+        action = self.action_db[msg.predicate]
         if len(msg.args) != 1:
             raise TypeError("Action fact should have exactly one argument.")
         tgt = action.tgtype.fromStr(msg.args[0])
@@ -96,7 +97,7 @@ class RuleManager:
         # Overwrites old value if given rule already exists
         self.given_rule_db[action.name][rule] = msg.truth
         # Accomdate the given rule
-        self.accomRule(rule, truth)
+        self.accomRule(rule, msg.truth)
         
     def accomFact(self, act_name, tgt, truth):
         """Tries to accommodate the new fact by modifying rule base."""
@@ -227,7 +228,7 @@ class RuleManager:
             self.ruleSearch(given_rule, score_thresh, score_f)
 
         # Terminate if rule to be removed covers too many positive facts
-        if not force && not success:
+        if not force and not success:
             rospy.logdebug("Cannot subtract [%s] w/o too much uncovering.",
                            new_rule.toPrint())
             return
@@ -331,14 +332,14 @@ class RuleManager:
         n_false = n_facts - n_true
         tp, tn, fp, fn = 0.0, 0.0, 0.0, 0.0
         for tgt, truth in fact_set.items():
-            prediction = Rule.evaluateOr(rule_set, tgt)
+            predict = Rule.evaluateOr(rule_set, tgt)
             tpi, tni = min(truth, predict), min(1-truth, 1-predict)
             fpi, fni = max(0, (1-truth)-tni), max(0, truth-tpi)
             tp, tn = tp + tpi, tn + tni
             fp, fn = fp + fpi, fn + fni
         prec = tp / (tp + fp)
         rec = tp / (tp + fn)
-        acc = (tp + tn) / n
+        acc = (tp + tn) / n_facts
         m_est = (tp + self.m_param * n_true/n_false) / (tp + fp)
         return PerfMetric(tp, tn, fp, fn, prec, rec, acc, m_est)
             
