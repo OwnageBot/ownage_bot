@@ -45,8 +45,16 @@ class TaskManager:
 
     def commandCb(self, cmd):
         """Handles incoming commands."""
-        # Determine and set new task
         task = tasks.Idle
+        # Cancel current action and clear action queue on interrupt
+        if cmd.interrupt:
+            self.cur_task = task
+            actions.Cancel.call()
+            self.q_lock.acquire()
+            while not self.action_queue.empty():
+                self.action_queue.get(False)
+            self.q_lock.release()
+        # Construct one-shot task if necessary
         if cmd.oneshot:
             action = self.action_db[cmd.name]
             if action.tgtype is type(None):
@@ -57,13 +65,6 @@ class TaskManager:
         elif cmd.name in self.task_db:
             task = self.task_db[cmd.name]
         self.cur_task = task
-        # Cancel current action and empty action queue if interrupt is true
-        if cmd.interrupt:
-            actions.Cancel.call()
-            self.q_lock.acquire()
-            while self.action_queue.qsize() > 0:
-                self.action_queue.get(False)
-            self.q_lock.release()
 
     def updateActions(self):
         "Updates actions based on world state."
@@ -82,7 +83,8 @@ class TaskManager:
     def checkPerm(self, action, tgt):
         """Returns true if action on specific target is forbidden."""
         for a in (action.dependencies + [action]):
-            perm = self.lookupPerm(a.name, tgt.toStr()).perm
+            tgt_str = "" if action.tgtype is type(None) else tgt.toStr()
+            perm = self.lookupPerm(a.name, tgt_str).perm
             if perm >= 0.5:
                 return True
         return False
@@ -103,17 +105,16 @@ class TaskManager:
         rospy.wait_for_service("/action_provider/service_left")
         actions.GoHome.call()
 
+        # Periodically update actions based on world state
+        rospy.Timer(rospy.Duration(self.update_latency),
+                    lambda evt : self.updateActions())
+        
         # Keep performing requested tasks/actions
         while not rospy.is_shutdown():
-            # Update action queue for current task
-            self.updateActions()
             # Get next action-target pair
-            self.q_lock.acquire()
-            if self.action_queue.qsize() > 0:
-                action, tgt = self.action_queue.get(True, 0.5)
-                self.q_lock.release()
-            else:
-                self.q_lock.release()
+            try:
+                action, tgt = self.action_queue.get(block=True, timeout=0.5)
+            except Queue.Empty:
                 continue
             if isinstance(tgt, Object):
                 # Get most recent information about object
@@ -123,11 +124,12 @@ class TaskManager:
                 continue
             # Check if action is forbidden by permissions or rules
             if self.checkPerm(action, tgt) or self.checkRules(action, tgt):
-                rospy.logwarn("%s on %s is forbidden",
-                              action.name, tgt.toStr())
+                print "{} on {} is forbidden".format(action, tgt.toStr())
                 continue
             # Call action if all checks pass
             resp = action.call(tgt)
+            if not resp.success:
+                print resp.response
 
 if __name__ == '__main__':
     rospy.init_node('task_manager')

@@ -25,7 +25,7 @@
     </rosparam>
 
     <!-- Load color parameters -->
-    <rosparam param="categories">
+    <rosparam param="colors">
         red : [[160, 70, 10], [10, 166, 66]]
         green : [[30, 80, 20], [100, 246, 96]]
         blue : [[80, 120, 70], [130, 216, 146]]
@@ -37,11 +37,11 @@
     
     <!-- Object tracker node, unused in simulation mode-->
     <node pkg="ownage_bot" type="object_tracker.py"
-	  output="screen" name="object_tracker", unless="$(arg simulation)">
+	  output="screen" name="object_tracker" unless="$(arg simulation)">
     </node>
 
     <!-- World simulator, provides simulated environment and actions -->
-    <node pkg="ownage_bot" type="world_simulator"
+    <node pkg="ownage_bot" type="world_simulator.py"
       	  name="world_simulator" output="screen" if="$(arg simulation)">
       <param name="scenario" type="string" value="$(arg scenario)"/>
       <rosparam param="home_pos">
@@ -54,6 +54,11 @@
           name="task_manager" output="screen" unless="$(arg manual)">
     </node>
 
+    <!-- Rule manager node, unused in manual mode -->
+    <node pkg="ownage_bot" type="rule_manager.py"
+          name="rule_manager" output="screen" unless="$(arg manual)">
+    </node>
+    
     <!-- Dialog manager node, unused in manual mode -->
     <node pkg="ownage_bot" type="dialog_manager.py"
           name="dialog_manager" output="screen" unless="$(arg manual)">

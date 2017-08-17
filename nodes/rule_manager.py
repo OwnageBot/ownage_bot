@@ -56,7 +56,8 @@ class RuleManager:
         """Returns action permission for requested action-target pair."""
         if req.action in self.fact_db:
             action = self.action_db[req.action]
-            tgt = action.tgtype.fromStr(req.target)
+            tgt = (None if action.tgtype is type(None) else
+                   action.tgtype.fromStr(req.target))
             if tgt in self.fact_db[action.name]:
                 perm = self.fact_db[action.name][tgt]
                 return LookupPermResponse(perm)
@@ -80,8 +81,14 @@ class RuleManager:
             return
 
         action = self.action_db[msg.predicate]
-        if len(msg.args) != 1:
-            raise TypeError("Action fact should have exactly one argument.")
+
+        # Handle actions without targets
+        if len(msg.args) == 0 and action.tgtype is type(None):
+            self.fact_db[action.name][None] = msg.truth
+            return
+        if len(msg.args) > 1:
+            raise TypeError("Action fact should have at most one argument.")
+        
         tgt = action.tgtype.fromStr(msg.args[0])
 
         # Overwrite old value if fact already exists

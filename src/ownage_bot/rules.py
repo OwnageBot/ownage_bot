@@ -40,6 +40,9 @@ class Rule:
     def evaluate(self, tgt, exclusions=set()):
         """Evaluates if target satisfies the predicates."""
         truth = 1.0
+        # Default to true if target is None (quick-fix)
+        if tgt == None:
+            return truth
         # Iterate through all non-excluded predicates
         for p in self.conditions:
             if p not in exclusions:
@@ -67,16 +70,19 @@ class Rule:
     @classmethod
     def evaluateOr(cls, rule_set, tgt, exclusions=set()):
         """Evaluates probabilistic disjunction of rules."""
-
+        # Assume false if no rules
+        if len(rule_set) == 0:
+            return 0.0
+        
         # Calculate truth probability of the first rule
         rule_set = set(rule_set)
         cur = rule_set.pop()
         truth = cur.evaluate(tgt, exclusions)
 
-        # Bottom out if no more rules
+        # Bottom out if only one rule
         if len(rule_set) == 0:
             return truth
-
+        
         # Break up complement of first rule into disjoint parts
         # e.g. !(A*B*C) -> (!A|!B|!C) -> (!A + A*!B + A*B*!C)
         conditions = list(cur.conditions)

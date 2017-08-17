@@ -29,7 +29,6 @@ class DialogManager:
         name = tasks.Idle.name
 
         args = msg.data.split()
-        pos_tag_args = nltk.pos_tag(args)
 
         if len(args) == 0:
             return
@@ -42,8 +41,8 @@ class DialogManager:
         elif args[0] in self.action_db:
             # Try one of the higher-level tasks
             name = args[0]
-            tgt = args[1]
-            cmd = TaskMsg(name=name, oneshot=False, interrupt=True, target=tgt)
+            tgt = "" if len(args) == 1 else args[1]
+            cmd = TaskMsg(name=name, oneshot=True, interrupt=True, target=tgt)
             self.command_pub.publish(cmd)
             return
         elif args[0] in self.task_db:
@@ -52,7 +51,14 @@ class DialogManager:
             cmd = TaskMsg(name=name, oneshot=False, interrupt=True, target="")
             self.command_pub.publish(cmd)
             return
-        elif pos_tag_args[0][1] in self.c_words_PoS:
+        else:
+            self.handleNatLang(args)
+        if name == tasks.Idle.name:
+            print "Could not parse input, defaulting to idle task."
+
+    def handleNatLang(self, args):
+        pos_tag_args = nltk.pos_tag(args)
+        if pos_tag_args[0][1] in self.c_words_PoS:
             # Expects command of the form:
             # "if x true and owns a b true then z false"
 
@@ -76,9 +82,7 @@ class DialogManager:
             print(action)
             # TODO Update predicate/rule db
             return
-        if name == tasks.Idle.name:
-            print "Could not parse input, defaulting to idle task."
-
+        
 if __name__ == '__main__':
     rospy.init_node('dialog_manager')
     dialog_manager = DialogManager()

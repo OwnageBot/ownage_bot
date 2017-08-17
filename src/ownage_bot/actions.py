@@ -16,11 +16,11 @@ _cancel_right = rospy.ServiceProxy(
     "/action_provider/cancel_right", Trigger)
 
 class Action:
-    """Robotic actions performed on objects."""    
+    """Defines actions that can be performed on objects."""    
     def __init__(self, name="", tgtype=type(None), dependencies=[]):
         self.name = name # Human-readable name
         self.tgtype = tgtype # Target type
-        self.dependencies = dependencies # List of action dependencies
+        self.dependencies = dependencies # List of action-target dependencies
         self._call = lambda obj=None : None # Implementation of call()
 
     def call(self, target=None):
@@ -95,7 +95,7 @@ Offer._call = _offer
 Trash = Action("trash", Object, [Find, PickUp, MoveTo, Release])
 def _trash(target):
     trash_loc = rospy.get_param("trash_area/center", [-0.05, 0.85, 0.20])
-    trash_loc = Point(*trash_loc)
+    trash_loc = Location(trash_loc)
     ret = None
     for a, t in [(Find, target), (PickUp, target),
                  (MoveTo, trash_loc), (Release, None)]:

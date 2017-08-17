@@ -4,6 +4,7 @@ import random as r
 import threading
 from copy import copy
 import rospy
+from std_srvs.srv import Trigger, TriggerResponse
 from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
@@ -44,15 +45,21 @@ class WorldSimulator():
         self.lst_obj_srv = \
             rospy.Service("list_objects", ListObjects, self.listObjectsCb)
         self.lkp_agt_srv = \
-            rospy.Service("lookup_object", LookupAgent, self.lookupAgentCb)
+            rospy.Service("lookup_agent", LookupAgent, self.lookupAgentCb)
         self.lst_agt_srv = \
-            rospy.Service("list_objects", ListAgents, self.listAgentsCb)
+            rospy.Service("list_agents", ListAgents, self.listAgentsCb)
         self.act_l_srv = \
             rospy.Service("/action_provider/service_left", CallAction,
                           lambda req : self.actionCb("left", req))
         self.act_r_srv = \
             rospy.Service("/action_provider/service_right", CallAction,
                           lambda req : self.actionCb("right", req))
+        self.cnc_l_srv = \
+            rospy.Service("/action_provider/cancel_left", Trigger,
+                          lambda req : TriggerResponse(True, ""))
+        self.cnc_r_srv = \
+            rospy.Service("/action_provider/cancel_right", Trigger,
+                          lambda req : TriggerResponse(True, ""))
 
         # Add some default scenarios
         self.addScenario("blocks_world", self.genBlocksWorld)
@@ -225,7 +232,7 @@ class WorldSimulator():
             # Generate object locations
             if ('position' in cluster_vars or 'proximity' in cluster_vars):
                 # Cluster around centers
-                r_offset = r.uniform(*cluster_rad)
+                r_offset = r.uniform(0, cluster_rad)
                 r_angle = r.uniform(0, 2*math.pi)
                 c = centers[c_id]
                 obj.position = Point(x=c.x + r_offset * math.cos(r_angle),
