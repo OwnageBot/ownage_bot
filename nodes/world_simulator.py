@@ -214,10 +214,10 @@ class WorldSimulator():
             # Generate object colors
             if 'color' in cluster_vars:
                 # Associate cluster with color 
-                obj.color = c_id
+                obj.color = "color" + str(c_id)
             else:
                 # Choose color uniformly at random
-                obj.color = r.choice(range(len(n_agents) + 1))
+                obj.color = "color" + str(r.choice(range(len(n_agents) + 1)))
 
             # Assign ownership if not unowned
             if c_id > 0:

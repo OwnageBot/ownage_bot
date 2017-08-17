@@ -19,6 +19,18 @@
     <!-- Load area parameters -->
     <include file="$(find ownage_bot)/launch/area_params.launch"/>
 
+    <!-- Load category parameters -->
+    <rosparam param="categories">
+      ["block", "mug", "pen", "laptop", "wallet", "charger", "wrapper"]
+    </rosparam>
+
+    <!-- Load color parameters -->
+    <rosparam param="categories">
+        red : [[160, 70, 10], [10, 166, 66]]
+        green : [[30, 80, 20], [100, 246, 96]]
+        blue : [[80, 120, 70], [130, 216, 146]]
+    </rosparam>
+        
     <!-- Load scenario parameters -->
     <rosparam command="load" param="blocks_world"
 	      file="$(find ownage_bot)/scenarios/blocks_world.yaml" />

@@ -93,30 +93,36 @@ class Predicate:
     
 # List of pre-defined predicates
 Red = Predicate("red", [Object])
-Red._apply = lambda obj : (obj.color == 0)
+Red._apply = lambda obj : (obj.color == "red")
 
 Green = Predicate("green", [Object])
-Green._apply = lambda obj : (obj.color == 1)
+Green._apply = lambda obj : (obj.color == "green")
 
 Blue = Predicate("blue", [Object])
-Blue._apply = lambda obj : (obj.color == 2)
+Blue._apply = lambda obj : (obj.color == "blue")
 
 Near = Predicate("near", [Object, Object])
 Near._apply = lambda obj1, obj2: objects.dist(obj1, obj2) < 0.4
 
 OwnedBy = Predicate("ownedBy", [Object, Agent])
-OwnedBy._apply = lambda obj, agent: obj.ownership[agent.id] > 0.8
+OwnedBy._apply = lambda obj, agent: obj.ownership[agent.id]
 
 IsOwned = Predicate("isOwned", [Object])
-IsOwned._apply = lambda obj: any(map(lambda o:o>0.8,
-                                     obj.ownership.iteritems()))
+IsOwned._apply = lambda obj: max(obj.ownership.values())
 
 InArea = Predicate("inArea", [Object, Area])
 InArea._apply = lambda obj, area: objects.inArea(obj, area)
 
+OfCategory = Predicate("ofCategory", [Object, Category])
+OfCategory._apply = lambda obj, c: obj.categories[c]
+
+IsColored = Predicate("isColored", [Object, Color])
+OfCategory._apply = lambda obj, col: obj.color == col
+
 # List of available predicates for each robotic platform
 if rospy.get_param("platform", "baxter") == "baxter":
     # Only Baxter is currently supported
-    db = [Red, Green, Blue, Near, OwnedBy, IsOwned, InArea]
+    db = [Red, Green, Blue, Near, OwnedBy, IsOwned,
+          InArea, OfCategory, IsColored]
 else:
     db = []

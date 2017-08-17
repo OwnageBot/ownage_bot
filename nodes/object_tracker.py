@@ -22,7 +22,7 @@ class ObjectTracker:
         self.latency = rospy.get_param("tracker_latency", 0.1)
         self.object_db = dict()
 
-        # Flag 
+        # State variables to track gripped objects
         self.cur_action = ""
         self.prev_action = ""
         self.gripped_id = -1
@@ -32,7 +32,6 @@ class ObjectTracker:
         self.out_offset = rospy.get_param("out_offset", 6)
 
         self.avatar_ids = rospy.get_param("avatar_ids", [])
-        self.landmark_ids = rospy.get_param("landmark_ids", [])
 
         # Publishers and servers
         self.new_obj_pub = rospy.Publisher("new_object",
@@ -65,9 +64,7 @@ class ObjectTracker:
         # Initialize fields that should be modified only once
         obj = Object()
         obj.id = marker.id
-        obj.is_avatar = (marker.id in self.avatar_ids)
-        obj.is_landmark = (marker.id in self.landmark_ids)
-        obj.ownership[0] = 1.0 # Default to unowned with probability 1
+        obj.is_avatar = marker.id in self.avatar_ids
         self.object_db[marker.id] = obj
         # Initialize fields which are dynamically changing
         self.updateObject(marker)
@@ -87,11 +84,11 @@ class ObjectTracker:
                 avatar = self.object_db[k]
                 obj.proximities[i] = objects.dist(obj, avatar)
         if marker.id in [2, 12, 19]:
-            obj.color = 0
+            obj.color = "red"
         elif marker.id in [4, 5, 9, 10]:
-            obj.color = 1
+            obj.color = "green"
         elif marker.id in [1, 3, 6]:
-           obj.color = 2
+           obj.color = "blue"
         # One-time subscribe for image data
         # image_msg = rospy.wait_for_message(
         #      "/aruco_marker_publisher/result", Image)

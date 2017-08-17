@@ -15,20 +15,21 @@ class Object:
     
     def __init__(self, id=-1, name="",
                  position=Point(), orientation=Quarterion(),
-                 color=-1, owners=[],
-                 is_avatar=False, is_landmark=False):
+                 color="none", owners=[], categories=[], is_avatar=False):
         self.id = id
         self.name = name
         self.last_update = rospy.get_rostime()
         self.position = position
         self.orientation = orientation
         self.proximities = [] # List of distances to avatars
-        self.color = color # Red=0, Green=1, Blue=2
+        self.color = color # Name of color
         self.ownership = dict() # Dictionary of ownership probabilities
+        self.categories = dict() # Dictionary of category membership
         self.is_avatar = is_avatar # Whether object is an avatar
-        self.is_landmark = is_landmark # Whether object is a landmark
         for o in owners:
             self.ownership[o] = 1.0
+        for c in categories:
+            self.categories[c] = 1.0
 
     def __eq__(self, other):
         """Objects are equal if their ids are."""
@@ -68,14 +69,15 @@ class Object:
         if not isinstance(msg, ObjectMsg):
             raise TypeError("Copy constructor expects ObjectMsg.")
         copyable = ["id", "name", "last_update", "position", "orientation",
-                    "proximities", "color", "is_avatar", "is_landmark"]
+                    "proximities", "color", "is_avatar"]
         for attr in copyable:
             val = getattr(msg, attr)
             if type(val) is tuple:
                 val = list(val)
-                self.__dict__[attr] = copy.deepcopy(val)
-                self.ownership = dict(zip(msg.owners, msg.ownership))
-            return
+            self.__dict__[attr] = copy.deepcopy(val)
+        self.ownership = dict(zip(msg.owners, msg.ownership))
+        self.categories = dict(zip(msg.categories, msg.categoriness))
+        return
 
     @classmethod
     def fromStr(cls, s):
@@ -94,7 +96,11 @@ class Object:
     
 class Agent:
     """Represents an agent that can own and act on objects."""
-    def __init__(self, id=-1, name="", avatar_id=-1):
+
+    _lookupAgent = rospy.ServiceProxy("lookup_agent", LookupAgent)
+    _listAgents = rospy.ServiceProxy("list_agents", ListAgents)
+    
+;    def __init__(self, id=-1, name="", avatar_id=-1):
         self.id = id # Unique ID
         self.name = name # Human-readable name
         self.avatar_id = avatar_id # Object ID of avatar representing agent
@@ -121,7 +127,7 @@ class Agent:
     @classmethod
     def fromStr(cls, s):
         """Convert to Agent from string."""
-        return cls(int(s))
+        return cls.fromMsg(cls._lookupAgent(int(s)).agent)
 
     @classmethod
     def universe(cls):
@@ -203,6 +209,58 @@ class Location:
     def fromStr(cls, s):
         """Convert to Location."""
         return cls(eval(s))
+
+class Category:
+    """Defines a category of objects."""
+    def __init__(self, name):
+        self.name = name # Human-readable name
+
+    def __eq__(self, other):
+        if type(other) == self.__class__:
+            return self.name == other.name
+        return NotImplemented
+        
+    def __ne__(self, other):
+        if type(other) == self.__class__:
+            return not self == other
+        return NotImplemented
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def toStr(self):
+        return self.name
+
+    @classmethod
+    def fromStr(cls, s):
+        return cls(s)
+
+    @classmethod
+    def universe(cls):
+        """Returns the set of all known Categories."""
+        names = rospy.get_param("categories", [])
+        return set([cls(n) for n in names])
+
+class Color(Category):
+    """Defines a color category."""
+    def __init__(self, name, hsv_range=((0,0,0),(0,0,0))):
+        self.name = name # Human-readable name
+        self.hsv_range = hsv_range
+
+    def __hash__(self):
+        return hash((self.name, self.hsv_range))
+
+    @classmethod
+    def fromStr(cls, s):
+        hsv_range = rospy.get_param("colors/" + s)
+        return cls(s, hsv_range)
+
+    @classmethod
+    def universe(cls):
+        """Returns the set of all known Colors."""
+        colors = rospy.get_param("colors", dict())
+        return set([cls(name, hsv_range) for
+                    name, hsv_range in colors.items()])
     
 def dist(obj1, obj2):
     """Calculates Euclidean distance between two objects."""
