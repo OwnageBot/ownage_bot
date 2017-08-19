@@ -42,10 +42,10 @@ class RuleManager:
             self.fact_db[a] = dict()
 
         # Subscribers
-        self.fact_input_sub = rospy.Subscriber("fact_input", PredicateMsg,
-                                               self.factInputCb)
-        self.rule_input_sub = rospy.Subscriber("rule_input", RuleMsg,
-                                                self.ruleInputCb)
+        self.fact_sub = rospy.Subscriber("fact_input", PredicateMsg,
+                                         self.factInputCb)
+        self.rule_sub = rospy.Subscriber("rule_input", RuleMsg,
+                                         self.ruleInputCb)
         # Servers
         self.lkp_perm_srv = rospy.Service("lookup_perm", LookupPerm,
                                            self.lookupPermCb)
