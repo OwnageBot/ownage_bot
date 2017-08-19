@@ -14,12 +14,17 @@ class DialogManager:
         # Databases of available actions and tasks
         self.action_db = dict(zip([a.name for a in actions.db], actions.db))
         self.task_db = dict(zip([t.name for t in tasks.db], tasks.db))
-        
-        # Subscribers and publishers
+
+        # Handle input and output to/from users
         self.input_sub = rospy.Subscriber("dialog_in", String, self.inputCb)
         self.output_pub = rospy.Publisher("dialog_out", String, queue_size=10)
-        self.command_pub = rospy.Publisher("command", TaskMsg, queue_size=10)
 
+        self.command_pub = rospy.Publisher("command", TaskMsg, queue_size=10)
+        self.fact_pub = rospy.Publisher("fact_input", PredicateMsg,
+                                        queue_size=10)
+        self.rule_pub = rospy.Publisher("rule_input", RuleMsg,
+                                        queue_size=10)
+        
     def inputCb(self, msg):
         """Handles dialog input and publishes commands."""
         name = tasks.Idle.name
@@ -56,6 +61,7 @@ class DialogManager:
             fact = PredicateMsg(predicate=action, bindings=[tgt],
                                 negated=False, truth=truth)
             self.output_pub.publish(str(fact))
+            self.fact_pub.publish(fact)
             return
 
         # Try to match rules
@@ -73,6 +79,7 @@ class DialogManager:
                 conditions.append(pred_msg)
             rule = RuleMsg(action, conditions, "forbidden", truth)
             self.output_pub.publish(str(rule))
+            self.rule_pub.publish(rule)
             return
         
         if name == tasks.Idle.name:
