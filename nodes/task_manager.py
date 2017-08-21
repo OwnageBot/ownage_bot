@@ -15,12 +15,6 @@ class TaskManager:
         self.update_latency = rospy.get_param("task_update", 0.5)
         # Current task being performed
         self.cur_task = tasks.Idle
-        # Database of rules to follow
-        self.rule_db = [rules.DoNotTouchRed, rules.DoNotTrashBlue]
-        # Database of available actions
-        self.action_db = dict(zip([a.name for a in actions.db], actions.db))
-        # Database of available tasks
-        self.task_db = dict(zip([t.name for t in tasks.db], tasks.db))
 
         # Queue of action-target pairs
         self.q_lock = threading.Lock()
@@ -56,14 +50,14 @@ class TaskManager:
             self.q_lock.release()
         # Construct one-shot task if necessary
         if cmd.oneshot:
-            action = self.action_db[cmd.name]
+            action = actions.db[cmd.name]
             if action.tgtype is type(None):
                 task = Task.oneShot(action, None)
             else:
                 tgt = action.tgtype.fromStr(cmd.target)
                 task = Task.oneShot(action, tgt)
-        elif cmd.name in self.task_db:
-            task = self.task_db[cmd.name]
+        elif cmd.name in tasks.db:
+            task = tasks.db[cmd.name]
         self.cur_task = task
 
     def updateActions(self):

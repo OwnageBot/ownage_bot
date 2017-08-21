@@ -127,3 +127,4 @@ if os.getenv("OWNAGE_BOT_PLATFORM", "baxter") == "baxter":
           Release, Find, Offer, Trash, Collect, Replace]
 else:
     db = []
+db = dict([(a.name, a) for a in db])

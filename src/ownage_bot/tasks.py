@@ -146,3 +146,4 @@ if os.getenv("OWNAGE_BOT_PLATFORM", "baxter") == "baxter":
     db = [Idle, CollectAll, TrashAll]
 else:
     db = []
+db = dict([(t.name, t) for t in db])

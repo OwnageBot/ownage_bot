@@ -23,11 +23,6 @@ class RuleManager:
         self.max_cand_rules = rospy.get_param("~max_cand_rules", 3)
         self.m_param = rospy.get_param("~m_param", 3)
         
-        # Databases of available predicates and actions
-        self.predicate_db = dict(zip([p.name for p in predicates.db],
-                                     predicates.db))
-        self.action_db = dict(zip([a.name for a in actions.db], actions.db))
-
         # Database of actively-followed rules
         self.active_rule_db = dict()
         # Database of rules given by users
@@ -36,7 +31,7 @@ class RuleManager:
         self.fact_db = dict()
 
         # Initialize databases with empty dicts/sets
-        for a in self.action_db.iterkeys():
+        for a in actions.db.iterkeys():
             self.active_rule_db[a] = set()
             self.given_rule_db[a] = dict()
             self.fact_db[a] = dict()
@@ -55,7 +50,7 @@ class RuleManager:
     def lookupPermCb(self, req):
         """Returns action permission for requested action-target pair."""
         if req.action in self.fact_db:
-            action = self.action_db[req.action]
+            action = actions.db[req.action]
             tgt = (None if action.tgtype is type(None) else
                    action.tgtype.fromStr(req.target))
             if tgt in self.fact_db[action.name]:
@@ -77,10 +72,10 @@ class RuleManager:
     def factInputCb(self, msg):
         """Updates fact database, then tries to cover new fact."""
         # Ignore facts which are not about actions
-        if msg.predicate not in self.action_db:
+        if msg.predicate not in actions.db:
             return
 
-        action = self.action_db[msg.predicate]
+        action = actions.db[msg.predicate]
 
         # Handle actions without targets
         if len(msg.args) == 0 and action.tgtype is type(None):
@@ -98,7 +93,7 @@ class RuleManager:
 
     def ruleInputCb(self, msg):
         """Updates given rule database, considers activating them."""
-        action = self.action_db[msg.action]
+        action = actions.db[msg.action]
         rule = Rule.fromMsg(msg)
 
         # Overwrites old value if given rule already exists
@@ -131,7 +126,7 @@ class RuleManager:
                                   n_tgt, n_val in neg_facts.items()])
 
         # Search for rule starting with empty rule
-        init_rule = Rule(self.action_db[act_name], conditions=[])
+        init_rule = Rule(actions.db[act_name], conditions=[])
         score_thresh = self.add_fact_thresh
         new_rule, new_score, success = \
             self.ruleSearch(init_rule, score_thresh,
@@ -283,7 +278,7 @@ class RuleManager:
     def refineRule(self, rule):
         """Return list of refinements by adding predicates to rule."""
         refinements = []
-        conditions = set(self.predicate_db.values())
+        conditions = set(predicates.db.values())
 
         # Exhaustively substitute all 2nd-place arguments
         for p in list(conditions):
