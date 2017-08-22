@@ -9,15 +9,13 @@
   <param name="manual" type="bool" value="$(arg manual)"/>
     
   <group ns="ownage_bot">
-    <!-- Duration before each tracked object has its properties updated -->
-    <param name="tracker_latency" type="double" value="0.2" />
-
     <!-- Avatars are specific objects which represent owners -->
     <rosparam param="avatar_ids" subst_value="true">
     $(arg avatar_ids)</rosparam>
     
     <!-- Load area parameters -->
-    <include file="$(find ownage_bot)/launch/area_params.launch"/>
+    <rosparam command="load" param="areas"
+	      file="$(find ownage_bot)/params/areas.yaml" />
 
     <!-- Load category parameters -->
     <rosparam param="categories">
@@ -30,23 +28,29 @@
         green : [[30, 80, 20], [100, 246, 96]]
         blue : [[80, 120, 70], [130, 216, 146]]
     </rosparam>
-        
-    <!-- Load scenario parameters -->
-    <rosparam command="load" param="blocks_world"
-	      file="$(find ownage_bot)/scenarios/blocks_world.yaml" />
+       
+    <!-- Load simulation and scenario parameters -->
+    <group if="$(arg simulation)">
+      <!-- Reload area parameters for simulated world -->
+      <rosparam command="load" param="areas"
+	      file="$(find ownage_bot)/params/sim_areas.yaml" />
+      <rosparam command="load" param="blocks_world"
+	      file="$(find ownage_bot)/params/blocks_world.yaml" />
+    </group>
     
     <!-- Object tracker node, unused in simulation mode-->
     <node pkg="ownage_bot" type="object_tracker.py"
 	  output="screen" name="object_tracker" unless="$(arg simulation)">
+      <!-- How often (in seconds) objects get updated -->
+      <param name="latency" type="double" value="0.2" />
     </node>
 
     <!-- World simulator, provides simulated environment and actions -->
     <node pkg="ownage_bot" type="world_simulator.py"
       	  name="world_simulator" output="screen" if="$(arg simulation)">
       <param name="scenario" type="string" value="$(arg scenario)"/>
-      <rosparam param="home_pos">
-        [0.0, 0.0, 0.0]
-      </rosparam>
+      <param name="ground_lvl" type="double" value="0.0"/>
+      <param name="arm_lvl" type="double" value="0.3"/>
     </node>
     
     <!-- Task manager node, unused in manual mode -->

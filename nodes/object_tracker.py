@@ -19,7 +19,7 @@ class ObjectTracker:
     """A class for tracking objects."""
 
     def __init__(self):
-        self.latency = rospy.get_param("tracker_latency", 0.1)
+        self.latency = rospy.get_param("~latency", 0.1)
         self.object_db = dict()
 
         # State variables to track gripped objects
@@ -28,8 +28,8 @@ class ObjectTracker:
         self.gripped_id = -1
 
         # Margins around ARuco tag for color determination
-        self.in_offset = rospy.get_param("in_offset", 1)
-        self.out_offset = rospy.get_param("out_offset", 6)
+        self.in_offset = rospy.get_param("~in_offset", 1)
+        self.out_offset = rospy.get_param("~out_offset", 6)
 
         self.avatar_ids = rospy.get_param("avatar_ids", [])
 
@@ -57,7 +57,6 @@ class ObjectTracker:
         self.lab_db = np.asarray(self.color_db, dtype="uint8")[... , None]
         self.lab_db = cv.cvtColor(np.swapaxes(self.lab_db, 1, 2),
                                   cv.COLOR_RGB2LAB)
-        cv.namedWindow("Mask")
 
     def insertObject(self, marker):
         """Insert object into the database using marker information."""

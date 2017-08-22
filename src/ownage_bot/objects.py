@@ -2,7 +2,7 @@ import math
 import copy
 import rospy
 import numpy as np
-import matplotlib.path as mptPath
+import matplotlib.path as mplPath
 from ownage_bot.msg import *
 from ownage_bot.srv import *
 from geometry_msgs.msg import Point, Quaternion
@@ -161,8 +161,8 @@ class Area:
         """Takes an iterable of 2-tuples and stores them."""
         self.name = name
         self.n_sides = len(points)
-        self.points = tuple(points)
-        self.path = mptPath.Path(np.array(self.points))
+        self.points = tuple([p[0:2] for p in points])
+        self.path = mplPath.Path(np.array(self.points))
 
     def __eq__(self, other):
         """Areas are equal if their vertices are."""
@@ -192,10 +192,10 @@ class Area:
     def universe(cls):
         """Returns the set of all known Areas (defined in param server)."""
         area_set = set()
-        area_names = rospy.get_param("area_names", [])
-        for n in area_names:
-            points = rospy.get_param(n + "/corners",)
-            area_set.add(cls(points, name=n))
+        areas = rospy.get_param("areas", dict())
+        for k, v in areas.iteritems():
+            points = v.corners
+            area_set.add(cls(points, name=k))
         return area_set
     
 class Location:

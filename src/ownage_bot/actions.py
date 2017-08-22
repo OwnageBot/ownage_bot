@@ -55,7 +55,7 @@ MoveTo._call = _moveTo
 
 Scan = Action("scan")
 def _scan(target):
-    scan_path = rospy.get_param("scan_path/left",
+    scan_path = rospy.get_param("areas/workspace_left/corners",
                                 [[-0.05, 0.85, 0.30],
                                  [0.473, 0.506, 0.274],
                                  [0.731, 0.463, 0.277],
@@ -94,7 +94,7 @@ Offer._call = _offer
 
 Trash = Action("trash", Object, [Find, PickUp, Release])
 def _trash(target):
-    trash_loc = rospy.get_param("trash_area/center", [-0.05, 0.85, 0.20])
+    trash_loc = rospy.get_param("areas/trash/center", [-0.05, 0.85, 0.20])
     trash_loc = Location(trash_loc)
     ret = None
     for a, t in [(Find, target), (PickUp, target),

@@ -67,7 +67,7 @@ def _collectAll(action_queue, object_db=dict()):
     """Collects all objects not in the home area."""
     actions_added = 0
     act_list = list(action_queue.queue)
-    home_corners = rospy.get_param("home_area/corners",
+    home_corners = rospy.get_param("areas/home/corners",
                                    [[0.39,0.07], [0.39,0.29],
                                     [0.62,0.29], [0.39,0.29]])
     # Determine uncollected objects
@@ -91,7 +91,7 @@ CollectAll._updateActions = _collectAll
 
 def _collectAllCheck(action, obj):
     """Check that object is not already in home area before collecting."""
-    home_corners = rospy.get_param("home_area/corners",
+    home_corners = rospy.get_param("areas/home/corners",
                                    [[0.39,0.07], [0.39,0.29],
                                     [0.62,0.29], [0.62,0.07]])
     # Assume undone if action is not Collect
@@ -106,7 +106,7 @@ def _trashAll(action_queue, object_db):
     """Trashes all objects not in the trash area."""
     actions_added = 0    
     act_list = list(action_queue.queue)
-    trash_corners = rospy.get_param("trash_area/corners",
+    trash_corners = rospy.get_param("areas/trash/corners",
                                     [[-0.20,0.70], [-0.20,1.00],
                                      [0.10,1.00], [0.10,0.70]])
     # Determine untrashed objects
@@ -130,7 +130,7 @@ TrashAll._updateActions = _trashAll
 
 def _trashAllCheck(action, obj):
     """Check that object is not already in home area before trashing."""
-    trash_corners = rospy.get_param("trash_area/corners",
+    trash_corners = rospy.get_param("areas/trash/corners",
                                     [[-0.20,0.70], [-0.20,1.00],
                                      [0.10,1.00], [0.10,0.70]])
     # Assume undone if action is not Trash

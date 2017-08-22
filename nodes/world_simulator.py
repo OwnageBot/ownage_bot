@@ -26,9 +26,10 @@ class WorldSimulator():
         self.lock = threading.Lock()
         
         # Robot location parameters
-        self.ground_lvl = 0.0
-        self.arm_lvl = 0.30
-        self.home_pos = Point(*rospy.get_param("~home_pos", [0, 0, 0.30]))
+        self.ground_lvl = rospy.get_param("~ground_lvl", 0.0)
+        self.arm_lvl = rospy.get_param("~arm_lvl", 0.3)
+        self.home_pos = Point(*rospy.get_param("areas/home/center",
+                                               [0, 0, 0.30]))
         
         # Object and avatar base IDs
         self.obj_base_id = rospy.get_param("~obj_base_id", 1)
