@@ -16,8 +16,8 @@ class RuleManager:
     
     def __init__(self):
         # Learning parameters
-        self.add_fact_thresh = rospy.get_param("~add_fact_thresh", 0.5)
-        self.sub_fact_thresh = rospy.get_param("~sub_fact_thresh", 0.5)
+        self.add_perm_thresh = rospy.get_param("~add_perm_thresh", 0.5)
+        self.sub_perm_thresh = rospy.get_param("~sub_perm_thresh", 0.5)
         self.add_rule_thresh = rospy.get_param("~add_rule_thresh", 0.1)
         self.sub_rule_thresh = rospy.get_param("~sub_rule_thresh", 0.1)
         self.max_cand_rules = rospy.get_param("~max_cand_rules", 3)
@@ -27,18 +27,18 @@ class RuleManager:
         self.active_rule_db = dict()
         # Database of rules given by users
         self.given_rule_db = dict()
-        # Database of action facts (e.g. whether object X can be picked up)
-        self.fact_db = dict()
+        # Database of object specific permissions
+        self.perm_db = dict()
 
         # Initialize databases with empty dicts/sets
         for a in actions.db.iterkeys():
             self.active_rule_db[a] = set()
             self.given_rule_db[a] = dict()
-            self.fact_db[a] = dict()
+            self.perm_db[a] = dict()
 
         # Subscribers
-        self.fact_sub = rospy.Subscriber("fact_input", PredicateMsg,
-                                         self.factInputCb)
+        self.perm_sub = rospy.Subscriber("perm_input", PredicateMsg,
+                                         self.permInputCb)
         self.rule_sub = rospy.Subscriber("rule_input", RuleMsg,
                                          self.ruleInputCb)
         # Servers
@@ -49,12 +49,12 @@ class RuleManager:
 
     def lookupPermCb(self, req):
         """Returns action permission for requested action-target pair."""
-        if req.action in self.fact_db:
+        if req.action in self.perm_db:
             action = actions.db[req.action]
             tgt = (None if action.tgtype is type(None) else
                    action.tgtype.fromStr(req.target))
-            if tgt in self.fact_db[action.name]:
-                perm = self.fact_db[action.name][tgt]
+            if tgt in self.perm_db[action.name]:
+                perm = self.perm_db[action.name][tgt]
                 return LookupPermResponse(perm)
         # Reports non forbidden if not in database
         return LookupPermResponse(0.0)
@@ -69,9 +69,9 @@ class RuleManager:
                           req.action)
         return LookupRulesResponse(rule_set)
         
-    def factInputCb(self, msg):
-        """Updates fact database, then tries to cover new fact."""
-        # Ignore facts which are not about actions
+    def permInputCb(self, msg):
+        """Updates database with new permission, then accomodates the rules."""
+        # Ignore perms which are not about actions
         if msg.predicate not in actions.db:
             return
 
@@ -79,20 +79,20 @@ class RuleManager:
 
         # Handle actions without targets
         if len(msg.args) == 0 and action.tgtype is type(None):
-            self.fact_db[action.name][None] = msg.truth
+            self.perm_db[action.name][None] = msg.truth
             return
         if len(msg.args) > 1:
-            raise TypeError("Action fact should have at most one argument.")
+            raise TypeError("Action perm should have at most one argument.")
         
         tgt = action.tgtype.fromStr(msg.args[0])
 
-        # Overwrite old value if fact already exists
-        self.fact_db[action.name][tgt] = msg.truth
-        # Update rules to accomodate new fact
-        self.accomFact(action.name, tgt, msg.truth)
+        # Overwrite old value if permission already exists
+        self.perm_db[action.name][tgt] = msg.truth
+        # Update rules to accomodate new permission
+        self.accomPerm(action.name, tgt, msg.truth)
 
     def ruleInputCb(self, msg):
-        """Updates given rule database, considers activating them."""
+        """Updates given rule database, adjusts active rule database."""
         action = actions.db[msg.action]
         rule = Rule.fromMsg(msg)
 
@@ -101,33 +101,33 @@ class RuleManager:
         # Accomdate the given rule
         self.accomRule(rule, msg.truth)
         
-    def accomFact(self, act_name, tgt, truth):
-        """Tries to accommodate the new fact by modifying rule base."""
+    def accomPerm(self, act_name, tgt, truth):
+        """Tries to accommodate the new permission by modifying rule base."""
         rule_set = self.active_rule_db[act_name]
         prediction = Rule.evaluateOr(rule_set, tgt)       
 
         if truth >= 0.5 and prediction < 0.5:
-            self.coverFact(act_name, tgt, truth)
+            self.coverPerm(act_name, tgt, truth)
         elif truth < 0.5 and prediction >= 0.5:
-            self.uncoverFact(act_name, tgt, truth)
+            self.uncoverPerm(act_name, tgt, truth)
 
-    def coverFact(self, act_name, tgt, truth):
-        """Covers positive fact via general-to-specific search for a rule."""
+    def coverPerm(self, act_name, tgt, truth):
+        """Covers positive perm via general-to-specific search for a rule."""
         rule_set = self.active_rule_db[act_name]
-        fact_set = self.fact_db[act_name]
-        neg_facts = {k: v for k, v in fact_set.items() if v < 0.5}
+        perm_set = self.perm_db[act_name]
+        neg_perms = {k: v for k, v in perm_set.items() if v < 0.5}
 
         # Search only for inactive rules (pointless to refine active rules) 
         inactive_f = lambda r : r not in rule_set
-        # Candidate rules must cover the new fact
+        # Candidate rules must cover the new permission
         cover_f = lambda r : r.evaluate(tgt) >= truth
         # Compute score as false positive value for each candidate rule
         score_f = lambda r : sum([max(r.evaluate(n_tgt) - n_val, 0) for
-                                  n_tgt, n_val in neg_facts.items()])
+                                  n_tgt, n_val in neg_perms.items()])
 
         # Search for rule starting with empty rule
         init_rule = Rule(actions.db[act_name], conditions=[])
-        score_thresh = self.add_fact_thresh
+        score_thresh = self.add_perm_thresh
         new_rule, new_score, success = \
             self.ruleSearch(init_rule, score_thresh,
                             score_f, [inactive_f, cover_f])
@@ -136,33 +136,33 @@ class RuleManager:
         if success:
             self.mergeRule(rule_set, new_rule)
         else:
-            rospy.logdebug(("Cannot cover fact with [%s]" + 
+            rospy.logdebug(("Cannot cover perm with [%s]" + 
                             "w/o too many false positives."),
                            new_rule.toPrint())
             
-    def uncoverFact(self, act_name, tgt, truth):
-        """Uncover negative fact by refining overly general rules."""
+    def uncoverPerm(self, act_name, tgt, truth):
+        """Uncover negative permission by refining overly general rules."""
         rule_set = self.active_rule_db[act_name]
-        fact_set = self.fact_db[act_name]
+        perm_set = self.perm_db[act_name]
 
         # Find set of high-certainty covering rules
         cover_rules = [r for r in rule_set if r.evaluate(tgt) >= 0.5]
 
-        # Candidate rules must cover negative fact
+        # Candidate rules must cover negative perm
         cover_f = lambda r : r.evaluate(tgt) >= (1-truth)
 
-        # Subtract minimal rule that covers new fact from each covering rule
+        # Subtract minimal rule that covers new perm from each covering rule
         for init_rule in cover_rules:
-            # Find set of covered positive facts
-            pos_facts = {k: v for k, v in fact_set.items()
+            # Find set of covered positive perms
+            pos_perms = {k: v for k, v in perm_set.items()
                          if v >= 0.5 and init_rule.evaluate(k) >= 0.5}
 
             # Compute score as true positive value for each candidate rule
             score_f = lambda r : sum([min(p_val, r.evaluate(p_tgt)) for
-                                      p_tgt, p_val in pos_facts.items()])
+                                      p_tgt, p_val in pos_perms.items()])
 
-            # Search for rule that minimizes positive facts covered
-            score_thresh = self.sub_fact_thresh
+            # Search for rule that minimizes positive perms covered
+            score_thresh = self.sub_perm_thresh
             new_rule, new_score, success = \
                 self.ruleSearch(init_rule, score_thresh,
                                 score_f, [cover_f])
@@ -174,7 +174,7 @@ class RuleManager:
                 for new in remainder:
                     self.mergeRule(rule_set, new)
             else:
-                rospy.logdebug(("Cannot uncover fact from [%s]" +
+                rospy.logdebug(("Cannot uncover perm from [%s]" +
                                 " w/o too much false negatives."),
                                 init_rule.toPrint())
 
@@ -188,9 +188,9 @@ class RuleManager:
     def coverRule(self, given_rule, truth, force=False):
         """Cover given positive rule if not already covered."""
         rule_set = self.active_rule_db[given_rule.action.name]
-        fact_set = self.fact_db[given_rule.action.name]
-        neg_facts = {k: v for k, v in fact_set.items() if v < 0.5}
-        n_neg = len(neg_facts)
+        perm_set = self.perm_db[given_rule.action.name]
+        neg_perms = {k: v for k, v in perm_set.items() if v < 0.5}
+        n_neg = len(neg_perms)
         
         # Do nothing if given rule is specialization of an active rule
         for r in rule_set:
@@ -199,7 +199,7 @@ class RuleManager:
 
         # Score candidate rules according to false positive value 
         score_f = lambda r : sum([max(r.evaluate(tgt) - val, 0) for
-                                  tgt, val in neg_facts.items()])
+                                  tgt, val in neg_perms.items()])
             
         # Specialize rule so that false positives are minimized
         score_thresh = self.add_rule_thresh * n_neg
@@ -216,20 +216,20 @@ class RuleManager:
     def uncoverRule(self, given_rule, truth, force=False):
         """Uncover negative rule by refining existing rules."""
         rule_set = self.active_rule_db[given_rule.action.name]
-        fact_set = self.fact_db[given_rule.action.name]
-        pos_facts = {k: v for k, v in fact_set.items() if v >= 0.5} 
-        n_pos = len(pos_facts)        
+        perm_set = self.perm_db[given_rule.action.name]
+        pos_perms = {k: v for k, v in perm_set.items() if v >= 0.5} 
+        n_pos = len(pos_perms)        
         
         # Score candidate rules according to true positive value 
         score_f = lambda r : sum([min(r.evaluate(tgt), val) for
-                                  tgt, val in pos_facts.items()])
+                                  tgt, val in pos_perms.items()])
 
         # Specialize rule so that true positives are minimized
-        score_thresh = self.sub_fact_thresh * n_pos
+        score_thresh = self.sub_perm_thresh * n_pos
         new_rule, new_score, success = \
             self.ruleSearch(given_rule, score_thresh, score_f)
 
-        # Terminate if rule to be removed covers too many positive facts
+        # Terminate if rule to be removed covers too many positive perms
         if not force and not success:
             rospy.logdebug("Cannot subtract [%s] w/o too much uncovering.",
                            new_rule.toPrint())
@@ -327,13 +327,13 @@ class RuleManager:
             # Add rule if no generalizations found
             rule_set.add(new)
             
-    def evalRuleSet(self, rule_set, fact_set):
+    def evalRuleSet(self, rule_set, perm_set):
         """Evaluates rule set and returns a performance metric tuple."""
-        n_facts = len(fact_set)
-        n_true = sum(fact_set.values())
-        n_false = n_facts - n_true
+        n_perms = len(perm_set)
+        n_true = sum(perm_set.values())
+        n_false = n_perms - n_true
         tp, tn, fp, fn = 0.0, 0.0, 0.0, 0.0
-        for tgt, truth in fact_set.items():
+        for tgt, truth in perm_set.items():
             predict = Rule.evaluateOr(rule_set, tgt)
             tpi, tni = min(truth, predict), min(1-truth, 1-predict)
             fpi, fni = max(0, (1-truth)-tni), max(0, truth-tpi)
@@ -341,7 +341,7 @@ class RuleManager:
             fp, fn = fp + fpi, fn + fni
         prec = tp / (tp + fp)
         rec = tp / (tp + fn)
-        acc = (tp + tn) / n_facts
+        acc = (tp + tn) / n_perms
         m_est = (tp + self.m_param * n_true/n_false) / (tp + fp)
         return PerfMetric(tp, tn, fp, fn, prec, rec, acc, m_est)
             

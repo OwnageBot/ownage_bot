@@ -15,7 +15,7 @@ class DialogManager:
         self.output_pub = rospy.Publisher("dialog_out", String, queue_size=10)
 
         self.command_pub = rospy.Publisher("command", TaskMsg, queue_size=10)
-        self.fact_pub = rospy.Publisher("fact_input", PredicateMsg,
+        self.perm_pub = rospy.Publisher("perm_input", PredicateMsg,
                                         queue_size=10)
         self.rule_pub = rospy.Publisher("rule_input", RuleMsg,
                                         queue_size=10)
@@ -45,7 +45,7 @@ class DialogManager:
         perm = parse.asPerm(msg.data)
         if perm:
             self.output_pub.publish(str(perm))
-            self.fact_pub.publish(perm)
+            self.perm_pub.publish(perm)
             return
         # Try to parse rules that govern actions
         rule = parse.asRule(msg.data)
