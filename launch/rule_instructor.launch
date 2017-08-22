@@ -1,0 +1,21 @@
+<launch>
+  <arg name="mode" default="by_perm"/>
+  <arg name="online" default="false"/>
+  <arg name="rule_path" default = "$(find ownage_bot)/rulesets/rules.yaml"/>
+  <arg name="script_path" default = "$(find ownage_bot)/rulesets/script.yaml"/>
+  
+  <!-- Rule instructor node-->
+  <node pkg="ownage_bot" type="rule_instructor.py" ns="ownage_bot"
+	output="screen" name="rule_instructor">
+    <!-- Whether to teach by example, rules, or script -->
+    <param name="mode" type="string" value="$(arg mode)" />
+    <!-- Whether to use online instruction or batch instruction -->
+    <param name="online" type="bool" value="$(arg online)" />
+    <!-- Rules to be taught -->
+    <rosparam command="load" param="rules" file="$(arg rule_path)" />
+    <!-- Rules to be taught -->
+    <rosparam command="load" param="script" file="$(arg script_path)" />
+  </node>
+
+</launch>
+

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import rospy
+import random
 from geometry_msgs.msg import Point
 from ownage_bot import *
 from ownage_bot.msg import *
@@ -9,9 +10,13 @@ class RuleInstructor:
     """Automatically teaches rules by exampxle or direct instruction."""
 
     def __init__(self):
-        # Load rules from config file
-        self.rule_db = []
-        
+        self.mode = rospy.get_param("~mode", "by_perm")
+
+        if self.mode == "by_script":
+            self.script_msgs = self.loadScript()
+        else:
+            self.rule_db = self.loadRules()
+            
         # Publishers
         self.perm_pub = rospy.Publisher("perm_input", PredicateMsg,
                                         queue_size=100)
@@ -20,6 +25,37 @@ class RuleInstructor:
 
         # Servers
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
+
+    def loadRules(self):
+        """Loads rules from parameter server."""
+        rule_strs = rospy.get_param("~rules", [])
+        rule_msgs = [parse.asRule(s) for s in rule_strs]
+        if None in rule_msgs:
+            raise SyntaxError("Rules were in the wrong syntax")
+        rules = [Rule.fromMsg(m) for m in rule_msgs]
+        rule_db = dict()
+        for r in rules:
+            if r.action.name not in rule_db:
+                rule_db[r.action.name] = set()
+            rule_db[r.action.name].add(r)
+        return rule_db
+
+    def loadScript(self):
+        """Loads script from parameter server."""
+        script_strs = rospy.get_param("~script", [])
+        script_msgs = []
+        for s in script_strs:
+            msg = parse.asPerm(s)
+            if msg:
+                script_msgs.append(msg)
+                continue
+            msg = parse.asRule(s)
+            if msg:
+                script_msgs.append(msg)
+                continue
+            if msg is None:
+                raise SyntaxError("Script was in the wrong syntax")
+        return script_msgs
         
     def initOnline(self):
         """Sets up subscribers for online instruction."""
@@ -27,21 +63,27 @@ class RuleInstructor:
     
     def batchInstruct(self):
         """Teaches all information in one batch."""
-        mode = rospy.get_param("~mode", "perm")
-        if mode == "perm":
-            rospy.wait_for_service("list_objects")
-            objs = [o.fromMsg for o in self.listObjects().objects]
-            for r in self.rule_db:
+        if self.mode == "by_perm":
+            objs = list(Object.universe())
+            # Randomize object order
+            random.shuffle(objs)
+            # Feed permissions for each action separately
+            for act_name, rule_set in self.rule_db.iteritems():
                 for o in objs:
-                    truth = r.evaluate(o)
-                    perm = PredicateMsg(predicate=r.action.name,
+                    if o.is_avatar:
+                        continue
+                    truth = Rule.evaluateOr(rule_set, o)
+                    perm = PredicateMsg(predicate=act_name,
                                         bindings=[o.toStr()],
                                         truth=truth)
                     self.perm_pub.publish(perm)
-        elif mode == "rule":
-            for r in self.rule_db:
-                self.rule_pub.publish(r.toMsg())
-        elif mode == "script":
+        elif self.mode == "by_rule":
+            # Publish rules for each action separately
+            for rule_set in self.rule_db.values():
+                for r in rule_set:
+                    self.rule_pub.publish(r.toMsg())
+        elif self.mode == "by_script":
+            # Publish messages in exact order of the script
             for msg in self.script_msgs:
                 if isinstance(msg, PredicateMsg):
                     self.perm_pub.publish(msg)
@@ -52,7 +94,7 @@ class RuleInstructor:
             
 if __name__ == '__main__':
     rospy.init_node('rule_instructor')
-    rule_instructor = RuleInstuctor()
+    rule_instructor = RuleInstructor()
     if rospy.get_param("~online", False):
         rule_instructor.initOnline()
     else:

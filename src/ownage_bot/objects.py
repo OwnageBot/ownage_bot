@@ -92,6 +92,7 @@ class Object:
     @classmethod
     def universe(cls):
         """Returns the set of all known Objects."""
+        rospy.wait_for_service("list_objects")
         return set([cls.fromMsg(m) for m in cls._listObjects().objects])
     
 class Agent:
@@ -134,6 +135,7 @@ class Agent:
     @classmethod
     def fromStr(cls, s):
         """Convert to Agent from string."""
+        rospy.wait_for_service("list_agents")
         return cls.fromMsg(cls._lookupAgent(int(s)).agent)
 
     @classmethod

@@ -174,7 +174,14 @@ class WorldSimulator():
         self.lock.release()
 
     def genBlocksWorld(self):
-        """Generates a world of exclusive-owned colored blocks."""
+        """Generates a world of exclusive-owned colored blocks.
+
+        Creates n_agents+1 clusters of objects, each of which is clustered
+        by color, position, proximity, or any combination.
+
+        Agent IDs start at 1, and colors are procedurally named as
+        'color0', 'color1', etc.
+        """
         n_agents = rospy.get_param("blocks_world/n_agents", 3)
         n_objects = rospy.get_param("blocks_world/n_objects", 20)
 
