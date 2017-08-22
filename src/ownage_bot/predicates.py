@@ -106,16 +106,20 @@ Near = Predicate("near", [Object, Object])
 Near._apply = lambda obj1, obj2: dist(obj1, obj2) < 0.4
 
 OwnedBy = Predicate("ownedBy", [Object, Agent])
-OwnedBy._apply = lambda obj, agent: obj.ownership[agent.id]
+OwnedBy._apply = (lambda obj, agent:
+                  0.0 if agent.id not in obj.ownership else
+                  obj.ownership[agent.id])
 
 IsOwned = Predicate("isOwned", [Object])
-IsOwned._apply = lambda obj: max(obj.ownership.values())
+IsOwned._apply = lambda obj: (0.0 if len(obj.ownership) == 0 else
+                              max(obj.ownership.values()))
 
 InArea = Predicate("inArea", [Object, Area])
 InArea._apply = lambda obj, area: inArea(obj, area)
 
 InCategory = Predicate("inCategory", [Object, Category])
-InCategory._apply = lambda obj, c: obj.categories[c]
+InCategory._apply = lambda obj, c: (0.0 if c not in obj.categories else
+                                    obj.categories[c])
 
 IsColored = Predicate("isColored", [Object, Color])
 IsColored._apply = lambda obj, col: obj.color == col
@@ -123,7 +127,7 @@ IsColored._apply = lambda obj, col: obj.color == col
 # List of available predicates for each robotic platform
 if os.getenv("OWNAGE_BOT_PLATFORM", "baxter") == "baxter":
     # Only Baxter is currently supported
-    db = [Red, Green, Blue, Near, OwnedBy, IsOwned,
+    db = [Red, Green, Blue, OwnedBy, IsOwned,
           InArea, InCategory, IsColored]
 else:
     db = []

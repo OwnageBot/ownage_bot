@@ -19,9 +19,9 @@ class RuleInstructor:
             
         # Publishers
         self.perm_pub = rospy.Publisher("perm_input", PredicateMsg,
-                                        queue_size=100)
+                                        queue_size=10)
         self.rule_pub = rospy.Publisher("rule_input", RuleMsg,
-                                        queue_size=100)
+                                        queue_size=10)
 
         # Servers
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
@@ -63,6 +63,7 @@ class RuleInstructor:
     
     def batchInstruct(self):
         """Teaches all information in one batch."""
+        rate = rospy.Rate(10)
         if self.mode == "by_perm":
             objs = list(Object.universe())
             # Randomize object order
@@ -76,11 +77,13 @@ class RuleInstructor:
                     perm = PredicateMsg(predicate=act_name,
                                         bindings=[o.toStr()],
                                         truth=truth)
+                    rate.sleep()
                     self.perm_pub.publish(perm)
         elif self.mode == "by_rule":
             # Publish rules for each action separately
             for rule_set in self.rule_db.values():
                 for r in rule_set:
+                    rate.sleep()
                     self.rule_pub.publish(r.toMsg())
         elif self.mode == "by_script":
             # Publish messages in exact order of the script
@@ -89,6 +92,7 @@ class RuleInstructor:
                     self.perm_pub.publish(msg)
                 elif isinstance(msg, RuleMsg):
                     self.rule_pub.publish(msg)
+                rate.sleep()
         else:
             rospy.logerror("Instructor mode %s unrecognized", mode)
             
@@ -97,7 +101,7 @@ if __name__ == '__main__':
     rule_instructor = RuleInstructor()
     if rospy.get_param("~online", False):
         rule_instructor.initOnline()
+        rospy.spin()
     else:
         rule_instructor.batchInstruct()
-    rospy.spin()
         

@@ -78,13 +78,13 @@ class RuleManager:
         action = actions.db[msg.predicate]
 
         # Handle actions without targets
-        if len(msg.args) == 0 and action.tgtype is type(None):
+        if len(msg.bindings) == 0 and action.tgtype is type(None):
             self.perm_db[action.name][None] = msg.truth
             return
-        if len(msg.args) > 1:
+        if len(msg.bindings) > 1:
             raise TypeError("Action perm should have at most one argument.")
         
-        tgt = action.tgtype.fromStr(msg.args[0])
+        tgt = action.tgtype.fromStr(msg.bindings[0])
 
         # Overwrite old value if permission already exists
         self.perm_db[action.name][tgt] = msg.truth
@@ -257,10 +257,11 @@ class RuleManager:
             if success:
                 break
             # Construct list of refinements from previous candidates
-            new_rules = sum([self.refineRule(r) for r in cand_rules])
+            new_rules = [self.refineRule(r) for r in cand_rules]
+            new_rules = [r for l in new_rules for r in l]
             # Select rules which match filters
             for f in filters:
-                new_rules = filter(new_rules, f)
+                new_rules = filter(f, new_rules)
             # Return if no more rules
             if len(new_rules) == 0:
                 return best_rule
@@ -288,7 +289,7 @@ class RuleManager:
                 raise TypeError("Only up to 2-place predicates supported.")
             conditions.remove(p)
             subs = p.argtypes[1].universe()
-            bound = [p.bind([None, s]) for s in subs]
+            bound = set([p.bind([None, s]) for s in subs])
             conditions |= bound
                 
         for p in conditions:
@@ -298,9 +299,10 @@ class RuleManager:
             n1 = Rule(rule.action, rule.conditions, rule.detype)
             n2 = Rule(rule.action, rule.conditions, rule.detype)
             n1.conditions.add(p)
-            n2.conditions.add(p.negate)
+            n2.conditions.add(p.negate())
             refinements += [n1, n2]
-    
+        return refinements
+            
     def mergeRule(self, rule_set, new):
         """Merge new rule into rule set."""
         # Merge with adjacent rules (e.g. (A & B) | (A & !B) -> A)

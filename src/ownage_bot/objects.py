@@ -163,7 +163,7 @@ class Area:
         """Takes an iterable of 2-tuples and stores them."""
         self.name = name
         self.n_sides = len(points)
-        self.points = tuple([p[0:2] for p in points])
+        self.points = tuple([tuple(p[0:2]) for p in points])
         self.path = mplPath.Path(np.array(self.points))
 
     def __eq__(self, other):
@@ -196,7 +196,7 @@ class Area:
         area_set = set()
         areas = rospy.get_param("areas", dict())
         for k, v in areas.iteritems():
-            points = v.corners
+            points = v["corners"]
             area_set.add(cls(points, name=k))
         return area_set
     

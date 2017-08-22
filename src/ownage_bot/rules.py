@@ -92,7 +92,7 @@ class Rule:
         p_remainders = [] # Remainder rule sets for each part
         for i, p in enumerate(conditions):
             p_prob = p.apply(tgt)
-            p_parts = conditions[0:i-1] + [p.negate()]
+            p_parts.append(conditions[0:i-1] + [p.negate()])
             p_part_probs.append((1-p_prob) * p_conj_probs[-1])
             p_conj_probs.append(p_prob * p_conj_probs[-1])
             p_remainders.append(set(rule_set))
@@ -100,11 +100,11 @@ class Rule:
         # Remove rules with complementary predicates
         for r in rule_set:
             for i, part in enumerate(p_parts):
-                if any(c.negate() in r.conditions for c in part):
+                if any([c.negate() in r.conditions for c in part]):
                     p_remainders[i].remove(r)
 
         # Recursively calculate probability of the remainder
-        for prob, part, remainder in zip(p_part_probs, p_remainders):
+        for prob, part, remainder in zip(p_part_probs, p_parts, p_remainders):
             # Exclude potentially identical predicates (idempotency)
             truth += prob * cls.evaluateOr(remainder, tgt,
                                            exclusions.union(part))
@@ -119,7 +119,7 @@ class Rule:
         remainder = set()
         for c in r2.conditions:
             # Return first rule if their intersection is empty
-            if c.negate() in r1.conditions():
+            if c.negate() in r1.conditions:
                 return set([r1])
             # Intersect first rule with negation of each predicate
             new = cls(r1.action, r1.conditions, r1.detype)
@@ -152,6 +152,7 @@ class Rule:
         msg.conditions = tuple(c.toMsg() for c in self.conditions)
         msg.detype = self.detype
         msg.truth = 1.0
+        return msg
         
     @classmethod
     def fromMsg(cls, msg):
