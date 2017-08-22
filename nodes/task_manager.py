@@ -5,6 +5,7 @@ import Queue
 from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
+from std_msgs.msg import String
 from geometry_msgs.msg import Point
 
 class TaskManager:

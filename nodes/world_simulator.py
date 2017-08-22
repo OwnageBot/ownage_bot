@@ -218,7 +218,9 @@ class WorldSimulator():
         # Generate cluster centers
         if 'proximity' in cluster_vars:
             # Centers are avatar locations if clustering by proximity
-            centers = ([self.home_pos] +
+            centers = ([Point(self.home_pos.x,
+                              self.home_pos.y,
+                              self.ground_lvl)] +
                        [av.position for av in self.object_db.values()])
         else:
             # Otherwise, just cluster based on absolute position

@@ -23,6 +23,6 @@ if __name__ == '__main__':
             input_pub.publish("cancel")
             print "Closing text prompt."
             break
-        rospy.sleep(0.01)
+        rospy.sleep(0.05)
         while not out_queue.empty():
             print out_queue.get()

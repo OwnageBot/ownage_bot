@@ -11,16 +11,26 @@ class DialogManager:
 
     def __init__(self):
         # Handle input and output to/from users
-        self.input_sub = rospy.Subscriber("dialog_in", String, self.inputCb)
-        self.output_pub = rospy.Publisher("dialog_out", String, queue_size=10)
+        self.input_sub = rospy.Subscriber("dialog_in", String,
+                                          self.inputCb)
+        self.output_pub = rospy.Publisher("dialog_out", String,
+                                          queue_size=10)
 
-        self.task_in_pub = rospy.Publisher("task_in", TaskMsg, queue_size=10)
-        self.task_out_sub = rospy.Publisher("task_out", String, self.taskOutCb)
+        # Handle input and output from task manager node
+        self.task_out_sub = rospy.Subscriber("task_out", String,
+                                             self.taskOutCb)
+        self.task_in_pub = rospy.Publisher("task_in", TaskMsg,
+                                           queue_size=10)
 
+        # Sends instructions to rule manager node
         self.perm_pub = rospy.Publisher("perm_input", PredicateMsg,
                                         queue_size=10)
         self.rule_pub = rospy.Publisher("rule_input", RuleMsg,
                                         queue_size=10)
+
+        # Looks up rule database from rule manager
+        self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
+        
         
     def inputCb(self, msg):
         """Handles dialog input and publishes commands."""
@@ -30,8 +40,7 @@ class DialogManager:
             return
         # List available actions
         if args[0] == "list":
-            out = "\n".join(["Available actions:"] + actions.db.keys())
-            self.output_pub.publish(out)
+            self.handleList(args)
             return
         # Try parsing a one-shot task (i.e. an action)
         task = parse.asAction(msg.data)
@@ -57,13 +66,45 @@ class DialogManager:
             return
 
         # Error out if nothing works
-        out = "Could not parse input, defaulting to idle task."
+        out = "Could not parse input."
         self.output_pub.publish(out)
 
     def taskOutCb(self, msg):
         """Handles output from TaskManager node."""
         # Just print response for now
         self.output_pub.publish(msg)
+
+    def handleList(self, args):
+        """Handles list command."""
+        if len(args) < 2:
+            out = "\n".join(["List one of the following:"] +
+                            ['objects', 'predicates', 'rules',
+                             'actions', 'tasks'])
+        elif args[1] == "objects":
+            objs = sorted(list(Object.universe()), key=lambda o : o.id)
+            obj_strs = ["{:3d} {:10} ({:04.2f},{:04.2f},{:04.2f})"\
+                        .format(o.id, o.color,
+                                o.position.x, o.position.y, o.position.z)
+                        for o in objs]
+            out = "\n".join(["Tracked objects:"] + obj_strs)
+        elif args[1] == "predicates":
+            out = "\n".join(["Available predicates:"] + predicates.db.keys())
+        elif args[1] == "rules":
+            act_names = args[2:]
+            rule_msgs = []
+            if len(act_names) == 0:
+                act_names = actions.db.keys()
+            for a in act_names:
+                rule_msgs += self.lookupRules(a).rule_set
+            rule_strs = [Rule.fromMsg(m).toPrint() for m in rule_msgs]
+            out = "\n".join(["Active rules:"] + rule_strs)
+        elif args[1] == "actions":
+            out = "\n".join(["Available actions:"] + actions.db.keys())
+        elif args[1] == "tasks":
+            out = "\n".join(["Available tasks:"] + tasks.db.keys())
+        else:
+            out = "Keyword not recognized."
+        self.output_pub.publish(out)
         
 if __name__ == '__main__':
     rospy.init_node('dialog_manager')
