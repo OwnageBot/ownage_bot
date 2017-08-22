@@ -14,7 +14,9 @@ class DialogManager:
         self.input_sub = rospy.Subscriber("dialog_in", String, self.inputCb)
         self.output_pub = rospy.Publisher("dialog_out", String, queue_size=10)
 
-        self.command_pub = rospy.Publisher("command", TaskMsg, queue_size=10)
+        self.task_in_pub = rospy.Publisher("task_in", TaskMsg, queue_size=10)
+        self.task_out_sub = rospy.Publisher("task_out", String, self.taskOutCb)
+
         self.perm_pub = rospy.Publisher("perm_input", PredicateMsg,
                                         queue_size=10)
         self.rule_pub = rospy.Publisher("rule_input", RuleMsg,
@@ -34,12 +36,12 @@ class DialogManager:
         # Try parsing a one-shot task (i.e. an action)
         task = parse.asAction(msg.data)
         if task:
-            self.command_pub.publish(task)
+            self.task_in_pub.publish(task)
             return
         # Try parsing a higher level task
         task = parse.asTask(msg.data)
         if task:
-            self.command_pub.publish(task)
+            self.task_in_pub.publish(task)
             return
         # Try to parse object-specific permissions
         perm = parse.asPerm(msg.data)
@@ -57,6 +59,11 @@ class DialogManager:
         # Error out if nothing works
         out = "Could not parse input, defaulting to idle task."
         self.output_pub.publish(out)
+
+    def taskOutCb(self, msg):
+        """Handles output from TaskManager node."""
+        # Just print response for now
+        self.output_pub.publish(msg)
         
 if __name__ == '__main__':
     rospy.init_node('dialog_manager')

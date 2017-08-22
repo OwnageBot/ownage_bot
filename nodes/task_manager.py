@@ -21,9 +21,8 @@ class TaskManager:
         self.action_queue = Queue.Queue()
 
         # Subscribers and publishers
-        self.command_sub = rospy.Subscriber("command", TaskMsg, self.commandCb)
-        self.feedback_pub = rospy.Publisher("feedback", FeedbackMsg,
-                                            queue_size=10)
+        self.task_in_sub = rospy.Subscriber("task_in", TaskMsg, self.taskInCb)
+        self.task_out_pub = rospy.Publisher("task_out", String, queue_size=10)
 
         # Look up clients for object permissions, and rules
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
@@ -37,11 +36,11 @@ class TaskManager:
         msg.stamp = rospy.Time.now()
         self.feedback_pub.publish(msg)
 
-    def commandCb(self, cmd):
-        """Handles incoming commands."""
+    def taskInCb(self, msg):
+        """Handles incoming tasks."""
         task = tasks.Idle
         # Cancel current action and clear action queue on interrupt
-        if cmd.interrupt:
+        if msg.interrupt:
             self.cur_task = task
             actions.Cancel.call()
             self.q_lock.acquire()
@@ -49,15 +48,15 @@ class TaskManager:
                 self.action_queue.get(False)
             self.q_lock.release()
         # Construct one-shot task if necessary
-        if cmd.oneshot:
-            action = actions.db[cmd.name]
+        if msg.oneshot:
+            action = actions.db[msg.name]
             if action.tgtype is type(None):
                 task = Task.oneShot(action, None)
             else:
-                tgt = action.tgtype.fromStr(cmd.target)
+                tgt = action.tgtype.fromStr(msg.target)
                 task = Task.oneShot(action, tgt)
-        elif cmd.name in tasks.db:
-            task = tasks.db[cmd.name]
+        elif msg.name in tasks.db:
+            task = tasks.db[msg.name]
         self.cur_task = task
 
     def updateActions(self):
@@ -123,7 +122,7 @@ class TaskManager:
             # Call action if all checks pass
             resp = action.call(tgt)
             if not resp.success:
-                print resp.response
+                task_out_pub.publish(resp.response)
 
 if __name__ == '__main__':
     rospy.init_node('task_manager')
