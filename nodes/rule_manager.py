@@ -16,8 +16,8 @@ class RuleManager:
     
     def __init__(self):
         # Learning parameters
-        self.add_perm_thresh = rospy.get_param("~add_perm_thresh", 0.5)
-        self.sub_perm_thresh = rospy.get_param("~sub_perm_thresh", 0.5)
+        self.add_perm_thresh = rospy.get_param("~add_perm_thresh", 0.9)
+        self.sub_perm_thresh = rospy.get_param("~sub_perm_thresh", 0.9)
         self.add_rule_thresh = rospy.get_param("~add_rule_thresh", 0.1)
         self.sub_rule_thresh = rospy.get_param("~sub_rule_thresh", 0.1)
         self.max_cand_rules = rospy.get_param("~max_cand_rules", 3)
@@ -136,9 +136,9 @@ class RuleManager:
         if success:
             self.mergeRule(rule_set, new_rule)
         else:
-            rospy.logdebug(("Cannot cover perm with [%s]" + 
-                            "w/o too many false positives."),
-                           new_rule.toPrint())
+            rospy.loginfo(("Cannot cover perm with [%s]" + 
+                           "w/o too many false positives."),
+                          new_rule.toPrint())
             
     def uncoverPerm(self, act_name, tgt, truth):
         """Uncover negative permission by refining overly general rules."""
@@ -164,19 +164,20 @@ class RuleManager:
             # Search for rule that minimizes positive perms covered
             score_thresh = self.sub_perm_thresh
             new_rule, new_score, success = \
-                self.ruleSearch(init_rule, score_thresh,
-                                score_f, [cover_f])
+                self.ruleSearch(init_rule, score_thresh, score_f, [cover_f])
 
             # Subtract found rule from covering rule
             if success:
                 remainder = Rule.difference(init_rule, new_rule)
                 rule_set.remove(init_rule)
+                rospy.loginfo("Removing conflicting rule: [%s].",
+                              init_rule.toPrint())
                 for new in remainder:
                     self.mergeRule(rule_set, new)
             else:
-                rospy.logdebug(("Cannot uncover perm from [%s]" +
-                                " w/o too much false negatives."),
-                                init_rule.toPrint())
+                rospy.loginfo(("Cannot uncover perm from [%s]" +
+                               " w/o too much false negatives."),
+                              init_rule.toPrint())
 
     def accomRule(self, given_rule, truth):
         """Tries to accommodate the given rule by modifying rule base."""
@@ -210,8 +211,8 @@ class RuleManager:
         if force or success:
             self.mergeRule(rule_set, new_rule)
         else:
-            rospy.logdebug("Cannot add [%s] w/o too much over-covering.",
-                           new_rule.toPrint())
+            rospy.loginfo("Cannot add [%s] w/o too much over-covering.",
+                          new_rule.toPrint())
         
     def uncoverRule(self, given_rule, truth, force=False):
         """Uncover negative rule by refining existing rules."""
@@ -231,8 +232,8 @@ class RuleManager:
 
         # Terminate if rule to be removed covers too many positive perms
         if not force and not success:
-            rospy.logdebug("Cannot subtract [%s] w/o too much uncovering.",
-                           new_rule.toPrint())
+            rospy.loginfo("Cannot subtract [%s] w/o too much uncovering.",
+                          new_rule.toPrint())
             return
         
         # Logically subtract (refined) given rule from each active rule
@@ -243,6 +244,7 @@ class RuleManager:
                 continue
             # Replace rule with remainder
             rule_set.remove(r)
+            rospy.loginfo("Removing conflicting rule: [%s].", r.toPrint())
             for new in remainder:
                 self.mergeRule(rule_set, new)
             
@@ -264,7 +266,7 @@ class RuleManager:
                 new_rules = filter(f, new_rules)
             # Return if no more rules
             if len(new_rules) == 0:
-                return best_rule
+                return best_rule, best_score, success
             # Compute and sort by scores
             scores = [score_f(r) for r in new_rules]
             sort_rules = sorted(zip(new_rules, scores), key=lambda p:p[1])
@@ -305,6 +307,7 @@ class RuleManager:
             
     def mergeRule(self, rule_set, new):
         """Merge new rule into rule set."""
+        rospy.loginfo("Merging new rule: [%s].", new.toPrint())
         # Merge with adjacent rules (e.g. (A & B) | (A & !B) -> A)
         for r in list(rule_set):
             sym_diff = new.conditions ^ r.conditions
@@ -313,6 +316,7 @@ class RuleManager:
                 if c1.name != c2.name:
                     continue
                 elif c1 == c2.negate():
+                    rospy.loginfo("Merging with: [%s].", r.toPrint())
                     new.conditions.discard(c1)
                     new.conditions.discard(c2)
                     rule_set.remove(r)
@@ -321,12 +325,15 @@ class RuleManager:
         for r in list(rule_set):
             # Do not add if generalization is already in rule set
             if new.conditions <= r.conditions:
+                rospy.loginfo("Subsumed by generalization: [%s].", r.toPrint())
                 break
             # Remove specializations that exist in rule set
             if new.conditions >= r.conditions:
+                rospy.loginfo("Subsuming specialization: [%s].", r.toPrint())
                 rule_set.remove(r)
         else:
             # Add rule if no generalizations found
+            rospy.loginfo("Adding merged rule: [%s].", new.toPrint())
             rule_set.add(new)
             
     def evalRuleSet(self, rule_set, perm_set):

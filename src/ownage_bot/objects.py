@@ -270,6 +270,16 @@ class Color(Category):
         self.name = name # Human-readable name
         self.hsv_range = (tuple(hsv_range[0]), tuple(hsv_range[1]))
 
+    def __eq__(self, other):
+        if type(other) == self.__class__:
+            return self.name == other.name
+        return NotImplemented
+        
+    def __ne__(self, other):
+        if type(other) == self.__class__:
+            return not self == other
+        return NotImplemented
+        
     def __hash__(self):
         return hash((self.name, self.hsv_range))
 
