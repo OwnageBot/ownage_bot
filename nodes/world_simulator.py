@@ -272,7 +272,8 @@ class WorldSimulator():
                 obj.color = "color" + str(c_id)
             else:
                 # Choose color uniformly at random
-                obj.color = "color" + str(r.choice(range(len(n_agents) + 1)))
+                col_id = r.choice(range(n_agents+1))
+                obj.color = "color" + str(col_id)
 
             # Assign ownership if not unowned
             if c_id > 0:

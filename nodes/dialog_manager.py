@@ -119,8 +119,8 @@ class DialogManager:
         """Handles reset command."""
         if len(args) < 2:
             out = "\n".join(["Reset one of the following:"] +
-                            ['permissions', 'rules', 'world'])
-        elif args[1] == "permissions":
+                            ['perms', 'rules', 'world', 'all'])
+        elif args[1] == "perms":
             self.resetPerms()
             return
         elif args[1] == "rules":
@@ -133,9 +133,18 @@ class DialogManager:
                 return
             except rospy.ROSException:
                 out = "World simulator does not seem to be running."
+                self.output_pub.publish(out)
+        elif args[1] == "all":
+            try:
+                rospy.wait_for_service("reset_world", timeout=0.5)
+                self.resetWorld()
+            except rospy.ROSException:
+                pass
+            self.resetPerms()
+            self.resetRules()
         else:
             out = "Keyword not recognized."
-        self.output_pub.publish(out)
+            self.output_pub.publish(out)
 
             
 if __name__ == '__main__':

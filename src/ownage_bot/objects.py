@@ -61,6 +61,10 @@ class Object:
     def toStr(self):
         """Minimal string representation of object."""
         return str(self.id)
+
+    def toPrint(self):
+        """Human-readable string."""
+        return "object {}".format(self.id)
     
     @classmethod
     def fromMsg(cls, msg):
@@ -125,6 +129,12 @@ class Agent:
         """Minimal string representation."""
         return str(self.id)
 
+    def toPrint(self):
+        """Human-readable string."""
+        if self.name != "":
+            return self.name
+        return "agent {}".format(self.id)
+    
     def toMsg(self):
         """Converts Agent to a ROS message."""
         msg = AgentMsg()
@@ -185,10 +195,23 @@ class Area:
         """Minimal string representation."""
         return str(self.points)
 
+    def toPrint(self):
+        """Human-readable string."""
+        if self.name != "":
+            return self.name
+        return self.toStr()
+    
     @classmethod
     def fromStr(cls, s):
         """Convert to Area from string."""
-        return cls(eval(s))
+        new = cls(eval(s))
+        # Try looking up name of area
+        areas = rospy.get_param("areas", dict())
+        for k, v in areas.iteritems():
+            a = cls(v["corners"], name=k)
+            if new == a:
+                return a
+        return new
 
     @classmethod
     def universe(cls):
@@ -228,6 +251,12 @@ class Location:
         """Minimal string representation."""
         return str(self.position)
 
+    def toPrint(self):
+        """Human-readable string."""
+        if self.name != "":
+            return self.name
+        return self.toStr()
+    
     @classmethod
     def fromStr(cls, s):
         """Convert to Location."""
@@ -254,6 +283,9 @@ class Category:
     def toStr(self):
         return self.name
 
+    def toPrint(self):
+        return self.name
+    
     @classmethod
     def fromStr(cls, s):
         return cls(s)

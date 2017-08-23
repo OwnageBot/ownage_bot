@@ -1,3 +1,4 @@
+import rospy
 import objects
 import predicates
 import actions
@@ -121,6 +122,9 @@ class Rule:
             # Return first rule if their intersection is empty
             if c.negate() in r1.conditions:
                 return set([r1])
+            # Skip subtraction if the result is an empty rule
+            if c in r1.conditions:
+                continue
             # Intersect first rule with negation of each predicate
             new = cls(r1.action, r1.conditions, r1.detype)
             new.conditions.add(c.negate())

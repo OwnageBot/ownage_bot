@@ -53,22 +53,22 @@
       <param name="arm_lvl" type="double" value="0.3"/>
     </node>
     
-    <!-- Task manager node, unused in manual mode -->
+    <!-- Task manager node -->
     <node pkg="ownage_bot" type="task_manager.py"
           name="task_manager" output="screen" unless="$(arg manual)">
     </node>
 
-    <!-- Rule manager node, unused in manual mode -->
+    <!-- Rule manager node -->
     <node pkg="ownage_bot" type="rule_manager.py"
           name="rule_manager" output="screen" unless="$(arg manual)">
     </node>
     
-    <!-- Dialog manager node, unused in manual mode -->
+    <!-- Dialog manager node -->
     <node pkg="ownage_bot" type="dialog_manager.py"
           name="dialog_manager" output="screen" unless="$(arg manual)">
     </node>
 
-    <!-- Text control node, unused in manual mode -->
+    <!-- Command prompt node -->
     <node pkg="ownage_bot" type="command_prompt.py"
           name="command_prompt" output="screen" unless="$(arg manual)"
 	  launch-prefix="gnome-terminal --command">

@@ -19,7 +19,7 @@ class Predicate:
         if isinstance(other, self.__class__):
             return (self.name == other.name and
                     self.argtypes == other.argtypes and
-                    self._bindStrs() == other._bindStrs() and
+                    self._bindings == other._bindings and
                     self._negated == other._negated)
             return True
         return NotImplemented
@@ -47,6 +47,7 @@ class Predicate:
         bound = self.__class__(self.name, self.argtypes)
         bound._bindings = list(args)
         bound._apply = self._apply
+        bound._negated = self._negated
         return bound
 
     def negate(self):
@@ -72,7 +73,7 @@ class Predicate:
     def toPrint(self):
         """Converts to human-readable string."""
         pre = "not" if self._negated else ""
-        pos = " ".join([b.toStr() for b in self._bindings if b is not None])
+        pos = " ".join([b.toPrint() for b in self._bindings if b is not None])
         return " ".join([pre, self.name, pos]).strip()
     
     def toMsg(self):
@@ -122,7 +123,7 @@ InCategory._apply = lambda obj, c: (0.0 if c not in obj.categories else
                                     obj.categories[c])
 
 IsColored = Predicate("isColored", [Object, Color])
-IsColored._apply = lambda obj, col: obj.color == col
+IsColored._apply = lambda obj, col: obj.color == col.name
 
 # List of available predicates for each robotic platform
 if os.getenv("OWNAGE_BOT_PLATFORM", "baxter") == "baxter":

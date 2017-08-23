@@ -186,10 +186,10 @@ class RuleManager:
 
             # Subtract found rule from covering rule
             if success:
+                rospy.loginfo("Subtracting [%s] from [%s].",
+                              new_rule.toPrint(), init_rule.toPrint())
                 remainder = Rule.difference(init_rule, new_rule)
                 rule_set.remove(init_rule)
-                rospy.loginfo("Removing conflicting rule: [%s].",
-                              init_rule.toPrint())
                 for new in remainder:
                     self.mergeRule(rule_set, new)
             else:
@@ -261,8 +261,9 @@ class RuleManager:
             if r in remainder:
                 continue
             # Replace rule with remainder
+            rospy.loginfo("Subtracting [%s] from [%s].",
+                          new_rule.toPrint(), r.toPrint())
             rule_set.remove(r)
-            rospy.loginfo("Removing conflicting rule: [%s].", r.toPrint())
             for new in remainder:
                 self.mergeRule(rule_set, new)
             
