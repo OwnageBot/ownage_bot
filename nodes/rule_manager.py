@@ -324,9 +324,13 @@ class RuleManager:
             refinements += [n1, n2]
         return refinements
             
-    def mergeRule(self, rule_set, new):
+    def mergeRule(self, rule_set, new, perm_set=None):
         """Merge new rule into rule set."""
+
         rospy.loginfo("Merging new rule: [%s].", new.toPrint())
+        if perm_set == None:
+            perm_set = self.perm_db[new.action.name]
+
         # Merge with adjacent rules (e.g. (A & B) | (A & !B) -> A)
         for r in list(rule_set):
             sym_diff = new.conditions ^ r.conditions
@@ -340,6 +344,10 @@ class RuleManager:
                     new.conditions.discard(c2)
                     rule_set.remove(r)
 
+        # Compute permissions covered by new rule
+        new_cover = set([tgt for tgt, val in perm_set.items()
+                         if new.evaluate(tgt) >= 0.5])
+                    
         # Search for generalizations or specializations after merging
         for r in list(rule_set):
             # Do not add if generalization is already in rule set
@@ -350,6 +358,13 @@ class RuleManager:
             if new.conditions >= r.conditions:
                 rospy.loginfo("Subsuming specialization: [%s].", r.toPrint())
                 rule_set.remove(r)
+            # Remove more complex rules which are covered by new one
+            if len(new.conditions) <= len(r.conditions):
+                r_cover = set([tgt for tgt, val in perm_set.items()
+                               if r.evaluate(tgt) >= 0.5])
+                if r_cover <= new_cover:
+                    rospy.loginfo("Subsuming rule: [%s].", r.toPrint())
+                    rule_set.remove(r)
         else:
             # Add rule if no generalizations found
             rospy.loginfo("Adding merged rule: [%s].", new.toPrint())
