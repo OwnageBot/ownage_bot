@@ -39,8 +39,12 @@ class WorldSimulator():
         self.gripped = {"left": -1, "right": -1}
         # Last pick up location for each arm
         self.pick_loc = {"left": Point(), "right": Point()}
+
+        # Server that handles simulation reset
+        self.rst_world_srv = \
+            rospy.Service("reset_world", Trigger, self.resetWorldCb)
         
-        # Servers that list objects and respond to actions
+        # Servers that list objects and agents
         self.lkp_obj_srv = \
             rospy.Service("lookup_object", LookupObject, self.lookupObjectCb)
         self.lst_obj_srv = \
@@ -49,6 +53,8 @@ class WorldSimulator():
             rospy.Service("lookup_agent", LookupAgent, self.lookupAgentCb)
         self.lst_agt_srv = \
             rospy.Service("list_agents", ListAgents, self.listAgentsCb)
+
+        # Servers that respond to actions
         self.act_l_srv = \
             rospy.Service("/action_provider/service_left", CallAction,
                           lambda req : self.actionCb("left", req))
@@ -61,11 +67,17 @@ class WorldSimulator():
         self.cnc_r_srv = \
             rospy.Service("/action_provider/cancel_right", Trigger,
                           lambda req : TriggerResponse(True, ""))
-
+        
         # Add some default scenarios
         self.addScenario("blocks_world", self.genBlocksWorld)
         self.addScenario("shared_desk", self.genSharedDesk)
         self.addScenario("assembly_line", self.genAssemblyLine)
+
+    def resetWorldCb(self, req):
+        """Clears and regenerates the simulated world."""
+        scenario = rospy.get_param("~scenario", "blocks_world")
+        self.genScenario(scenario)
+        return TriggerResponse(True, "")
         
     def lookupObjectCb(self, req):
         """ Returns properties of particular object"""

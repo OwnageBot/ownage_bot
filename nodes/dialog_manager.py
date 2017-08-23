@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import rospy
 from std_msgs.msg import String
+from std_srvs.srv import Trigger
 from geometry_msgs.msg import Point
 from ownage_bot import *
 from ownage_bot.msg import *
@@ -30,7 +31,11 @@ class DialogManager:
 
         # Looks up rule database from rule manager
         self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
-        
+
+        # Resets various databases
+        self.resetPerms = rospy.ServiceProxy("reset_perms", Trigger)
+        self.resetRules = rospy.ServiceProxy("reset_rules", Trigger)
+        self.resetWorld = rospy.ServiceProxy("reset_world", Trigger)
         
     def inputCb(self, msg):
         """Handles dialog input and publishes commands."""
@@ -38,9 +43,13 @@ class DialogManager:
         
         if len(args) == 0:
             return
-        # List available actions
+        # List various entities (actions, rules, etc.)
         if args[0] == "list":
             self.handleList(args)
+            return
+        # Reset various entities (rules, permissions, simulation)
+        if args[0] == "reset":
+            self.handleReset(args)
             return
         # Try parsing a one-shot task (i.e. an action)
         task = parse.asAction(msg.data)
@@ -105,7 +114,30 @@ class DialogManager:
         else:
             out = "Keyword not recognized."
         self.output_pub.publish(out)
-        
+
+    def handleReset(self, args):
+        """Handles reset command."""
+        if len(args) < 2:
+            out = "\n".join(["Reset one of the following:"] +
+                            ['permissions', 'rules', 'world'])
+        elif args[1] == "permissions":
+            self.resetPerms()
+            return
+        elif args[1] == "rules":
+            self.resetRules()
+            return
+        elif args[1] == "world":
+            try:
+                rospy.wait_for_service("reset_world", timeout=0.5)
+                self.resetWorld()
+                return
+            except rospy.ROSException:
+                out = "World simulator does not seem to be running."
+        else:
+            out = "Keyword not recognized."
+        self.output_pub.publish(out)
+
+            
 if __name__ == '__main__':
     rospy.init_node('dialog_manager')
     dialog_manager = DialogManager()

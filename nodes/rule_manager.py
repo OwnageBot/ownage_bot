@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import rospy
 from collections import namedtuple
+from std_srvs.srv import Trigger, TriggerResponse
 from geometry_msgs.msg import Point
 from ownage_bot import *
 from ownage_bot.msg import *
@@ -46,7 +47,24 @@ class RuleManager:
                                            self.lookupPermCb)
         self.lkp_rule_srv = rospy.Service("lookup_rules", LookupRules,
                                            self.lookupRulesCb)
+        self.rst_perm_srv = rospy.Service("reset_perms", Trigger,
+                                          self.resetPermsCb)
+        self.rst_rule_srv = rospy.Service("reset_rules", Trigger,
+                                          self.resetRulesCb)
 
+    def resetPermsCb(self, req):
+        """Clears the permission database."""
+        for a in actions.db.iterkeys():
+            self.perm_db[a].clear()
+        return TriggerResponse(True, "")
+
+    def resetRulesCb(self, req):
+        """Clears the given rule and active rule databases."""
+        for a in actions.db.iterkeys():
+            self.active_rule_db[a].clear()
+            self.given_rule_db[a].clear()
+        return TriggerResponse(True, "")
+        
     def lookupPermCb(self, req):
         """Returns action permission for requested action-target pair."""
         if req.action in self.perm_db:
