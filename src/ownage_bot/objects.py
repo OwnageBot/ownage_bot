@@ -7,6 +7,40 @@ from ownage_bot.msg import *
 from ownage_bot.srv import *
 from geometry_msgs.msg import Point, Quaternion
 
+class Constant:
+    """Stores special constants with string representations."""
+    def __init__(self, name):
+        self.name = name
+
+    def __eq__(self, other):
+        if type(other) == self.__class__:
+            return self.name == other.name
+        return NotImplemented
+        
+    def __ne__(self, other):
+        if type(other) == self.__class__:
+            return not self == other
+        return NotImplemented
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def toStr(self):
+        return "_" + self.name + "_"
+
+    def toPrint(self):
+        return self.name
+    
+    @classmethod
+    def fromStr(cls, s):
+        return cls(s.strip('_'))
+
+# Constant that represents existential quantifier
+Any = Constant("any")
+
+# Constant that represents empty / unbound argument
+Nil = Constant("nil")
+        
 class Object:
     """Represents objects in the workspace and their properties."""
 

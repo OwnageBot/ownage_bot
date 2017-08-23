@@ -69,7 +69,7 @@ class RuleManager:
         """Returns action permission for requested action-target pair."""
         if req.action in self.perm_db:
             action = actions.db[req.action]
-            tgt = (None if action.tgtype is type(None) else
+            tgt = (objects.Nil if action.tgtype is type(None) else
                    action.tgtype.fromStr(req.target))
             if tgt in self.perm_db[action.name]:
                 perm = self.perm_db[action.name][tgt]
@@ -96,11 +96,12 @@ class RuleManager:
         action = actions.db[msg.predicate]
 
         # Handle actions without targets
-        if len(msg.bindings) == 0 and action.tgtype is type(None):
-            self.perm_db[action.name][None] = msg.truth
+        if len(msg.bindings) != 1:
+            raise TypeError("Action perm should have exactly one argument.")
+        if (msg.bindings[0] == objects.Nil.toStr() and
+            action.tgtype is type(None)):
+            self.perm_db[action.name][objects.Nil] = msg.truth
             return
-        if len(msg.bindings) > 1:
-            raise TypeError("Action perm should have at most one argument.")
         
         tgt = action.tgtype.fromStr(msg.bindings[0])
 
@@ -310,7 +311,7 @@ class RuleManager:
                 raise TypeError("Only up to 2-place predicates supported.")
             conditions.remove(p)
             subs = p.argtypes[1].universe()
-            bound = set([p.bind([None, s]) for s in subs])
+            bound = set([p.bind([objects.Nil, s]) for s in subs])
             conditions |= bound
                 
         for p in conditions:
