@@ -1,5 +1,6 @@
 import os
 import rospy
+import copy
 from objects import *
 from ownage_bot.msg import *
 
@@ -10,6 +11,7 @@ class Predicate:
         self.name = name # Human-readable name
         self.n_args = len(argtypes) # Number of arguments
         self.argtypes = argtypes # List of argument types
+        self.exc_arg = -1 # Postion of arg for which atoms are exclusive
         self._negated = False # Whether predicate is negated
         self._bindings = [Nil] * self.n_args  # All arguments intially free
         self._apply = lambda *args : True # Implementation of predicate
@@ -38,6 +40,15 @@ class Predicate:
         return tuple(b.toStr() if type(b) is not list else
                      "|" + "|".join([a.toStr() for a in b]) + "|"
                      for b in self._bindings)
+
+    def copy(self):
+        """Creates copy of current predicate."""            
+        cp = self.__class__(self.name, self.argtypes)
+        cp.exc_arg = self.exc_arg
+        cp._bindings = list(self._bindings)
+        cp._apply = self._apply
+        cp._negated = self._negated
+        return cp
     
     def bind(self, args):
         """Bind arguments to copy of predicate, None leavs arg unbound."""
@@ -58,24 +69,44 @@ class Predicate:
             if not isinstance(a, t):
                 raise TypeError("Wrong argument type.")
 
-        bound = self.__class__(self.name, self.argtypes)
-        bound._bindings = list(args)
-        bound._apply = self._apply
-        bound._negated = self._negated
-
-        # Make sure internal lists are properly ordered
-        for i, a in enumerate(bound._bindings):
+        bound = self.copy()
+        # Bind arguments
+        for i, a in enumerate(args):
             if type(a) in [list, tuple]:
+                # Make sure internal lists are properly ordered
                 bound._bindings[i] = sorted(a, key=lambda x : x.toStr())
+            else:
+                bound._bindings[i] = a                
 
         return bound
 
     def negate(self):
-        negation = self.__class__(self.name, self.argtypes)
-        negation._bindings = list(self._bindings)
-        negation._apply = self._apply
+        """Returns negated copy of self."""
+        negation = self.copy()
         negation._negated = not self._negated
         return negation
+
+    def simplify(self):
+        """Simplifies internal lists to Any or negations of shorter lists."""
+        simple = self.copy()
+
+        for i in range(self.n_args):
+            arg = simple._bindings[i]
+            if type(arg) is not list:
+                continue
+            universe = t.universe()
+            # Replace with Any if all possibilities are present
+            if len(arg) == len(universe) and arg == universe:
+                simple._bindings[i] = Any
+                continue
+            # Replace with negation of shorter list if exclusivity holds
+            if self.exc_arg == i and len(arg) > len(universe)/2:
+                for a in arg:
+                    universe.remove(a)
+                simple._bindings[i] = universe
+                simple._negated = not simple._negated
+
+        return simple
     
     def apply(self, *args):
         """Applies implementation with bindings and negation."""
@@ -90,20 +121,20 @@ class Predicate:
         multi_arg_pos = []
         
         # Type check before applying
-        for i, t, a in zip(range(self.n_args), self.argtypes, list(all_args)):
-            if a is Any:
+        for i in range(self.n_args):
+            if all_args[i] is Any:
                 all_args[i] = t.universe() # Replace Any with universe
                 multi_arg_pos.append(i)
                 continue
-            if type(a) in [list, tuple]:
-                if len(a) == 0:
+            if type(all_args[i]) in [list, tuple]:
+                if len(all_args[i]) == 0:
                     raise TypeError("List arguments cannot be empty.")
-                for b in a:
-                    if not isinstance(b, t):
+                for b in all_args[i]:
+                    if not isinstance(b, self.argtypes[i]):
                         raise TypeError("Wrong argument type.")
                 multi_arg_pos.append(i)
                 continue
-            if not isinstance(a, t):
+            if not isinstance(all_args[i], self.argtypes[i]):
                 raise TypeError("Argument is the wrong type.")
 
         # Return early if there are no list arguments
@@ -197,6 +228,7 @@ InCategory._apply = lambda obj, c: (0.0 if c not in obj.categories else
 
 IsColored = Predicate("isColored", [Object, Color])
 IsColored._apply = lambda obj, col: float(obj.color == col.name)
+IsColored.exc_arg = 1 # Colors are exclusive categories
 
 # List of available predicates for each robotic platform
 if os.getenv("OWNAGE_BOT_PLATFORM", "baxter") == "baxter":
