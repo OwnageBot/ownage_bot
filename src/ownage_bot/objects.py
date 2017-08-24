@@ -129,9 +129,10 @@ class Object:
 
     @classmethod
     def universe(cls):
-        """Returns the set of all known Objects."""
+        """Returns a sorted list of all known Objects."""
         rospy.wait_for_service("list_objects")
-        return set([cls.fromMsg(m) for m in cls._listObjects().objects])
+        l = [cls.fromMsg(m) for m in cls._listObjects().objects]
+        return sorted(l, key = lambda x : x.toStr())
     
 class Agent:
     """Represents an agent that can own and act on objects."""
@@ -198,8 +199,10 @@ class Agent:
     
     @classmethod
     def universe(cls):
-        """Returns the set of all known Agents."""
-        return set([cls.fromMsg(m) for m in cls._listAgents().agents])
+        """Returns a sorted list of all known Agents."""
+        rospy.wait_for_service("list_agents")
+        l = [cls.fromMsg(m) for m in cls._listAgents().agents]
+        return sorted(l, key = lambda x : x.toStr())
     
 class Area:
     """Defines a 2D polygonal area."""
@@ -249,13 +252,10 @@ class Area:
 
     @classmethod
     def universe(cls):
-        """Returns the set of all known Areas (defined in param server)."""
-        area_set = set()
+        """Returns a sorted list of all Areas (defined in param server)."""
         areas = rospy.get_param("areas", dict())
-        for k, v in areas.iteritems():
-            points = v["corners"]
-            area_set.add(cls(points, name=k))
-        return area_set
+        l = [cls(v["corners"], name=k) for k, v in areas.iteritems()]
+        return sorted(l, key = lambda x : x.toStr())
     
 class Location:
     """Defines a location in space."""
@@ -326,9 +326,9 @@ class Category:
 
     @classmethod
     def universe(cls):
-        """Returns the set of all known Categories."""
+        """Returns a sorted list of all known Categories."""
         names = rospy.get_param("categories", [])
-        return set([cls(n) for n in names])
+        return sorted([cls(n) for n in names], lambda x : x.toStr())
 
 class Color(Category):
     """Defines a color category."""
@@ -356,10 +356,9 @@ class Color(Category):
 
     @classmethod
     def universe(cls):
-        """Returns the set of all known Colors."""
+        """Returns a sorted list of all known Colors."""
         colors = rospy.get_param("colors", dict())
-        return set([cls(name, hsv_range) for
-                    name, hsv_range in colors.items()])
+        return sorted([cls(k, v) for k, v in colors], lambda x : x.toStr())
     
 def dist(obj1, obj2):
     """Calculates Euclidean distance between two objects."""

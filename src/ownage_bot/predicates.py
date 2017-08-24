@@ -35,19 +35,39 @@ class Predicate:
 
     def _bindStrs(self):
         """Convert bindings to tuple of strings."""
-        return tuple(b.toStr() for b in self._bindings)
+        return tuple(b.toStr() if type(b) is not list else
+                     "|" + "|".join([a.toStr() for a in b]) + "|"
+                     for b in self._bindings)
     
     def bind(self, args):
         """Bind arguments to copy of predicate, None leavs arg unbound."""
         if len(args) != self.n_args:
             raise ValueError("Wrong number of arguments.")
+
+        # Type check for each argument, or internal lists of arguments
         for a, t in zip(args, self.argtypes):
-            if not isinstance(a, t) and a is not None:
+            if a is Nil or a is Any:
+                continue
+            if type(a) in [list, tuple]:
+                if len(a) == 0:
+                    raise TypeError("List arguments cannot be empty.")
+                for b in a:
+                    if not isinstance(b, t):
+                        raise TypeError("Wrong argument type.")
+                continue
+            if not isinstance(a, t):
                 raise TypeError("Wrong argument type.")
+
         bound = self.__class__(self.name, self.argtypes)
         bound._bindings = list(args)
         bound._apply = self._apply
         bound._negated = self._negated
+
+        # Make sure internal lists are properly ordered
+        for i, a in enumerate(bound._bindings):
+            if type(a) in [list, tuple]:
+                bound._bindings[i] = sorted(a, key=lambda x : x.toStr())
+
         return bound
 
     def negate(self):
@@ -65,59 +85,83 @@ class Predicate:
         all_args = [args.pop() if a is Nil else a for a in self._bindings]
         if Nil in all_args:
             raise ValueError("Wrong number of arguments.")
-        for t, a in zip(self.argtypes, all_args):
-            if not isinstance(a, t) and a not is Any:
+
+        # Flags which argument positions are lists
+        multi_arg_pos = []
+        
+        # Type check before applying
+        for i, t, a in zip(range(self.n_args), self.argtypes, list(all_args)):
+            if a is Any:
+                all_args[i] = t.universe() # Replace Any with universe
+                multi_arg_pos.append(i)
+                continue
+            if type(a) in [list, tuple]:
+                if len(a) == 0:
+                    raise TypeError("List arguments cannot be empty.")
+                for b in a:
+                    if not isinstance(b, t):
+                        raise TypeError("Wrong argument type.")
+                multi_arg_pos.append(i)
+                continue
+            if not isinstance(a, t):
                 raise TypeError("Argument is the wrong type.")
 
-        # No need to evaluate predicate on universe if all are bound
-        if Any not in all_args:
+        # Return early if there are no list arguments
+        if len(multi_arg_pos) == 0:
             val = self._apply(*all_args)
             return (1.0-val) if self._negated else val
 
-        # Continuously replace all Any arguments
-        any_stack = [all_args]
-        bound_stack = []
-        while len(any_stack > 0):
-            cur_args = any_stack.pop()
-            if Any not in cur_args:
-                bound_stack.append(cur_args)
-                continue
-            i = cur_args.index(Any)
-            for a in self.argtypes[i].universe():
-                new_args = list(cur_args)
-                new_args[i] = a
-                any_stack.append(new_args)
-
-        # Evaluate all substitutions and return maximum
-        max_val = 0.0
-        for cur_args in bound_stack:
-            val = float(self._apply(*all_args))
-            max_val = val if val > max_val else max_val
-            if max_val == 1.0:
+        # Expand all internal lists
+        cur_stack, new_stack = [all_args], []
+        for i in multi_arg_pos:
+            for cur_args in cur_stack:
+                list_arg = cur_args[i]
+                for a in list_arg:
+                    new_args = list(cur_args)
+                    new_args[i] = a
+                    new_stack.append(new_args)
+            cur_stack = new_stack
+            new_stack = []
+                
+        # Evaluate all substitutions, combine using noisy or
+        neg_val = 1.0
+        for cur_args in cur_stack:
+            neg_val *= 1-self._apply(*cur_args)
+            if neg_val == 0:
                 break
-        return (1.0-max_val) if self._negated else max_val
+        return neg_val if self._negated else 1-neg_val
 
     def toPrint(self):
         """Converts to human-readable string."""
         pre = "not" if self._negated else ""
-        pos = " ".join([b.toPrint() for b in self._bindings if b is not None])
+        pos = " ".join([b.toPrint() if type(b) is not list else
+                        " or ".join([a.toPrint() for a in b])
+                        for b in self._bindings if b is not Nil])
         return " ".join([pre, self.name, pos]).strip()
     
     def toMsg(self):
         """Convert to PredicateMsg."""
         msg = PredicateMsg(predicate=self.name, negated=self._negated)
         msg.bindings = self._bindStrs()
-        msg.truth = -1.0 if None in self._bindings else self.apply()
+        msg.truth = -1.0 if Nil in self._bindings else self.apply()
         return msg
     
     @classmethod
     def fromMsg(cls, msg):
         """Convert from message by looking up database."""
         p = db[msg.predicate] # Base predicate properties should be unmodified
-        # Detect Any or Nil by checking for underscores
-        bindings = [Constant.fromStr(s) if (s[0]+s[-1]) == '__'
-                    else t.fromStr(s) for t, s in
-                    zip(p.argtypes, msg.bindings)]
+        bindings = []
+        for s, t in zip(msg.bindings, p.argtypes):
+            if (s[0]+s[-1]) == '__':
+                # Detect Any or Nil by checking for underscores
+                bindings.append(Constant.fromStr(s))
+            elif (s[0]+s[-1]) == '||':
+                # Detect internal disjunction by checking for bar '|' symbol
+                l = s.strip('|').split('|')
+                bindings.append([t.fromStr(a) for a in l])
+            else:
+                # Directly convert from string to argtype
+                bindings.append(t.fromStr(s))
         p = p.bind(bindings) # This creates a new Predicate object
         p._negated = msg.negated # Which can safely be modified
         return p
