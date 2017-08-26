@@ -85,9 +85,16 @@ class Predicate:
         negation = self.copy()
         negation._negated = not self._negated
         return negation
-
+    
     def simplify(self):
-        """Simplifies internal lists to Any or negations of shorter lists."""
+        """Simplifies disjunct arguments.
+
+        Example (assuming there are only 3 agents):
+        ownedBy(Nil, [1,2,3]) -> ownedBy(Nil, Any)
+
+        Example (assuming Red, Green and Blue are the only colors):        
+        isColored(Nil, [Red, Green]) -> not isColored(Nil, Blue)
+        """
         simple = self.copy()
 
         for i in range(self.n_args):
@@ -103,10 +110,34 @@ class Predicate:
             if self.exc_arg == i and len(arg) > len(universe)/2:
                 for a in arg:
                     universe.remove(a)
+                if len(universe) = 1:
+                    universe = universe[0]
                 simple._bindings[i] = universe
                 simple._negated = not simple._negated
 
         return simple
+
+    @staticmethod
+    def merge(p1, p2):
+        """Merges arguments into disjuncts."""
+        if p1.name != p2.name or p1._negated != p2._negated:
+            raise TypeError("Base predicate and negation differ.")
+        bindings = [Nil] * p1.n_args
+        for i in range(p1.n_args):
+            b1, b2 = p1._bindings[i], p2._bindings[i]
+            if b1 == Nil and b2 == Nil:
+                continue
+            if b1 == Nil or b2 == Nil:
+                raise ValueError("Both arguments must be bound.")
+            if b1 == Any or b2 == Any:
+                bindings[i] = Any
+                continue
+            if type(b1) is not list:
+                b1 = [b1]
+            if type(b2) is not list:
+                b2 = [b2]
+            bindings[i] = b1 + b2
+        return p1.bind(bindings)
     
     def apply(self, *args):
         """Applies implementation with bindings and negation."""
