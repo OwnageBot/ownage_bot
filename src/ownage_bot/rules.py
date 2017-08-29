@@ -142,6 +142,13 @@ class Rule:
                 return cls(r1.action, [], r1.detype)
             new.conditions.add(c)
         return new
+
+    @classmethod
+    def merge(cls, r1, r2):
+        """Merges two rules."""
+        if len(args) < 2:
+            raise ValueError("Need to compare at least two rules.")
+        pass
     
     def toPrint(self):
         """Converts to human-readable string."""
