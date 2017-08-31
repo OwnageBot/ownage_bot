@@ -57,7 +57,7 @@ class Predicate:
 
         # Type check for each argument, or internal lists of arguments
         for a, t in zip(args, self.argtypes):
-            if a is Nil or a is Any:
+            if a == Nil or a == Any:
                 continue
             if type(a) in [list, tuple]:
                 if len(a) == 0:
@@ -99,9 +99,10 @@ class Predicate:
 
         for i in range(self.n_args):
             arg = simple._bindings[i]
+            argtype = simple.argtypes[i]
             if type(arg) is not list:
                 continue
-            universe = t.universe()
+            universe = argtype.universe()
             # Replace with Any if all possibilities are present
             if len(arg) == len(universe) and arg == universe:
                 simple._bindings[i] = Any
@@ -110,7 +111,7 @@ class Predicate:
             if self.exc_arg == i and len(arg) > len(universe)/2:
                 for a in arg:
                     universe.remove(a)
-                if len(universe) = 1:
+                if len(universe) == 1:
                     universe = universe[0]
                 simple._bindings[i] = universe
                 simple._negated = not simple._negated
@@ -144,7 +145,7 @@ class Predicate:
 
         # Substitute arguments into Nil slots
         args = list(reversed(args))
-        all_args = [args.pop() if a is Nil else a for a in self._bindings]
+        all_args = [args.pop() if a == Nil else a for a in self._bindings]
         if Nil in all_args:
             raise ValueError("Wrong number of arguments.")
 
@@ -153,8 +154,9 @@ class Predicate:
         
         # Type check before applying
         for i in range(self.n_args):
-            if all_args[i] is Any:
-                all_args[i] = t.universe() # Replace Any with universe
+            argtype = self.argtypes[i]
+            if all_args[i] == Any:
+                all_args[i] = argtype.universe() # Replace Any with universe
                 multi_arg_pos.append(i)
                 continue
             if type(all_args[i]) in [list, tuple]:
@@ -198,7 +200,7 @@ class Predicate:
         pre = "not" if self._negated else ""
         pos = " ".join([b.toPrint() if type(b) is not list else
                         " or ".join([a.toPrint() for a in b])
-                        for b in self._bindings if b is not Nil])
+                        for b in self._bindings if b != Nil])
         return " ".join([pre, self.name, pos]).strip()
     
     def toMsg(self):

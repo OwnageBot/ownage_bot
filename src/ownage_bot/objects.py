@@ -13,12 +13,12 @@ class Constant:
         self.name = name
 
     def __eq__(self, other):
-        if type(other) == self.__class__:
+        if isinstance(other, self.__class__):
             return self.name == other.name
         return NotImplemented
         
     def __ne__(self, other):
-        if type(other) == self.__class__:
+        if isinstance(other, self.__class__):
             return not self == other
         return NotImplemented
 
@@ -132,7 +132,7 @@ class Object:
         """Returns a sorted list of all known Objects."""
         rospy.wait_for_service("list_objects")
         l = [cls.fromMsg(m) for m in cls._listObjects().objects]
-        return sorted(l, key = lambda x : x.toStr())
+        return sorted(l, key=lambda x : x.toStr())
     
 class Agent:
     """Represents an agent that can own and act on objects."""
@@ -328,7 +328,7 @@ class Category:
     def universe(cls):
         """Returns a sorted list of all known Categories."""
         names = rospy.get_param("categories", [])
-        return sorted([cls(n) for n in names], lambda x : x.toStr())
+        return sorted([cls(n) for n in names], key=lambda x : x.toStr())
 
 class Color(Category):
     """Defines a color category."""
@@ -358,7 +358,8 @@ class Color(Category):
     def universe(cls):
         """Returns a sorted list of all known Colors."""
         colors = rospy.get_param("colors", dict())
-        return sorted([cls(k, v) for k, v in colors], lambda x : x.toStr())
+        l = [cls(name, hsv_range) for name, hsv_range in colors.items()]
+        return sorted(l, key=lambda x : x.toStr())
     
 def dist(obj1, obj2):
     """Calculates Euclidean distance between two objects."""

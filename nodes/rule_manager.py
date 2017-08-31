@@ -279,7 +279,7 @@ class RuleManager:
             if success:
                 break
             # Construct list of refinements from previous candidates
-            new_rules = [self.refineRule(r) for r in cand_rules]
+            new_rules = [r.refine() for r in cand_rules]
             new_rules = [r for l in new_rules for r in l]
             # Select rules which match filters
             for f in filters:
@@ -297,33 +297,6 @@ class RuleManager:
                 best_rule, best_score = sort_rules[0]
                 success = best_score <= score_thresh
         return best_rule, best_score, success
-
-    def refineRule(self, rule):
-        """Return list of refinements by adding predicates to rule."""
-        refinements = []
-        conditions = set(predicates.db.values())
-
-        # Exhaustively substitute all 2nd-place arguments
-        for p in list(conditions):
-            if p.n_args < 2:
-                continue
-            if p.n_args > 2:
-                raise TypeError("Only up to 2-place predicates supported.")
-            conditions.remove(p)
-            subs = p.argtypes[1].universe()
-            bound = set([p.bind([objects.Nil, s]) for s in subs])
-            conditions |= bound
-                
-        for p in conditions:
-            # Check for idempotency / complementation
-            if p in rule.conditions or p.negate() in rule.conditions:
-                continue
-            n1 = Rule(rule.action, rule.conditions, rule.detype)
-            n2 = Rule(rule.action, rule.conditions, rule.detype)
-            n1.conditions.add(p)
-            n2.conditions.add(p.negate())
-            refinements += [n1, n2]
-        return refinements
             
     def mergeRule(self, rule_set, new, perm_set=None):
         """Merge new rule into rule set."""
@@ -334,16 +307,12 @@ class RuleManager:
 
         # Merge with adjacent rules (e.g. (A & B) | (A & !B) -> A)
         for r in list(rule_set):
-            sym_diff = new.conditions ^ r.conditions
-            if len(sym_diff) == 2:
-                c1, c2 = sym_diff.pop(), sym_diff.pop()
-                if c1.name != c2.name:
-                    continue
-                elif c1 == c2.negate():
-                    rospy.loginfo("Merging with: [%s].", r.toPrint())
-                    new.conditions.discard(c1)
-                    new.conditions.discard(c2)
-                    rule_set.remove(r)
+            merged = Rule.merge(r, new)
+            if merged == None:
+                continue
+            rospy.loginfo("Merging with: [%s].", r.toPrint())
+            rule_set.remove(r)
+            new = merged
 
         # Compute permissions covered by new rule
         new_cover = set([tgt for tgt, val in perm_set.items()
@@ -352,13 +321,14 @@ class RuleManager:
         # Search for generalizations or specializations after merging
         for r in list(rule_set):
             # Do not add if generalization is already in rule set
-            if new.conditions <= r.conditions:
+            if new.conditions >= r.conditions:
                 rospy.loginfo("Subsumed by generalization: [%s].", r.toPrint())
                 break
             # Remove specializations that exist in rule set
-            if new.conditions >= r.conditions:
+            if new.conditions <= r.conditions:
                 rospy.loginfo("Subsuming specialization: [%s].", r.toPrint())
                 rule_set.remove(r)
+                continue
             # Remove more complex rules which are covered by new one
             if len(new.conditions) <= len(r.conditions):
                 r_cover = set([tgt for tgt, val in perm_set.items()

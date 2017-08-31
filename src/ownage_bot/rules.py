@@ -112,6 +112,38 @@ class Rule:
                     
         return truth
 
+    def refine(self):
+        """Return list of refinements by adding predicates to rule."""
+        refinements = []
+        conditions = set(predicates.db.values())
+
+        # Exhaustively substitute all non-1st-place arguments
+        for p in list(conditions):
+            if p.n_args < 2:
+                continue
+            cur_stack, new_stack = [p], []
+            for i in range(1, p.n_args):
+                atoms = [objects.Any] + p.argtypes[i].universe()
+                for q in cur_stack:
+                    bound = [q.bind(q._bindings[0:i] + [a] + q._bindings[i+1:])
+                             for a in atoms]
+                    new_stack += bound
+                cur_stack = new_stack
+                new_stack = []
+            conditions.remove(p)
+            conditions |= set(cur_stack)
+                
+        for p in conditions:
+            # Check for idempotency / complementation
+            if p in self.conditions or p.negate() in self.conditions:
+                continue
+            n1 = self.__class__(self.action, self.conditions, self.detype)
+            n2 = self.__class__(self.action, self.conditions, self.detype)
+            n1.conditions.add(p)
+            n2.conditions.add(p.negate())
+            refinements += [n1, n2]
+        return refinements
+    
     @classmethod
     def difference(cls, r1, r2):
         """Returns logical subtraction of r2 from r1 as a rule set."""
@@ -145,10 +177,29 @@ class Rule:
 
     @classmethod
     def merge(cls, r1, r2):
-        """Merges two rules."""
-        if len(args) < 2:
-            raise ValueError("Need to compare at least two rules.")
-        pass
+        """Merges two rules, returns None if not mergeable."""
+        if r1.action.name != r2.action.name or r1.detype != r2.detype:
+            raise TypeError("Actions and deontic types must match.")
+        sym_diff = r1.conditions ^ r2.conditions
+        if len(sym_diff) != 2:
+            return None
+        c1, c2 = sym_diff.pop(), sym_diff.pop()
+        if c1.name != c2.name:
+            # Return None if conditions do not share the same base
+            return None
+        new = cls(r1.action, r1.conditions, r1.detype)
+        new.conditions.discard(c1)
+        new.conditions.discard(c2)
+        if c1 == c2.negate():
+            # Remove conditions if they are negations of each other
+            return new
+        if c1._negated == c2._negated:
+            # Merge conditions if they share the same negation
+            c_merged = predicates.Predicate.merge(c1, c2)
+            new.conditions.add(c_merged)
+            return new
+        # Return None if conditions can't be merged
+        return None
     
     def toPrint(self):
         """Converts to human-readable string."""
