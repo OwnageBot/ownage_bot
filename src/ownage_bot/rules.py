@@ -115,7 +115,7 @@ class Rule:
     def refine(self):
         """Return list of refinements by adding predicates to rule."""
         refinements = []
-        conditions = set(predicates.db.values())
+        conditions = list(predicates.db.values())
 
         # Exhaustively substitute all non-1st-place arguments
         for p in list(conditions):
@@ -123,6 +123,7 @@ class Rule:
                 continue
             cur_stack, new_stack = [p], []
             for i in range(1, p.n_args):
+                # List 'Any' first because it's the most general
                 atoms = [objects.Any] + p.argtypes[i].universe()
                 for q in cur_stack:
                     bound = [q.bind(q._bindings[0:i] + [a] + q._bindings[i+1:])
@@ -131,7 +132,7 @@ class Rule:
                 cur_stack = new_stack
                 new_stack = []
             conditions.remove(p)
-            conditions |= set(cur_stack)
+            conditions += cur_stack
                 
         for p in conditions:
             # Check for idempotency / complementation
@@ -195,7 +196,7 @@ class Rule:
             return new
         if c1._negated == c2._negated:
             # Merge conditions if they share the same negation
-            c_merged = predicates.Predicate.merge(c1, c2)
+            c_merged = predicates.Predicate.merge(c1, c2).simplify()
             new.conditions.add(c_merged)
             return new
         # Return None if conditions can't be merged
@@ -223,14 +224,3 @@ class Rule:
         conditions = [predicates.Predicate.fromMsg(c) for
                       c in msg.conditions]
         return cls(action, conditions, msg.detype)
-    
-# List of pre-defined rules
-DoNotTouchRed = Rule(actions.PickUp, [predicates.Red])
-DoNotTouchGreen = Rule(actions.PickUp, [predicates.Green])
-DoNotTouchBlue = Rule(actions.PickUp, [predicates.Blue])
-DoNotTouchOwned = Rule(actions.PickUp, [predicates.IsOwned])
-
-DoNotTrashRed = Rule(actions.Trash, [predicates.Red])
-DoNotTrashGreen = Rule(actions.Trash, [predicates.Green])
-DoNotTrashBlue = Rule(actions.Trash, [predicates.Blue])
-DoNotTrashOwned = Rule(actions.Trash, [predicates.IsOwned])

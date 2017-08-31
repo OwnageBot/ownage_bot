@@ -72,6 +72,9 @@ def asPredicate(s, n_unbound=0):
     args = args[1:]
     if len(args) + n_unbound != predicates.db[name].n_args:
         error = NO_ARGS_MATCH
+    for i in range(len(args)):
+        if args[i] == "any":
+            args[i] = "_any_"
     args = [objects.Nil.toStr()] * n_unbound + args
     pred = PredicateMsg(predicate=name, bindings=args,
                         negated=negated, truth=1.0)
