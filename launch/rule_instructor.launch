@@ -11,6 +11,8 @@
     <param name="mode" type="string" value="$(arg mode)" />
     <!-- Whether to use online instruction or batch instruction -->
     <param name="online" type="bool" value="$(arg online)" />
+    <!-- Rate in Hertz to publish batch instructions -->
+    <param name="pub_rate" type="int" value="10" />
     <!-- Rules to be taught -->
     <rosparam command="load" param="rules" file="$(arg rule_path)" />
     <!-- Rules to be taught -->

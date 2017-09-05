@@ -17,6 +17,8 @@ class RuleInstructor:
         else:
             self.rule_db = self.loadRules()
             
+        self.pub_rate = rospy.Rate(rospy.get_param("~pub_rate", 10))
+            
         # Publishers
         self.perm_pub = rospy.Publisher("perm_input", PredicateMsg,
                                         queue_size=10)
@@ -63,38 +65,47 @@ class RuleInstructor:
     
     def batchInstruct(self):
         """Teaches all information in one batch."""
-        rate = rospy.Rate(10)
         if self.mode == "by_perm":
-            objs = list(Object.universe())
-            # Randomize object order
-            random.shuffle(objs)
-            # Feed permissions for each action separately
-            for act_name, rule_set in self.rule_db.iteritems():
-                for o in objs:
-                    if o.is_avatar:
-                        continue
-                    truth = Rule.evaluateOr(rule_set, o)
-                    perm = PredicateMsg(predicate=act_name,
-                                        bindings=[o.toStr()],
-                                        truth=truth)
-                    rate.sleep()
-                    self.perm_pub.publish(perm)
+            self.batchPermInstruct()
         elif self.mode == "by_rule":
-            # Publish rules for each action separately
-            for rule_set in self.rule_db.values():
-                for r in rule_set:
-                    rate.sleep()
-                    self.rule_pub.publish(r.toMsg())
+            self.batchRuleInstruct()
         elif self.mode == "by_script":
-            # Publish messages in exact order of the script
-            for msg in self.script_msgs:
-                if isinstance(msg, PredicateMsg):
-                    self.perm_pub.publish(msg)
-                elif isinstance(msg, RuleMsg):
-                    self.rule_pub.publish(msg)
-                rate.sleep()
+            self.batchScriptInstruct()
         else:
             rospy.logerror("Instructor mode %s unrecognized", mode)
+
+    def batchPermInstruct(self):
+        """Provides all object-specific permissions in one batch."""
+        objs = list(Object.universe())
+        # Randomize object order
+        random.shuffle(objs)
+        # Feed permissions for each action separately
+        for act_name, rule_set in self.rule_db.iteritems():
+            for o in objs:
+                if o.is_avatar:
+                    continue
+                truth = Rule.evaluateOr(rule_set, o)
+                perm = PredicateMsg(predicate=act_name,
+                                    bindings=[o.toStr()],
+                                    truth=truth)
+                self.pub_rate.sleep()
+                self.perm_pub.publish(perm)
+
+    def batchRuleInstruct(self):
+        """Publish all known rules in one batch."""
+        for rule_set in self.rule_db.values():
+            for r in rule_set:
+                self.pub_rate.sleep()
+                self.rule_pub.publish(r.toMsg())
+
+    def batchScriptInstruct(self):
+        """Publish instruction messages in exact order of the script."""
+        for msg in self.script_msgs:
+            if isinstance(msg, PredicateMsg):
+                self.perm_pub.publish(msg)
+            elif isinstance(msg, RuleMsg):
+                self.rule_pub.publish(msg)
+            self.pub_rate.sleep()
             
 if __name__ == '__main__':
     rospy.init_node('rule_instructor')
