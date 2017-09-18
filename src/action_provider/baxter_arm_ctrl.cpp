@@ -30,7 +30,6 @@ BaxterArmCtrl::BaxterArmCtrl(string _name, string _limb,
     insertAction(ACTION_HOME, &BaxterArmCtrl::goHome, TARGET_NONE);
     insertAction(ACTION_RELEASE, &BaxterArmCtrl::releaseObject, TARGET_NONE);
     insertAction(ACTION_MOVE, &BaxterArmCtrl::moveToLocation, TARGET_LOCATION);
-    insertAction(ACTION_SCAN, &BaxterArmCtrl::scanWorkspace, TARGET_NONE);
     insertAction(ACTION_FIND, &BaxterArmCtrl::findObject, TARGET_OBJECT);
     insertAction(ACTION_GET, &BaxterArmCtrl::pickObject, TARGET_OBJECT);
     insertAction(ACTION_PUT, &BaxterArmCtrl::putObject, TARGET_NONE);
@@ -553,23 +552,6 @@ bool BaxterArmCtrl::replaceObject()
                 Z_RELEASE, VERTICAL_ORI)) return false;
   ros::Duration(1).sleep();
   Gripper::open();
-
-  return true;
-}
-
-bool BaxterArmCtrl::scanWorkspace()
-{
-  ROS_INFO("[%s] Scanning workspace...", getLimb().c_str());
-
-  for(int i = 0; i < workspace_conf.size(); i++) {
-    ROS_INFO("[%s] Going to corner %d", getLimb().c_str(), i);
-    int r = goToPose(
-      workspace_conf[i][0], workspace_conf[i][1], workspace_conf[i][2],
-      workspace_conf[i][3], workspace_conf[i][4],
-      workspace_conf[i][5], workspace_conf[i][6]);
-    if (!r) ROS_ERROR("Could not reach corner %d, continuing", i);
-    ros::Duration(0.25).sleep();
-  }
 
   return true;
 }

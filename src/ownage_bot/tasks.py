@@ -1,7 +1,8 @@
+import os
 import rospy
 import objects
 import actions
-from objects import Object, Area
+from objects import Object, Area, Location
 from Queue import Queue
 from geometry_msgs.msg import Point
 
@@ -15,8 +16,8 @@ class Task:
         self.finished = False
         # Default implementation of updateActions
         self._updateActions = lambda action_queue, object_db : 0;
-        # Default implementation of checkActionUndone
-        self._checkActionUndone = lambda action, tgt : False
+        # Default implementation of checkActionDone
+        self._checkActionDone = lambda action, tgt : False
 
     def updateActions(self, action_queue, object_db):
         """Updates the queue of actions to perform based on the object list.
@@ -37,9 +38,9 @@ class Task:
             return 1
         return 0
 
-    def checkActionUndone(self, action, tgt):
-        """Double checks if action is still undone."""
-        return self._checkActionUndone(action, tgt)
+    def checkActionDone(self, action, tgt):
+        """Double checks if action is already done."""
+        return self._checkActionDone(action, tgt)
     
     @staticmethod
     def oneShot(action, tgt=None):
@@ -49,14 +50,13 @@ class Task:
         if tgt is None:
             name = action.name
         elif isinstance(tgt, Object):
-            name = action.name + "Obj" + str(tgt.id)
-        elif isinstance(tgt, Point):
-            name = (action.name + "Loc" +
-                    " ".join(str(p) for p in [tgt.x, tgt.y, tgt.z]))
+            name = action.name + "Obj" + tgt.toStr()
+        elif isinstance(tgt, Location):
+            name = action.name + "Loc" + tgt.toStr()
         task = Task(name)
         task._updateActions = lambda action_queue, object_db : \
             task.updateOnce(action, tgt, action_queue)
-        task._checkActionUndone = lambda action, tgt : True
+        task._checkActionDone = lambda action, tgt : False
         return task
         
 # Pre-defined high-level tasks
@@ -67,7 +67,7 @@ def _collectAll(action_queue, object_db=dict()):
     """Collects all objects not in the home area."""
     actions_added = 0
     act_list = list(action_queue.queue)
-    home_corners = rospy.get_param("home_area/corners",
+    home_corners = rospy.get_param("areas/home/corners",
                                    [[0.39,0.07], [0.39,0.29],
                                     [0.62,0.29], [0.39,0.29]])
     # Determine uncollected objects
@@ -91,22 +91,22 @@ CollectAll._updateActions = _collectAll
 
 def _collectAllCheck(action, obj):
     """Check that object is not already in home area before collecting."""
-    home_corners = rospy.get_param("home_area/corners",
+    home_corners = rospy.get_param("areas/home/corners",
                                    [[0.39,0.07], [0.39,0.29],
                                     [0.62,0.29], [0.62,0.07]])
     # Assume undone if action is not Collect
     if action.name != actions.Collect.name:
-        return True
-    # Return true if object not in home area
-    return not objects.inArea(obj, Area(home_corners))
-CollectAll._checkActionUndone = _collectAllCheck
+        return False
+    # Return true if object in home area
+    return objects.inArea(obj, Area(home_corners))
+CollectAll._checkActionDone = _collectAllCheck
 
 TrashAll = Task("trashAll")
 def _trashAll(action_queue, object_db):
     """Trashes all objects not in the trash area."""
     actions_added = 0    
     act_list = list(action_queue.queue)
-    trash_corners = rospy.get_param("trash_area/corners",
+    trash_corners = rospy.get_param("areas/trash/corners",
                                     [[-0.20,0.70], [-0.20,1.00],
                                      [0.10,1.00], [0.10,0.70]])
     # Determine untrashed objects
@@ -130,19 +130,20 @@ TrashAll._updateActions = _trashAll
 
 def _trashAllCheck(action, obj):
     """Check that object is not already in home area before trashing."""
-    trash_corners = rospy.get_param("trash_area/corners",
+    trash_corners = rospy.get_param("areas/trash/corners",
                                     [[-0.20,0.70], [-0.20,1.00],
                                      [0.10,1.00], [0.10,0.70]])
     # Assume undone if action is not Trash
     if action.name != actions.Trash.name:
-        return True
-    # Return true if object not in home area
-    return not objects.inArea(obj, objects.Area(trash_corners))
-TrashAll._checkActionUndone = _trashAllCheck
+        return False
+    # Return true if object in home area
+    return objects.inArea(obj, objects.Area(trash_corners))
+TrashAll._checkActionDone = _trashAllCheck
 
 # List of available tasks for each robotic platform
-if rospy.get_param("platform", "baxter") == "baxter":
+if os.getenv("OWNAGE_BOT_PLATFORM", "baxter") == "baxter":
     # Only Baxter is currently supported
     db = [Idle, CollectAll, TrashAll]
 else:
     db = []
+db = dict([(t.name, t) for t in db])

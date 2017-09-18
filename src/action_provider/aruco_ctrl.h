@@ -38,11 +38,6 @@ protected:
      */
     void setHomeConfiguration();
 
-   /**
-     * Sets the corner positions for the workspace
-     */
-    void setWorkspaceConfiguration();
-
 public:
 
     /**

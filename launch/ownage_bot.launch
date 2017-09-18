@@ -1,105 +1,89 @@
 <launch>
   <arg name="simulation" default="false"/>
   <arg name="manual" default="false"/>
+  <arg name="scenario" default="blocks_world"/>
 
-  <env name="ROSCONSOLE_CONFIG_FILE" unless="$(arg simulation)"
-       value="$(find human_robot_collaboration)/rosconsole.conf"/>
-
+  <arg name="avatar_ids" default="[]"/>
+  
   <param name="simulation" type="bool" value="$(arg simulation)"/>
   <param name="manual" type="bool" value="$(arg manual)"/>
-  
-  <!-- Avatars are specific objects which represent owners -->
-  <arg name="avatar_ids" default="[200,152]"/>
-  <!-- Landmarks are special objects which define geographical areas -->
-  <arg name="landmark_ids" default="[0]"/>
-  
-  <group ns="ownage_bot">
-    <!-- Threshold of confidence for picking up objects-->
-    <param name="collect_threshold" type="double" value="0.0" />
-    <!-- Duration before each tracked object has its properties updated -->
-    <param name="tracker_latency" type="double" value="0.2" />
-
-    <rosparam param="home_area" subst_value="true">
-      lower: [0.39, 0.07, 0]
-      upper: [0.62, 0.29, 0]
-      center: [0.50, 0.176, 0.20]
-      corners: [[0.39,0.07], [0.39,0.29], [0.62,0.29], [0.62,0.07]]
-    </rosparam>
-
-    <rosparam param="trash_area" subst_value="true">
-      center: [-0.05, 0.85, 0.20]
-      corners: [[-0.30,0.60], [-0.30,1.10], [0.20,1.10], [0.20,0.60]]
-    </rosparam>
     
+  <group ns="ownage_bot">
+    <!-- Avatars are specific objects which represent owners -->
     <rosparam param="avatar_ids" subst_value="true">
     $(arg avatar_ids)</rosparam>
-    <rosparam param="landmark_ids" subst_value="true">
-    $(arg landmark_ids)</rosparam>
+    
+    <!-- Load area parameters -->
+    <rosparam command="load" param="areas"
+	      file="$(find ownage_bot)/params/areas.yaml" />
 
-    <group unless="$(arg simulation)">
-      <!-- Object tracker node, unused in simulation mode-->
-      <node pkg="ownage_bot" type="object_tracker.py"
-	    output="screen" name="object_tracker">
-      </node>
+    <!-- Load category parameters -->
+    <rosparam param="categories">
+      ["block", "mug", "pen", "laptop", "wallet", "charger", "wrapper"]
+    </rosparam>
+
+    <!-- Load color parameters -->
+    <rosparam param="colors">
+        red : [[160, 70, 10], [10, 166, 66]]
+        green : [[30, 80, 20], [100, 246, 96]]
+        blue : [[80, 120, 70], [130, 216, 146]]
+    </rosparam>
+       
+    <!-- Load simulation and scenario parameters -->
+    <group if="$(arg simulation)">
+      <!-- Reload area parameters for simulated world -->
+      <rosparam command="load" param="areas"
+	      file="$(find ownage_bot)/params/sim_areas.yaml" />
+      <rosparam command="load" param="blocks_world"
+	      file="$(find ownage_bot)/params/blocks_world.yaml" />
     </group>
+    
+    <!-- Object tracker node, unused in simulation mode-->
+    <node pkg="ownage_bot" type="object_tracker.py"
+	  output="screen" name="object_tracker" unless="$(arg simulation)">
+      <!-- How often (in seconds) objects get updated -->
+      <param name="latency" type="double" value="0.2" />
+    </node>
 
-    <group unless="$(arg manual)">
-      <!-- Task manager node, unused in manual mode -->
-      <node pkg="ownage_bot" type="task_manager.py"
-            name="task_manager" output="screen" unless="$(arg manual)">
-      </node>
+    <!-- World simulator, provides simulated environment and actions -->
+    <node pkg="ownage_bot" type="world_simulator.py"
+      	  name="world_simulator" output="screen" if="$(arg simulation)">
+      <param name="scenario" type="string" value="$(arg scenario)"/>
+      <param name="ground_lvl" type="double" value="0.0"/>
+      <param name="arm_lvl" type="double" value="0.3"/>
+    </node>
+    
+    <!-- Task manager node -->
+    <node pkg="ownage_bot" type="task_manager.py"
+          name="task_manager" output="screen" unless="$(arg manual)">
+    </node>
 
-      <!-- Dialog manager node, unused in manual mode -->
-      <node pkg="ownage_bot" type="dialog_manager.py"
-            name="dialog_manager" output="screen" unless="$(arg manual)">
-      </node>
+    <!-- Rule manager node -->
+    <node pkg="ownage_bot" type="rule_manager.py"
+          name="rule_manager" output="screen" unless="$(arg manual)">
+    </node>
+    
+    <!-- Dialog manager node -->
+    <node pkg="ownage_bot" type="dialog_manager.py"
+          name="dialog_manager" output="screen" unless="$(arg manual)">
+    </node>
 
-      <!-- Text control node, unused in manual mode -->
-      <node pkg="ownage_bot" type="text_control.py"
-            name="text_control" output="screen" unless="$(arg manual)">
-      </node>
-    </group>
+    <!-- Command prompt node -->
+    <node pkg="ownage_bot" type="command_prompt.py"
+          name="command_prompt" output="screen" unless="$(arg manual)"
+	  launch-prefix="gnome-terminal --command">
+    </node>
   </group>
 
-  <!-- provides actions on Baxter's arms -->
-  <node pkg="ownage_bot" type="action_provider"
-      	name="action_provider" output="screen"
-      	unless="$(arg simulation)">
-  </node>
-  
-  <!-- provides dummy actions in simulation -->
-  <node pkg="ownage_bot" type="dummy_action_provider"
-      	name="action_provider" output="screen"
-	      if="$(arg simulation)">
-  </node>
-
-  <!-- show image from camera -->
-  <node name="image_view_AR" pkg="image_view"
-        type="image_view" respawn="false"
-        unless="$(arg simulation)"> <!-- output="log" -->
-    <remap from="image" to="/aruco_marker_publisher/result"/>
-    <param name="autosize" value="true" />
-  </node>
-
-  <!-- ARUCO ROS -->
-  <arg name="markerSize" default="0.0381"/> <!-- in m -->
-  <arg name="ref_frame" default="/base"/>
-  <!-- leave empty and the pose will be published wrt param parent_name -->
-
-  <param name="aruco_marker_publisher/image_is_rectified" value="True"/>
-  <param name="aruco_marker_publisher/marker_size"
-	 value="$(arg markerSize)"/>
-  <param name="aruco_marker_publisher/reference_frame"
-	 value="$(arg ref_frame)"/>
-  <param name="aruco_marker_publisher/camera_frame"
-	 value="/left_hand_camera"/>
-
-  <node pkg="aruco_ros" type="marker_publisher"
-        name="aruco_marker_publisher" respawn="true"
-        unless="$(arg simulation)">
-    <remap from="image" to="/cameras/left_hand_camera/image"/>
-    <remap from="camera_info" to="/cameras/left_hand_camera/camera_info"/>
-  </node>
-
+  <!-- Use real-world action and perception if not in simulation -->
+  <group unless="$(arg simulation)">
+    <!-- Provides actions on Baxter's arms -->
+    <node pkg="ownage_bot" type="action_provider"
+      	  name="action_provider" output="screen">
+    </node>
+    
+    <!-- Runs ARuCo and displays camera image -->
+    <include file="$(find ownage_bot)/launch/aruco_marker_publisher.launch"/>
+  </group>
 </launch>
 

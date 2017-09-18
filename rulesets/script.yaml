@@ -1,0 +1,3 @@
+- forbid trash if isOwned
+- forbid pickUp if ownedBy 2
+- forbid collect if isColored color0

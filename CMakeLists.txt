@@ -64,10 +64,11 @@ catkin_python_setup()
 add_message_files(
   FILES
   ObjectMsg.msg
-  FeedbackMsg.msg
-  TaskMsg.msg
-  FactMsg.msg
+  AgentMsg.msg
+  PredicateMsg.msg
   RuleMsg.msg
+  TaskMsg.msg
+  FeedbackMsg.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -76,6 +77,10 @@ add_service_files(
   CallAction.srv
   ListObjects.srv
   LookupObject.srv
+  ListAgents.srv
+  LookupAgent.srv
+  LookupPerm.srv
+  LookupRules.srv
 )
 
 ## Generate actions in the 'action' folder

@@ -1,7 +1,8 @@
+import os
 import rospy
 from std_srvs.srv import Trigger
 from geometry_msgs.msg import Point
-from objects import Object
+from objects import Object, Location
 from ownage_bot.msg import ObjectMsg
 from ownage_bot.srv import CallAction, CallActionResponse
 
@@ -15,11 +16,11 @@ _cancel_right = rospy.ServiceProxy(
     "/action_provider/cancel_right", Trigger)
 
 class Action:
-    """Robotic actions performed on objects."""    
+    """Defines actions that can be performed on objects."""    
     def __init__(self, name="", tgtype=type(None), dependencies=[]):
         self.name = name # Human-readable name
         self.tgtype = tgtype # Target type
-        self.dependencies = dependencies # List of action dependencies
+        self.dependencies = dependencies # List of action-target dependencies
         self._call = lambda obj=None : None # Implementation of call()
 
     def call(self, target=None):
@@ -47,14 +48,23 @@ def _goHome(target):
     return _service_left("home", ObjectMsg(), Point())
 GoHome._call = _goHome
 
-MoveTo = Action("moveTo", Point)
+MoveTo = Action("moveTo", Location)
 def _moveTo(target):
-    return _service_left("move", ObjectMsg(), target)
+    return _service_left("move", ObjectMsg(), Point(*target.position))
 MoveTo._call = _moveTo
 
 Scan = Action("scan")
 def _scan(target):
-    return _service_left("scan", ObjectMsg(), Point())
+    scan_path = rospy.get_param("areas/workspace_left/corners",
+                                [[-0.05, 0.85, 0.30],
+                                 [0.473, 0.506, 0.274],
+                                 [0.731, 0.463, 0.277],
+                                 [0.685, -0.102, 0.221],
+                                 [0.507, -0.303, 0.218]])
+    ret = None
+    for p in scan_path:
+        ret = _service_left("move", ObjectMsg(), Point(*p))
+    return ret
 Scan._call = _scan
 
 PickUp = Action("pickUp", Object)
@@ -82,10 +92,10 @@ def _offer(target):
     return _service_left("offer", target.toMsg(), Point())
 Offer._call = _offer
 
-Trash = Action("trash", Object, [Find, PickUp, MoveTo, Release])
+Trash = Action("trash", Object, [Find, PickUp, Release])
 def _trash(target):
-    trash_loc = rospy.get_param("trash_area/center", [-0.05, 0.85, 0.20])
-    trash_loc = Point(*trash_loc)
+    trash_loc = rospy.get_param("areas/trash/center", [-0.05, 0.85, 0.20])
+    trash_loc = Location(trash_loc)
     ret = None
     for a, t in [(Find, target), (PickUp, target),
                  (MoveTo, trash_loc), (Release, None)]:
@@ -111,9 +121,10 @@ def _replace(target):
 Replace._call = _replace
 
 # List of available actions for each robotic platform
-if rospy.get_param("platform", "baxter") == "baxter":
+if os.getenv("OWNAGE_BOT_PLATFORM", "baxter") == "baxter":
     # Only Baxter is currently supported
     db = [Cancel, GoHome, MoveTo, Scan, PickUp, PutDown,
           Release, Find, Offer, Trash, Collect, Replace]
 else:
     db = []
+db = dict([(a.name, a) for a in db])
