@@ -10,7 +10,7 @@
 #include <ros/ros.h>
 #include <std_msgs/UInt32.h>
 #include <std_srvs/Trigger.h>
-#include "robot_perception/aruco_client.h"
+#include "robot_perception/perception_client_impl.h"
 #include "baxter_arm_ctrl.h"
 
 // Offset between gripper and IR sensor so that picking up works

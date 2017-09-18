@@ -17,7 +17,7 @@ ARucoCtrl::ARucoCtrl(
 
   setState(START);
   printActionDB();
-    
+
   if (!_use_robot) return;
 }
 
