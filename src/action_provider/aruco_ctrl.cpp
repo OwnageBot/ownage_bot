@@ -10,7 +10,7 @@ ARucoCtrl::ARucoCtrl(
     string _limb,
     bool _use_robot ) :
     BaxterArmCtrl(_name,_limb, _use_robot),
-    ARucoClient(_name, _limb)
+    PerceptionClientImpl(_name, _limb)
 {
   setHomeConfiguration();
 
@@ -25,25 +25,25 @@ bool ARucoCtrl::reachObject()
   ROS_INFO("[%s] Start reaching for tag..", getLimb().c_str());
 
   // Set marker ID to target object ID
-  ARucoClient::setMarkerID(getTargetObject().id);
+  PerceptionClientImpl::setObjectID(getTargetObject().id);
 
-  if (!waitForARucoData()) return false;
+  if (!PerceptionClientImpl::waitForData()) return false;
 
   // Save location of last pick up
-  last_pick_loc = getMarkerPos();
+  last_pick_loc = curr_object_pos;
 
   geometry_msgs::Quaternion q;
 
-  double x = getMarkerPos().x + IR_OFFSET;
-  double y = getMarkerPos().y;
-  double z =       getPos().z;
+  double x = curr_object_pos.x + IR_OFFSET;
+  double y = curr_object_pos.y;
+  double z = curr_object_pos.z;
 
   if (!goToPose(x, y, z, VERTICAL_ORI,"loose"))
   {
     return false;
   }
 
-  if (!waitForARucoData()) return false;
+  if (!PerceptionClientImpl::waitForData()) return false;
 
   ros::Time t_start = ros::Time::now();
   double z_start       =       getPos().z;
@@ -53,8 +53,8 @@ bool ARucoCtrl::reachObject()
   while(RobotInterface::ok())
   {
     double t_elap = (ros::Time::now() - t_start).toSec();
-    double x = getMarkerPos().x + IR_OFFSET;
-    double y = getMarkerPos().y;
+    double x = curr_object_pos.x + IR_OFFSET;
+    double y = curr_object_pos.y;
     double z = z_start - 0.8 * ARM_SPEED * t_elap;
 
     if (goToPoseNoCheck(x, y, z, VERTICAL_ORI))

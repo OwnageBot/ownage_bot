@@ -123,7 +123,7 @@ class TaskManager:
             # Call action if all checks pass
             resp = action.call(tgt)
             if not resp.success:
-                task_out_pub.publish(resp.response)
+                self.task_out_pub.publish(resp.response)
 
 if __name__ == '__main__':
     rospy.init_node('task_manager')

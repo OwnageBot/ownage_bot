@@ -18,7 +18,7 @@
 // Force threshold for releasing object
 #define REACH_THRESHOLD (-15)
 
-class ARucoCtrl : public BaxterArmCtrl, public ARucoClient
+class ARucoCtrl : public BaxterArmCtrl, public PerceptionClientImpl
 {
 private:
     // Subscriber to the ARuco detector,

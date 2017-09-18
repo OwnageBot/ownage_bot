@@ -80,6 +80,8 @@
     <!-- Provides actions on Baxter's arms -->
     <node pkg="ownage_bot" type="action_provider"
       	  name="action_provider" output="screen">
+        <remap from="/markers/left"  to="/aruco_marker_publisher/markers"/>
+        <remap from="/markers/right" to="/aruco_marker_publisher/markers"/>
     </node>
     
     <!-- Runs ARuCo and displays camera image -->
