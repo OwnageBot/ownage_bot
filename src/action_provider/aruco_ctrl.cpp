@@ -36,7 +36,7 @@ bool ARucoCtrl::reachObject()
 
   double x = curr_object_pos.x + IR_OFFSET;
   double y = curr_object_pos.y;
-  double z = curr_object_pos.z;
+  double z = getPos().z;
 
   if (!goToPose(x, y, z, VERTICAL_ORI,"loose"))
   {
@@ -55,7 +55,7 @@ bool ARucoCtrl::reachObject()
     double t_elap = (ros::Time::now() - t_start).toSec();
     double x = curr_object_pos.x + IR_OFFSET;
     double y = curr_object_pos.y;
-    double z = z_start - 0.8 * ARM_SPEED * t_elap;
+    double z = z_start - 0.8 * getArmSpeed() * t_elap;
 
     if (goToPoseNoCheck(x, y, z, VERTICAL_ORI))
     {

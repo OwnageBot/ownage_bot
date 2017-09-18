@@ -12,7 +12,7 @@ BaxterArmCtrl::BaxterArmCtrl(string _name, string _limb,
                                _use_forces, _use_trac_ik, _use_cart_ctrl),
                 Gripper(_limb, _use_robot),
                 sub_state(""), action(""), prev_action(""),
-                internal_recovery(false), home_conf(7),
+                internal_recovery(false), home_conf(7), arm_speed(ARM_SPEED),
 		tgt_object(ObjectMsg()), tgt_location(Point())
 {
     std::string other_limb = getLimb() == "right" ? "left" : "right";
@@ -315,7 +315,7 @@ bool BaxterArmCtrl::moveArm(string dir, double dist, string mode,
 
         if (!finish)
         {
-            p_c = p_c + diff * ARM_SPEED * t_elap;
+   	    p_c = p_c + diff * getArmSpeed() * t_elap;
             if (dot(p_c - p_f, diff) >= 0) finish = true;
         }
         else
@@ -362,7 +362,7 @@ bool BaxterArmCtrl::releaseAtPose(double px, double py, double pz,
     // Move to release point bit by bit, make sure z does not exceed
     double x = px;
     double y = py;
-    double z = (z < pz) ? pz : z_start - ARM_SPEED * t_elap;
+    double z = (z < pz) ? pz : z_start - getArmSpeed() * t_elap;
 
     if (goToPoseNoCheck(x,y,z,VERTICAL_ORI))
     {
@@ -608,6 +608,13 @@ bool BaxterArmCtrl::setPrevAction(const string& _prev_action)
     prev_action = _prev_action;
 
     return true;
+}
+
+bool BaxterArmCtrl::setArmSpeed(double _arm_speed)
+{
+  arm_speed = _arm_speed;
+
+  return true;
 }
 
 bool BaxterArmCtrl::publishState()

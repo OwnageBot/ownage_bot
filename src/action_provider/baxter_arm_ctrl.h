@@ -78,6 +78,9 @@ private:
     // or will wait the external planner to take care of that
     bool internal_recovery;
 
+    // Speed of the arm during some actions
+    double arm_speed;
+
     // Service to request actions to
     ros::ServiceServer  service;
     // Service to cancel actions
@@ -411,6 +414,14 @@ public:
      */
     bool setState(int _state);
 
+    /**
+     * Sets the speed of the arm during some actions (e.g. pick up)
+     *
+     * @param  _arm_speed the new speed of the arm
+     * @return            true/false if success/failure
+     */
+    bool setArmSpeed(double _arm_speed);
+
     /* Self-explaining "getters" */
     std::string       getSubState() { return         sub_state; };
     std::string         getAction() { return            action; };
@@ -419,6 +430,7 @@ public:
     ownage_bot::ObjectMsg getTargetObject() { return tgt_object; };
     geometry_msgs::Point getTargetLocation() { return tgt_location; };
     
+    double            getArmSpeed() { return         arm_speed; };
     bool      getInternalRecovery() { return internal_recovery; };
 };
 
