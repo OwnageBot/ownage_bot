@@ -7,11 +7,14 @@ from ownage_bot.msg import *
 from ownage_bot.srv import *
 
 class RuleInstructor:
-    """Automatically teaches rules by exampxle or direct instruction."""
+    """Automatically teaches rules by example or direct instruction."""
 
     def __init__(self):
+        # Learning mode (by rule, permission, or script)
         self.mode = rospy.get_param("~mode", "by_perm")
-
+        # Fraction of objects used as training examples
+        self.train_frac = rospy.get_param("~train_frac", 0.5)
+        
         if self.mode == "by_script":
             self.script_msgs = self.loadScript()
         else:
@@ -77,8 +80,12 @@ class RuleInstructor:
     def batchPermInstruct(self):
         """Provides all object-specific permissions in one batch."""
         objs = list(Object.universe())
+        # Get rid of avatars
+        objs = [o for o in objs if not o.is_avatar]
         # Randomize object order
         random.shuffle(objs)
+        # Use only a fraction as training examples (rounded down)
+        objs = objs[0:int(self.train_frac * len(objs))]
         # Feed permissions for each action separately
         for act_name, rule_set in self.rule_db.iteritems():
             for o in objs:

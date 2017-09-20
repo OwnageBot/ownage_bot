@@ -1,6 +1,7 @@
 <launch>
   <arg name="mode" default="by_perm"/>
   <arg name="online" default="false"/>
+  <arg name="train_frac" default="0.5"/>
   <arg name="rule_path" default = "$(find ownage_bot)/rulesets/rules.yaml"/>
   <arg name="script_path" default = "$(find ownage_bot)/rulesets/script.yaml"/>
   
@@ -11,6 +12,8 @@
     <param name="mode" type="string" value="$(arg mode)" />
     <!-- Whether to use online instruction or batch instruction -->
     <param name="online" type="bool" value="$(arg online)" />
+    <!-- Fraction used as training examples (when teaching by permission)-->
+    <param name="train_frac" type="double" value="$(arg train_frac)" />
     <!-- Rate in Hertz to publish batch instructions -->
     <param name="pub_rate" type="int" value="10" />
     <!-- Rules to be taught -->
