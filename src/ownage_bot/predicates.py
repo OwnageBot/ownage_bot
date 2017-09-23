@@ -12,8 +12,8 @@ class Predicate:
         self.n_args = len(argtypes) # Number of arguments
         self.argtypes = argtypes # List of argument types
         self.exc_arg = -1 # Postion of arg for which atoms are exclusive
-        self._negated = False # Whether predicate is negated
-        self._bindings = [Nil] * self.n_args  # All arguments intially free
+        self.negated = False # Whether predicate is negated
+        self.bindings = [Nil] * self.n_args  # All arguments intially free
         self._apply = lambda *args : True # Implementation of predicate
 
     def __eq__(self, other):
@@ -21,8 +21,8 @@ class Predicate:
         if isinstance(other, self.__class__):
             return (self.name == other.name and
                     self.argtypes == other.argtypes and
-                    self._bindings == other._bindings and
-                    self._negated == other._negated)
+                    self.bindings == other.bindings and
+                    self.negated == other.negated)
             return True
         return NotImplemented
 
@@ -33,21 +33,21 @@ class Predicate:
     
     def __hash__(self):
         """Hash using name, bindings, and negation."""
-        return hash((self.name, self._negated, self._bindStrs()))
+        return hash((self.name, self.negated, self._bindStrs()))
 
     def _bindStrs(self):
         """Convert bindings to tuple of strings."""
         return tuple(b.toStr() if type(b) is not list else
                      "|" + "|".join([a.toStr() for a in b]) + "|"
-                     for b in self._bindings)
+                     for b in self.bindings)
 
     def copy(self):
         """Creates copy of current predicate."""            
         cp = self.__class__(self.name, self.argtypes)
         cp.exc_arg = self.exc_arg
-        cp._bindings = list(self._bindings)
+        cp.bindings = list(self.bindings)
         cp._apply = self._apply
-        cp._negated = self._negated
+        cp.negated = self.negated
         return cp
     
     def bind(self, args):
@@ -74,17 +74,26 @@ class Predicate:
         for i, a in enumerate(args):
             if type(a) in [list, tuple]:
                 # Make sure internal lists are properly ordered
-                bound._bindings[i] = sorted(a, key=lambda x : x.toStr())
+                bound.bindings[i] = sorted(a, key=lambda x : x.toStr())
             else:
-                bound._bindings[i] = a                
+                bound.bindings[i] = a                
 
         return bound
 
     def negate(self):
         """Returns negated copy of self."""
         negation = self.copy()
-        negation._negated = not self._negated
+        negation.negated = not self.negated
         return negation
+
+    def generalize(self):
+        """Returns generalized copy of self."""
+        generalized = self.copy()
+        for i, a in generalized.bindings:
+            if a == Nil:
+                continue
+            generalized.bindings[i] = Any
+        return generalized
     
     def simplify(self):
         """Simplifies disjunct arguments.
@@ -98,14 +107,14 @@ class Predicate:
         simple = self.copy()
 
         for i in range(self.n_args):
-            arg = simple._bindings[i]
+            arg = simple.bindings[i]
             argtype = simple.argtypes[i]
             if type(arg) is not list:
                 continue
             universe = argtype.universe()
             # Replace with Any if all possibilities are present
             if len(arg) == len(universe) and arg == universe:
-                simple._bindings[i] = Any
+                simple.bindings[i] = Any
                 continue
             # Replace with negation of shorter list if exclusivity holds
             if self.exc_arg == i and len(arg) > len(universe)/2:
@@ -113,19 +122,19 @@ class Predicate:
                     universe.remove(a)
                 if len(universe) == 1:
                     universe = universe[0]
-                simple._bindings[i] = universe
-                simple._negated = not simple._negated
+                simple.bindings[i] = universe
+                simple.negated = not simple.negated
 
         return simple
 
     @staticmethod
     def merge(p1, p2):
         """Merges arguments into disjuncts."""
-        if p1.name != p2.name or p1._negated != p2._negated:
+        if p1.name != p2.name or p1.negated != p2.negated:
             raise TypeError("Base predicate and negation differ.")
         bindings = [Nil] * p1.n_args
         for i in range(p1.n_args):
-            b1, b2 = p1._bindings[i], p2._bindings[i]
+            b1, b2 = p1.bindings[i], p2.bindings[i]
             if b1 == Nil and b2 == Nil:
                 continue
             if b1 == Nil or b2 == Nil:
@@ -145,7 +154,7 @@ class Predicate:
 
         # Substitute arguments into Nil slots
         args = list(reversed(args))
-        all_args = [args.pop() if a == Nil else a for a in self._bindings]
+        all_args = [args.pop() if a == Nil else a for a in self.bindings]
         if Nil in all_args:
             raise ValueError("Wrong number of arguments.")
 
@@ -173,7 +182,7 @@ class Predicate:
         # Return early if there are no list arguments
         if len(multi_arg_pos) == 0:
             val = self._apply(*all_args)
-            return (1.0-val) if self._negated else val
+            return (1.0-val) if self.negated else val
 
         # Expand all internal lists
         cur_stack, new_stack = [all_args], []
@@ -193,21 +202,21 @@ class Predicate:
             neg_val *= 1-self._apply(*cur_args)
             if neg_val == 0:
                 break
-        return neg_val if self._negated else 1-neg_val
+        return neg_val if self.negated else 1-neg_val
 
     def toPrint(self):
         """Converts to human-readable string."""
-        pre = "not" if self._negated else ""
+        pre = "not" if self.negated else ""
         pos = " ".join([b.toPrint() if type(b) is not list else
                         " or ".join([a.toPrint() for a in b])
-                        for b in self._bindings if b != Nil])
+                        for b in self.bindings if b != Nil])
         return " ".join([pre, self.name, pos]).strip()
     
     def toMsg(self):
         """Convert to PredicateMsg."""
-        msg = PredicateMsg(predicate=self.name, negated=self._negated)
+        msg = PredicateMsg(predicate=self.name, negated=self.negated)
         msg.bindings = self._bindStrs()
-        msg.truth = -1.0 if Nil in self._bindings else self.apply()
+        msg.truth = -1.0 if Nil in self.bindings else self.apply()
         return msg
     
     @classmethod
@@ -227,7 +236,7 @@ class Predicate:
                 # Directly convert from string to argtype
                 bindings.append(t.fromStr(s))
         p = p.bind(bindings) # This creates a new Predicate object
-        p._negated = msg.negated # Which can safely be modified
+        p.negated = msg.negated # Which can safely be modified
         return p
     
 # List of pre-defined predicates

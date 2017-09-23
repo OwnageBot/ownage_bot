@@ -141,7 +141,7 @@ class Rule:
             n1 = self.__class__(self.action, self.conditions, self.detype)
             n2 = self.__class__(self.action, self.conditions, self.detype)
             n1.conditions.add(p)
-            n2.conditions.add(p.negate())
+            n2.conditions.add(p.negate())            
             refinements += [n1, n2]
         return refinements
     
@@ -194,7 +194,7 @@ class Rule:
         if c1 == c2.negate():
             # Remove conditions if they are negations of each other
             return new
-        if c1._negated == c2._negated:
+        if c1.negated == c2.negated:
             # Merge conditions if they share the same negation
             c_merged = predicates.Predicate.merge(c1, c2).simplify()
             new.conditions.add(c_merged)
