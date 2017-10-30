@@ -2,7 +2,6 @@
 import rospy
 from collections import namedtuple
 from std_srvs.srv import Trigger, TriggerResponse
-from geometry_msgs.msg import Point
 from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *

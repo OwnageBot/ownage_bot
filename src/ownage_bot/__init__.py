@@ -5,7 +5,7 @@ import rules
 import tasks
 import parse
 
-from objects import Object, Agent, Area, Location
+from objects import Object, Agent, Area, Location, Category, Color
 from actions import Action
 from predicates import Predicate
 from rules import Rule
