@@ -126,7 +126,7 @@ class Rule:
                 # List 'Any' first because it's the most general
                 atoms = [objects.Any] + p.argtypes[i].universe()
                 for q in cur_stack:
-                    bound = [q.bind(q._bindings[0:i] + [a] + q._bindings[i+1:])
+                    bound = [q.bind(q.bindings[0:i] + [a] + q.bindings[i+1:])
                              for a in atoms]
                     new_stack += bound
                 cur_stack = new_stack
@@ -188,19 +188,13 @@ class Rule:
         if c1.name != c2.name:
             # Return None if conditions do not share the same base
             return None
+        if c1 != c2.negate():
+            # Only merge conditions if they are negations of each other
+            return None
         new = cls(r1.action, r1.conditions, r1.detype)
         new.conditions.discard(c1)
         new.conditions.discard(c2)
-        if c1 == c2.negate():
-            # Remove conditions if they are negations of each other
-            return new
-        if c1.negated == c2.negated:
-            # Merge conditions if they share the same negation
-            c_merged = predicates.Predicate.merge(c1, c2).simplify()
-            new.conditions.add(c_merged)
-            return new
-        # Return None if conditions can't be merged
-        return None
+        return new
     
     def toPrint(self):
         """Converts to human-readable string."""

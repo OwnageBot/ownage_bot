@@ -126,28 +126,6 @@ class Predicate:
                 simple.negated = not simple.negated
 
         return simple
-
-    @staticmethod
-    def merge(p1, p2):
-        """Merges arguments into disjuncts."""
-        if p1.name != p2.name or p1.negated != p2.negated:
-            raise TypeError("Base predicate and negation differ.")
-        bindings = [Nil] * p1.n_args
-        for i in range(p1.n_args):
-            b1, b2 = p1.bindings[i], p2.bindings[i]
-            if b1 == Nil and b2 == Nil:
-                continue
-            if b1 == Nil or b2 == Nil:
-                raise ValueError("Both arguments must be bound.")
-            if b1 == Any or b2 == Any:
-                bindings[i] = Any
-                continue
-            if type(b1) is not list:
-                b1 = [b1]
-            if type(b2) is not list:
-                b2 = [b2]
-            bindings[i] = b1 + b2
-        return p1.bind(bindings)
     
     def apply(self, *args):
         """Applies implementation with bindings and negation."""
