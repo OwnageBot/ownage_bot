@@ -36,38 +36,44 @@ class OwnerPredictor:
         obj.ownership = ownership
         self.owner_pub.publish(obj.toMsg())
 
-    def guessFromPerm(act_name, obj, truth):
+    def guessFromPerm(self, act_name, obj, truth):
         """Guess ownership from permission info."""
         rule_set = self.lookupRules(act_name).rule_set
         rule_set = [Rule.fromMsg(r) for r in rule_set]
-
-        # Handle 'allow' permissions
-        if truth < 0.5:
-            # TODO
-            return
-
-        # Handle 'forbid' permissions
-
-        explanations = []
-        # Find all potential explanations
-        for r in rule_set:
-            # Check if rule has any ownedBy predicates
-            # If no ownedBy predicates, check if rule is true
-            # Return if true -- can't do inference
-            # Discard all ownedBy predicates in rule
-            # Continue if rule evaluates to false
-            # Add to list of potential explanations if true
-            explanations.append(r)
             
         # Do Bayesian update using potential explanations
-        # Compute total probability that action was forbidden
-        for a in Agent.universe():
-            pass
+        p_owned_prior = obj.ownership
+        p_owned_post = dict()
+        p_f_owned = dict()
+        p_a_owned = dict()
+        p_forbidden = Rule.evaluateOr(rule_set, obj)
+        p_allowed = 1 - p_forbidden
 
+        for a in Agent.universe():
+            obj.ownership = dict(p_owned_prior)
+            obj.ownership[a.id] = 1.0
+            
+            # Find P(forbidden|owned by a) and P(allowed|owned by a)
+            p_f_cond = Rule.evaluateOr(rule_set, obj)
+            p_a_cond = 1 - p_f_cond
+            
+            # Find P(forbidden & owned by a) and P(allowed & owned by a)
+            p_f_owned[a.id] = p_f_cond *  p_owned_prior[a.id]
+            p_a_owned[a.id] = p_a_cond *  p_owned_prior[a.id]
+            
         # Compute updated probability of ownership
         for a in Agent.universe():
-            pass
+            # P(owned by a|perm) =
+            # P(owned by a|forbidden) P(forbidden|perm) +
+            # P(owned by a|allowed) P(allowed|perm)
+            p_owned_post[a.id] = \
+                (p_f_owned[a.id] / p_forbidden * truth +
+                 p_a_owned[a.id] / p_allowed * (1-truth))
 
-        # TODO: switch to DS representation of ownership??
+        # Reset ownership to original
+        obj.ownership = p_owned_prior
+
+        # Return posterior probabilities
+        return p_owned_post
 
         
