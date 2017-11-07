@@ -20,6 +20,9 @@ class ObjectTracker:
 
     def __init__(self):
         self.latency = rospy.get_param("~latency", 0.1)
+        # Database of tentative objects
+        self.tentative_db = dict()
+        # Database of tracked objects
         self.object_db = dict()
 
         # State variables to track gripped objects
@@ -35,7 +38,7 @@ class ObjectTracker:
 
         # Publishers and servers
         self.new_obj_pub = rospy.Publisher("new_object",
-                                           UInt32, queue_size = 10)
+                                           ObjectMsg, queue_size = 10)
         self.lkp_obj_srv = rospy.Service("lookup_object", LookupObject,
                                          self.lookupObjectCb)
         self.lst_obj_srv = rospy.Service("list_objects", ListObjects,
@@ -45,6 +48,8 @@ class ObjectTracker:
                                            MarkerArray, self.ARucoCb)
         self.action_sub = rospy.Subscriber("/action_provider/left/state",
                                            ArmState, self.actionCb)
+        self.owner_sub = rospy.Subscriber("owner_prediction",
+                                           ObjectMsg, self.ownerCb)
         self.endpoint_sub = None
 
         # Computer vision
@@ -92,7 +97,6 @@ class ObjectTracker:
         # image_msg = rospy.wait_for_message(
         #      "/aruco_marker_publisher/result", Image)
         # obj.color = self.determineColor(image_msg, marker)
-        return obj
 
     def ARucoCb(self, msg):
         """Callback upon receiving list of markers from ARuco."""
@@ -101,8 +105,8 @@ class ObjectTracker:
             if m.id not in self.object_db:
                 obj = self.insertObject(m)
                 # Publish that new object was found
-                self.new_obj_pub.publish(m.id)
-                rospy.loginfo("New object %s found!", m.id)
+                self.new_obj_pub.publish(obj.toMsg())
+                rospy.loginfo("New object %s found!", obj.id)
             elif ((rospy.get_rostime()-self.object_db[m.id].last_update) >
                   rospy.Duration(self.latency)):
                 # Update object if update period has lapsed
@@ -139,6 +143,11 @@ class ObjectTracker:
             if state.gripping:
                 obj.position = msg.pose.position
 
+    def ownerCb(self, msg):
+        """Callback for owner prediction, updates database accordingly."""
+        obj = Object.fromMsg(msg)
+        self.object_db[obj.id].ownership = dict(obj.ownership)
+                
     def determineColor(self, msg, marker):
         """Determines color of the currently tracked object."""
         rospy.logdebug(" Determining Object Color\n")

@@ -7,15 +7,21 @@ from ownage_bot.msg import *
 from ownage_bot.srv import *
 
 class OwnerPredictor:
-    """Predicts ownership based on social observation."""
+    """Predicts ownership based on physical and social observation."""
     
     def __init__(self):
+        # Set up callback to predict ownership upon new permission input
         self.perm_sub = rospy.Subscriber("perm_input", PredicateMsg,
                                          self.permInputCb)
-        self.owner_pub = rospy.Publisher("owner_prediction", ObjectMsg,
-                                          queue_size=10)
-        self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
+        # Set up callback to predict ownership upon new object detection
+        self.new_obj_sub = rospy.Subscriber("new_object", PredicateMsg,
+                                            self.newObjectCb)
 
+        # Publisher for ownership predictions
+        self.owner_pub = rospy.Publisher("owner_prediction", ObjectMsg,
+                                         queue_size=10)
+        # Client for looking up active rules
+        self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
 
     def permInputCb(self, msg):
         """Callback upon receiving permission information about objects."""
@@ -36,6 +42,15 @@ class OwnerPredictor:
         obj.ownership = ownership
         self.owner_pub.publish(obj.toMsg())
 
+    def newObjectCb(self, msg):
+        """Callback upon new object detection."""
+        obj = Object.fromMsg(msg)
+
+        # Guess ownership and publish prediction
+        ownership = self.guessFromPercepts(obj)
+        obj.ownership = ownership
+        self.owner_pub.publish(obj.toMsg())
+        
     def guessFromPerm(self, act_name, obj, truth):
         """Guess ownership from permission info."""
         rule_set = self.lookupRules(act_name).rule_set
@@ -76,4 +91,6 @@ class OwnerPredictor:
         # Return posterior probabilities
         return p_owned_post
 
-        
+    def guessFromPercepts(self, obj):
+        """Guess ownership from perception of physical properties."""
+        return obj.ownership
