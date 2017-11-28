@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 import rospy
 import numpy as np
+from sklearn.kernel_approximation import Nystroem
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics.pairwise import rbf_kernel
 from std_srvs.srv import Trigger, TriggerResponse
 from ownage_bot import *
 from ownage_bot.msg import *
@@ -28,15 +28,12 @@ class OwnerPredictor:
         # Client for looking up tracked objects
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
 
-        # Weights for perceptual properties in distance metric
-        self.w_color = rospy.get_param("~w_color", 30)
-        self.w_pos = rospy.get_param("~w_pos", 10)
-        self.w_matrix = np.diag([self.w_color] + [self.w_pos] * 3)
-
-        # Logistic regression params and vars for percept-based prediction
-        self.regu_strength = 1.0
-        self.lr_classifier = LogisticRegression(C=1/self.regu_strength,
-                                                fit_intercept=False)
+        # Logistic regression params and objects for percept-based prediction
+        self.reg_strength = rospy.get_param("~reg_strength", 0.1)
+        self.max_features = rospy.get_param("~max_features", 20)
+        self.nys = Nystroem(kernel='precomputed', random_state=0)
+        self.log_reg = LogisticRegression(C=1/self.reg_strength,
+                                          solver='newton-cg')
         
     def permInputCb(self, msg):
         """Callback upon receiving permission information about objects."""
@@ -52,8 +49,6 @@ class OwnerPredictor:
             return
         obj = Object.fromStr(msg.bindings[0])
 
-        # TODO: Should repeated permissions be ignored??
-        
         # Guess ownership and publish prediction
         ownership = self.guessFromPerm(action, obj, msg.truth)
         obj.ownership = ownership
@@ -72,7 +67,7 @@ class OwnerPredictor:
         """Guess ownership from permission info."""
         rule_set = self.lookupRules(act_name).rule_set
         rule_set = [Rule.fromMsg(r) for r in rule_set]
-            
+
         # Do Bayesian update using potential explanations
         p_owned_prior = obj.ownership
         p_owned_post = dict()
@@ -82,6 +77,7 @@ class OwnerPredictor:
         p_allowed = 1 - p_forbidden
 
         for a in Agent.universe():
+            # Suppose that obj is owned by agent a
             obj.ownership = dict(p_owned_prior)
             obj.ownership[a.id] = 1.0
             
@@ -108,26 +104,32 @@ class OwnerPredictor:
         # Return posterior probabilities
         return p_owned_post
 
-    def guessFromPercepts(self, obj):
-        """Guess ownership from perception of physical properties."""
+    def guessFromPercepts(self, new):
+        """Guess ownership of new object from physical percepts."""
         objs = self.listObjects().objects
 
-        # Compute kernel for kernel logistic regression
-        kern_mat = self.perceptKern(objs, objs)
-        # Tile the matrix to account for uncertainty in labels
-        kern_mat = np.tile(kern_mat, (2,2))
+        # Compute Gram matrix and kernel map for kernel logistic regression
+        K = self.perceptKern(objs, objs)
+        self.nys.n_components = min(len(objs), self.max_features)
+        X = self.nys.fit_transform(K)
         
-        # Train a kernel logistic classifier for each possible owner
+        # Duplicate samples to account for uncertainty in class labels
+        X = np.tile(kern_mat, [2,1])
+        y = [True] * len(objs) + [False] * len(objs)
+        
+        # Train the classifier for each possible owner and predict ownership
         ownership = dict()
         for a in Agent.universe():
+            # Weight samples according to the certainty of ownership
             weights = np.array([o.ownership[a.id] for o in objs] +
                                [1.0-o.ownership[a.id] for in objs])
-            classes = [w >= 0.5 for w in weights]
-            self.lr_classifier.fit(kern_mat, classes, sample_weight=weights)
+            self.log_reg.fit(X, y, sample_weight=weights)
+
             # Predict ownership of new object
-            kern_features = self.perceptKern([obj], objs)
-            probs = self.lr_classifier.predict_proba(kern_features)
-            ownership[a.id] = probs[0,0]
+            K_new = self.perceptKern([new], objs)
+            X_new = self.nys.transform(K_new)
+            probs = self.log_reg.predict_proba(X_new)
+            ownership[a.id] = probs[0,1]
         
         return ownership
 
