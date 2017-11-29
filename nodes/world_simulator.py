@@ -41,18 +41,16 @@ class WorldSimulator():
         self.pick_loc = {"left": Point(), "right": Point()}
 
         # Server that handles simulation reset
-        self.rst_world_srv = \
-            rospy.Service("reset_world", Trigger, self.resetWorldCb)
+        self.rst_world_srv = rospy.Service("simulation/reset",
+                                           Trigger, self.resetCb)
         
         # Servers that list objects and agents
-        self.lkp_obj_srv = \
-            rospy.Service("lookup_object", LookupObject, self.lookupObjectCb)
-        self.lst_obj_srv = \
-            rospy.Service("list_objects", ListObjects, self.listObjectsCb)
-        self.lkp_agt_srv = \
-            rospy.Service("lookup_agent", LookupAgent, self.lookupAgentCb)
-        self.lst_agt_srv = \
-            rospy.Service("list_agents", ListAgents, self.listAgentsCb)
+        self.all_obj_srv =  rospy.Service("simulation/all_objects",
+                                          ListObjects, self.allObjectsCb)
+        self.vis_obj_srv =  rospy.Service("simulation/visible_objects",
+                                          ListObjects, self.visibleObjectsCb)
+        self.all_obj_srv =  rospy.Service("simulation/all_agents",
+                                          ListAgents, self.allAgentsCb)
 
         # Servers that respond to actions
         self.act_l_srv = \
@@ -73,43 +71,28 @@ class WorldSimulator():
         self.addScenario("shared_desk", self.genSharedDesk)
         self.addScenario("assembly_line", self.genAssemblyLine)
 
-    def resetWorldCb(self, req):
+    def resetCb(self, req):
         """Clears and regenerates the simulated world."""
         scenario = rospy.get_param("~scenario", "blocks_world")
         self.genScenario(scenario)
         return TriggerResponse(True, "")
         
-    def lookupObjectCb(self, req):
-        """ Returns properties of particular object"""
-        self.lock.acquire()
-        if req.id in self.object_db:
-            obj = self.object_db[req.id]
-            self.lock.release()
-            return LookupObjectResponse(True, obj.toMsg())
-        else:            
-            self.lock.release()
-            return LookupObjectResponse(False, ObjectMsg())
-
-    def listObjectsCb(self, req):
-        """Returns list of all objects in the world"""
+    def allObjectsCb(self, req):
+        """Returns list of all objects in the world."""
         self.lock.acquire()
         obj_msgs = [obj.toMsg() for obj in self.object_db.values()]
         self.lock.release()
         return ListObjectsResponse(obj_msgs)
 
-    def lookupAgentCb(self, req):
-        """ Returns properties of requested agent."""
+    def visibleObjectsCb(self, req):
+        """Returns list of visible objects."""
         self.lock.acquire()
-        if req.id in self.agent_db:
-            agt = self.agent_db[req.id]
-            self.lock.release()
-            return LookupAgentResponse(True, agt.toMsg())
-        else:            
-            self.lock.release()
-            return LookupAgentResponse(False, AgentMsg())
+        obj_msgs = [obj.toMsg() for obj in self.object_db.values()]
+        self.lock.release()
+        return ListObjectsResponse(obj_msgs)
 
-    def listAgentsCb(self, req):
-        """Returns list of all agents."""
+    def allAgentsCb(self, req):
+        """Returns list of all simulated agents."""
         self.lock.acquire()
         agt_msgs = [agt.toMsg() for agt in self.agent_db.values()]
         self.lock.release()

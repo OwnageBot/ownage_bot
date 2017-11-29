@@ -33,9 +33,13 @@ class DialogManager:
         self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
 
         # Resets various databases
-        self.resetPerms = rospy.ServiceProxy("reset_perms", Trigger)
-        self.resetRules = rospy.ServiceProxy("reset_rules", Trigger)
-        self.resetWorld = rospy.ServiceProxy("reset_world", Trigger)
+        self.reset = dict()
+        self.reset["perms"] = rospy.ServiceProxy("reset_perms", Trigger)
+        self.reset["rules"] = rospy.ServiceProxy("reset_rules", Trigger)
+        self.reset["objects"] = rospy.ServiceProxy("reset_objects", Trigger)
+        self.reset["agents"] = rospy.ServiceProxy("reset_agents", Trigger)
+        self.reset["simulation"] = rospy.ServiceProxy("simulation/reset",
+                                                      Trigger)
         
     def inputCb(self, msg):
         """Handles dialog input and publishes commands."""
@@ -119,29 +123,26 @@ class DialogManager:
         """Handles reset command."""
         if len(args) < 2:
             out = "\n".join(["Reset one of the following:"] +
-                            ['perms', 'rules', 'world', 'all'])
-        elif args[1] == "perms":
-            self.resetPerms()
-            return
-        elif args[1] == "rules":
-            self.resetRules()
-            return
-        elif args[1] == "world":
+                            self.reset.keys() + ["all"])
+        elif args[1] in self.reset:
+            key = args[1]
             try:
-                rospy.wait_for_service("reset_world", timeout=0.5)
-                self.resetWorld()
+                self.reset[key].wait_for_service(timeout=0.5)
+                self.reset[key]()
                 return
             except rospy.ROSException:
-                out = "World simulator does not seem to be running."
+                out = "Reset service for {} is unavailable.".format(key)
                 self.output_pub.publish(out)
+                return
         elif args[1] == "all":
-            try:
-                rospy.wait_for_service("reset_world", timeout=0.5)
-                self.resetWorld()
-            except rospy.ROSException:
-                pass
-            self.resetPerms()
-            self.resetRules()
+            # Try to reset all databases
+            for k, reset_f in self.reset.iteritems():
+                try:
+                    reset_f.wait_for_service(timeout=0.5)
+                    reset_f()
+                except rospy.ROSException:
+                    # Fail silently for unavailable services
+                    pass
         else:
             out = "Keyword not recognized."
             self.output_pub.publish(out)

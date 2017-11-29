@@ -29,7 +29,8 @@ class RuleInstructor:
                                         queue_size=10)
 
         # Servers
-        self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
+        self.listObjects = rospy.ServiceProxy("simulation/all_objects",
+                                              ListObjects)
 
     def loadRules(self):
         """Loads rules from parameter server."""

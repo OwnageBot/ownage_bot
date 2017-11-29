@@ -4,6 +4,7 @@ import math
 import cv2 as cv
 import numpy as np
 from std_msgs.msg import UInt32
+from std_srvs.srv import Trigger, TriggerResponse
 from aruco_msgs.msg import MarkerArray
 from geometry_msgs.msg import Pose
 from baxter_core_msgs.msg import EndpointState, EndEffectorState
@@ -16,7 +17,7 @@ from cv_bridge import CvBridge, CvBridgeError
 from collections import deque, OrderedDict
 
 class ObjectTracker:
-    """A class for tracking objects."""
+    """Node that tracks and updates object properties."""
 
     def __init__(self):
         self.latency = rospy.get_param("~latency", 0.1)
@@ -30,28 +31,46 @@ class ObjectTracker:
         self.prev_action = ""
         self.gripped_id = -1
 
-        # Margins around ARuco tag for color determination
-        self.in_offset = rospy.get_param("~in_offset", 1)
-        self.out_offset = rospy.get_param("~out_offset", 6)
-
         self.avatar_ids = rospy.get_param("avatar_ids", [])
 
-        # Publishers and servers
-        self.new_obj_pub = rospy.Publisher("new_object",
-                                           ObjectMsg, queue_size = 10)
+        # Servers for querying and modifying tracked object data
         self.lkp_obj_srv = rospy.Service("lookup_object", LookupObject,
                                          self.lookupObjectCb)
         self.lst_obj_srv = rospy.Service("list_objects", ListObjects,
                                          self.listObjectsCb)
-        # Subscribers and clients
+        self.rst_obj_srv = rospy.Service("reset_objects", Trigger,
+                                          self.resetObjectsCb)
+
+        # Publishers, subscribers, etc
+        self.new_obj_pub = rospy.Publisher("new_object",
+                                           ObjectMsg, queue_size = 10)
+        self.ownership_sub = rospy.Subscriber("owner_prediction",
+                                           ObjectMsg, self.ownershipCb)
+
+        # Subscribe to sensor data only if not running in simulation
+        if rospy.get_param("simulation", False):
+            self.initSimulated()
+        else:
+            self.initSensing()
+
+    def initSimulated(self):
+        """Initialize and subscribe to simulated world data."""
+        self.object_sub = rospy.Subscriber("simulated_object",
+                                           ObjectMsg, self.simulatedCb)
+            
+    def initSensing(self):
+        """Initialize and subscribe to real-world sensor data."""        
+        # Subscribe to ARuCo markers and action state
         self.marker_sub = rospy.Subscriber("/aruco_marker_publisher/markers",
                                            MarkerArray, self.ARucoCb)
         self.action_sub = rospy.Subscriber("/action_provider/left/state",
                                            ArmState, self.actionCb)
-        self.owner_sub = rospy.Subscriber("owner_prediction",
-                                           ObjectMsg, self.ownerCb)
         self.endpoint_sub = None
 
+        # Margins around ARuco tag for color determination
+        self.in_offset = rospy.get_param("~in_offset", 1)
+        self.out_offset = rospy.get_param("~out_offset", 6)
+        
         # Computer vision
         self.cv_bridge = CvBridge();
         # List of basic colors
@@ -63,7 +82,8 @@ class ObjectTracker:
         self.lab_db = cv.cvtColor(np.swapaxes(self.lab_db, 1, 2),
                                   cv.COLOR_RGB2LAB)
 
-    def insertObject(self, marker):
+        
+    def insertARucoObject(self, marker):
         """Insert object into the database using marker information."""
         # Initialize fields that should be modified only once
         obj = Object()
@@ -71,10 +91,10 @@ class ObjectTracker:
         obj.is_avatar = marker.id in self.avatar_ids
         self.object_db[marker.id] = obj
         # Initialize fields which are dynamically changing
-        self.updateObject(marker)
+        self.updateARucoObject(marker)
         return obj
 
-    def updateObject(self, marker):
+    def updateARucoObject(self, marker):
         """Updates object database with given marker information."""
         # Assumes that marker.id is already in the database
         obj = self.object_db[marker.id]
@@ -103,14 +123,14 @@ class ObjectTracker:
         for m in msg.markers:
             # Check if object is already in database
             if m.id not in self.object_db:
-                obj = self.insertObject(m)
+                obj = self.insertARucoObject(m)
                 # Publish that new object was found
                 self.new_obj_pub.publish(obj.toMsg())
                 rospy.loginfo("New object %s found!", obj.id)
             elif ((rospy.get_rostime()-self.object_db[m.id].last_update) >
                   rospy.Duration(self.latency)):
                 # Update object if update period has lapsed
-                self.updateObject(m)
+                self.updateARucoObject(m)
 
     def actionCb(self, msg):
         """Callback upon change in current action."""
@@ -143,7 +163,7 @@ class ObjectTracker:
             if state.gripping:
                 obj.position = msg.pose.position
 
-    def ownerCb(self, msg):
+    def ownershipCb(self, msg):
         """Callback for owner prediction, updates database accordingly."""
         obj = Object.fromMsg(msg)
         self.object_db[obj.id].ownership = dict(obj.ownership)
@@ -190,6 +210,12 @@ class ObjectTracker:
         return ListObjectsResponse([obj.toMsg() for
                                     obj in self.object_db.values()])
 
+    def resetObjectsCb(self, req):
+        """Clears the object databases."""
+        self.tentative_db.clear()
+        self.object_db.clear()
+        return TriggerResponse(True, "")
+    
 if __name__ == '__main__':
     rospy.init_node('object_tracker')
     objectTracker = ObjectTracker()

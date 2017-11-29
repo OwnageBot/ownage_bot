@@ -38,9 +38,9 @@
 	      file="$(find ownage_bot)/params/blocks_world.yaml" />
     </group>
     
-    <!-- Object tracker node, unused in simulation mode-->
+    <!-- Object tracker node -->
     <node pkg="ownage_bot" type="object_tracker.py"
-	  output="screen" name="object_tracker" unless="$(arg simulation)">
+	  output="screen" name="object_tracker">
       <!-- How often (in seconds) objects get updated -->
       <param name="latency" type="double" value="0.2" />
     </node>
