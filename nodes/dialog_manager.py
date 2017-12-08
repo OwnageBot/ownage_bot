@@ -18,9 +18,9 @@ class DialogManager:
                                           queue_size=10)
 
         # Handle input and output from task manager node
-        self.task_out_sub = rospy.Subscriber("task_out", String,
-                                             self.taskOutCb)
-        self.task_in_pub = rospy.Publisher("task_in", TaskMsg,
+        self.task_sub = rospy.Subscriber("task_out", String,
+                                         self.taskOutCb)
+        self.task_pub = rospy.Publisher("task_in", TaskMsg,
                                            queue_size=10)
 
         # Sends instructions to rule manager node
@@ -29,6 +29,10 @@ class DialogManager:
         self.rule_pub = rospy.Publisher("rule_input", RuleMsg,
                                         queue_size=10)
 
+        # Sends agent introductions to agent tracker node
+        self.agent_pub = rospy.Publisher("agent_input", AgentMsg,
+                                         queue_size=10)
+        
         # Looks up rule database from rule manager
         self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
 
@@ -58,12 +62,12 @@ class DialogManager:
         # Try parsing a one-shot task (i.e. an action)
         task = parse.asAction(msg.data)
         if task:
-            self.task_in_pub.publish(task)
+            self.task_pub.publish(task)
             return
         # Try parsing a higher level task
         task = parse.asTask(msg.data)
         if task:
-            self.task_in_pub.publish(task)
+            self.task_pub.publish(task)
             return
         # Try to parse object-specific permissions
         perm = parse.asPerm(msg.data)

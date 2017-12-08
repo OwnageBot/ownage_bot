@@ -23,14 +23,18 @@ class RuleInstructor:
         self.pub_rate = rospy.Rate(rospy.get_param("~pub_rate", 10))
             
         # Publishers
+        self.agent_pub = rospy.Publisher("agent_input", AgentMsg,
+                                         queue_size=10)
         self.perm_pub = rospy.Publisher("perm_input", PredicateMsg,
                                         queue_size=10)
         self.rule_pub = rospy.Publisher("rule_input", RuleMsg,
                                         queue_size=10)
-
+        
         # Servers
-        self.listObjects = rospy.ServiceProxy("simulation/all_objects",
+        self.getObjects = rospy.ServiceProxy("simulation/all_objects",
                                               ListObjects)
+        self.getAgents = rospy.ServiceProxy("simulation/all_agents",
+                                              ListAgents)
 
     def loadRules(self):
         """Loads rules from parameter server."""
@@ -66,6 +70,13 @@ class RuleInstructor:
     def initOnline(self):
         """Sets up subscribers for online instruction."""
         pass
+
+    def introduceAgents(self):
+        """Looks up all simulated agents and introduces them to the tracker."""
+        agt_msgs = self.getAgents().agents
+        for msg in agt_msgs:
+            self.pub_rate.sleep()
+            self.agent_pub.publish(msg)
     
     def batchInstruct(self):
         """Teaches all information in one batch."""
@@ -80,7 +91,7 @@ class RuleInstructor:
 
     def batchPermInstruct(self):
         """Provides all object-specific permissions in one batch."""
-        objs = list(Object.universe())
+        objs = [Object.fromMsg(m) for m in self.getObjects().objects]
         # Get rid of avatars
         objs = [o for o in objs if not o.is_avatar]
         # Randomize object order
@@ -122,5 +133,6 @@ if __name__ == '__main__':
         rule_instructor.initOnline()
         rospy.spin()
     else:
+        rule_instructor.introduceAgents()
         rule_instructor.batchInstruct()
         

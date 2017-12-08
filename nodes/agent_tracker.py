@@ -11,14 +11,31 @@ class AgentTracker:
     def __init__(self):
         # Database of known agents
         self.agent_db = dict()
+        # Agent currently interacting with the system
+        self.current_agent = None
 
+        # Subscriber to new agent introductions
+        self.agent_sub = rospy.Subscriber("agent_input", AgentMsg,
+                                         self.agentInputCb)
+
+        # Publisher to notify other nodes about new agent
+        self.new_agt_pub = rospy.Publisher("new_agent",
+                                             AgentMsg, queue_size = 10)
+        
+        # Services for looking up and resetting agent database
         self.lkp_agt_srv = rospy.Service("lookup_agent", LookupAgent,
                                          self.lookupAgentCb)
         self.lst_agt_srv = rospy.Service("list_agents", ListAgents,
                                          self.listAgentsCb)
         self.rst_agt_srv = rospy.Service("reset_agents", Trigger,
-                                         self.listAgentsCb)
+                                         self.resetAgentsCb)
 
+    def agentInputCb(self, msg):
+        """Updates database and current agent with new information."""
+        self.current_agent = Agent.fromMsg(msg)
+        self.agent_db[msg.id] = self.current_agent
+        self.new_agent_pub.publish(msg)
+        
     def lookupAgentCb(self, req):
         """ Returns properties of requested agent."""
         if req.id in self.agent_db:

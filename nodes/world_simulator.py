@@ -49,7 +49,7 @@ class WorldSimulator():
                                           ListObjects, self.allObjectsCb)
         self.vis_obj_srv =  rospy.Service("simulation/visible_objects",
                                           ListObjects, self.visibleObjectsCb)
-        self.all_obj_srv =  rospy.Service("simulation/all_agents",
+        self.all_agt_srv =  rospy.Service("simulation/all_agents",
                                           ListAgents, self.allAgentsCb)
 
         # Servers that respond to actions

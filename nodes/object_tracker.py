@@ -55,9 +55,27 @@ class ObjectTracker:
 
     def initSimulated(self):
         """Initialize and subscribe to simulated world data."""
-        self.object_sub = rospy.Subscriber("simulated_object",
-                                           ObjectMsg, self.simulatedCb)
-            
+        # Set up service to lookup objects from simulator
+        self.getSimulated = rospy.ServiceProxy("simulation/visible_objects",
+                                             ListObjects)
+        # Periodically lookup simulated objects
+        rospy.Timer(rospy.Duration(self.latency),
+                    lambda evt : self.updateSimulated())
+
+    def updateSimulated(self):
+        objs = self.getSimulated().objects
+        for msg in objs:
+            if msg.id not in self.object_db:
+                new_obj = Object.fromMsg(msg)
+                new_obj.ownership = dict()
+                self.object_db[msg.id] = new_obj
+                self.new_obj_pub.publish(new_obj.toMsg())
+            else:
+                self.object_db[msg.id].position = msg.position
+                self.object_db[msg.id].orientation = msg.orientation
+                self.object_db[msg.id].color = msg.color
+                self.object_db[msg.id].categories = list(msg.categories)
+        
     def initSensing(self):
         """Initialize and subscribe to real-world sensor data."""        
         # Subscribe to ARuCo markers and action state
@@ -81,7 +99,6 @@ class ObjectTracker:
         self.lab_db = np.asarray(self.color_db, dtype="uint8")[... , None]
         self.lab_db = cv.cvtColor(np.swapaxes(self.lab_db, 1, 2),
                                   cv.COLOR_RGB2LAB)
-
         
     def insertARucoObject(self, marker):
         """Insert object into the database using marker information."""
