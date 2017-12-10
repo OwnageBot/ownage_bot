@@ -120,3 +120,14 @@ def asRule(s):
     rule = RuleMsg(name, conditions, "forbidden", truth)
     return rule
     
+def asAgent(s):
+    """Parse agent introductions.
+    Syntax: 'i am NAME'
+    Example: 'i am jake
+    """
+    args = s.split()
+    if args[0] != "i" or args[1] != "am":
+        return None
+    name = args[2]
+    agent = AgentMsg(-1, name, -1)
+    return agent

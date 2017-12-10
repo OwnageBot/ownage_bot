@@ -32,6 +32,9 @@ class DialogManager:
         # Sends agent introductions to agent tracker node
         self.agent_pub = rospy.Publisher("agent_input", AgentMsg,
                                          queue_size=10)
+        # Sends ownership claims to object tracker node
+        self.owner_pub = rospy.Publisher("owner_input", PredicateMsg,
+                                         queue_size=10)
         
         # Looks up rule database from rule manager
         self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
@@ -59,6 +62,11 @@ class DialogManager:
         if args[0] == "reset":
             self.handleReset(args)
             return
+        # Try parsing as agent introduction
+        agent = parse.asAgent(msg.data)
+        if agent:
+            self.agent_pub.publish(agent)
+            return
         # Try parsing a one-shot task (i.e. an action)
         task = parse.asAction(msg.data)
         if task:
@@ -69,6 +77,14 @@ class DialogManager:
         if task:
             self.task_pub.publish(task)
             return
+        # Try to parse as ownership claim
+        pred = parse.asPredicate(msg.data)
+        if pred:
+            if pred.name != predicates.OwnedBy.name:
+                self.output_pub.publish("Only ownedBy predicate is handled.")
+                return
+            self.output_pub.publish(str(pred))
+            self.owner_pub.publish(pred)
         # Try to parse object-specific permissions
         perm = parse.asPerm(msg.data)
         if perm:
@@ -104,6 +120,9 @@ class DialogManager:
                                 o.position.x, o.position.y, o.position.z)
                         for o in objs]
             out = "\n".join(["Tracked objects:"] + obj_strs)
+        elif args[1] == "agents":
+            agents = sorted(list(Agent.universe()), key=lambda a : a.id)
+            a
         elif args[1] == "predicates":
             out = "\n".join(["Available predicates:"] + predicates.db.keys())
         elif args[1] == "rules":

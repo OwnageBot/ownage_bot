@@ -44,8 +44,8 @@ class ObjectTracker:
         # Publishers, subscribers, etc
         self.new_obj_pub = rospy.Publisher("new_object",
                                            ObjectMsg, queue_size = 10)
-        self.ownership_sub = rospy.Subscriber("owner_prediction",
-                                           ObjectMsg, self.ownershipCb)
+        self.owner_sub = rospy.Subscriber("owner_prediction",
+                                              ObjectMsg, self.ownershipCb)
 
         # Subscribe to sensor data only if not running in simulation
         if rospy.get_param("simulation", False):

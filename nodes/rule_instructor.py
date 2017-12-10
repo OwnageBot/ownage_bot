@@ -14,6 +14,10 @@ class RuleInstructor:
         self.mode = rospy.get_param("~mode", "by_perm")
         # Fraction of objects used as training examples
         self.train_frac = rospy.get_param("~train_frac", 0.5)
+        # Fraction of objects whose owners are introduced before training
+        self.intro_frac_pre = rospy.get_param("~intro_frac_pre", 1.0)
+        # Fraction of objects whose owners are introduced after training
+        self.intro_frac_post = rospy.get_param("~intro_frac_post", 1.0)
         
         if self.mode == "by_script":
             self.script_msgs = self.loadScript()
@@ -24,6 +28,8 @@ class RuleInstructor:
             
         # Publishers
         self.agent_pub = rospy.Publisher("agent_input", AgentMsg,
+                                         queue_size=10)
+        self.owner_pub = rospy.Publisher("owner_input", PredicateMsg,
                                          queue_size=10)
         self.perm_pub = rospy.Publisher("perm_input", PredicateMsg,
                                         queue_size=10)
@@ -73,13 +79,27 @@ class RuleInstructor:
 
     def introduceAgents(self):
         """Looks up all simulated agents and introduces them to the tracker."""
-        agt_msgs = self.getAgents().agents
-        for msg in agt_msgs:
+        agts = self.getAgents().agents
+        for a in agts:
             self.pub_rate.sleep()
-            self.agent_pub.publish(msg)
-    
+            self.agent_pub.publish(a)
+
+    def introduceOwners(self, fraction=1.0):
+        """Provides ownership labels for a random subset of the objects."""
+        objs = [Object.fromMsg(m) for m in self.getObjects().objects]
+        sample = random.sample(objs, int(fraction * len(objs)))
+        for o in sample:
+            for agent_id, p_owned in o.ownership.iteritems():
+                msg = PredicateMsg(predicate=predicates.isOwned.name,
+                                   bindings=[o.toStr(), str(agent_id)],
+                                   negated=False, truth=p_owned)
+                self.owner_pub.publish(msg)
+                self.pub_rate.sleep()
+            
     def batchInstruct(self):
         """Teaches all information in one batch."""
+        if self.intro_frac_pre > 0:
+            rule_instructor.introduceOwners(self.intro_frac_pre)
         if self.mode == "by_perm":
             self.batchPermInstruct()
         elif self.mode == "by_rule":
@@ -88,7 +108,9 @@ class RuleInstructor:
             self.batchScriptInstruct()
         else:
             rospy.logerror("Instructor mode %s unrecognized", mode)
-
+        if self.intro_frac_post > 0:
+            rule_instructor.introduceOwners(self.intro_frac_post)
+            
     def batchPermInstruct(self):
         """Provides all object-specific permissions in one batch."""
         objs = [Object.fromMsg(m) for m in self.getObjects().objects]

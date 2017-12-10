@@ -180,8 +180,13 @@ class Agent:
     @classmethod
     def fromStr(cls, s):
         """Convert to Agent from string."""
-        rospy.wait_for_service("list_agents")
-        return cls.fromMsg(cls._lookupAgent(int(s)).agent)
+        agents = cls.universe()
+        for a in agents:
+            if int(s) == a.id:
+                return a
+            if len(s) > 0 and s == a.name:
+                return a
+        return None
 
     @classmethod
     def fromMsg(cls, msg):

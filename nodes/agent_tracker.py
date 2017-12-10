@@ -32,9 +32,20 @@ class AgentTracker:
 
     def agentInputCb(self, msg):
         """Updates database and current agent with new information."""
-        self.current_agent = Agent.fromMsg(msg)
-        self.agent_db[msg.id] = self.current_agent
-        self.new_agent_pub.publish(msg)
+        agent = Agent.fromMsg(msg)
+
+        # Check if agent is already known
+        for a in self.agent_db.items():
+            if a.name == agent.name:
+                self.current_agent = a
+                return
+
+        # Insert new agent into database if name is unrecognized
+        if agent.id < 0:
+            agent.id = len(self.agent_db)
+        self.agent_db[agent.id] = agent
+        self.current_agent = agent
+        self.new_agt_pub.publish(agent.toMsg())
         
     def lookupAgentCb(self, req):
         """ Returns properties of requested agent."""

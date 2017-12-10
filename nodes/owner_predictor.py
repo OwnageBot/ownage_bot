@@ -12,13 +12,15 @@ class OwnerPredictor:
     """Predicts ownership based on physical and social observation."""
     
     def __init__(self):
+        # Set up callback to handle ownership claims
+        self.owner_sub = rospy.Subscriber("owner_input", PredicateMsg,
+                                          self.ownerClaimCb)
         # Set up callback to predict ownership upon new permission input
         self.perm_sub = rospy.Subscriber("perm_input", PredicateMsg,
                                          self.permInputCb)
         # Set up callback to predict ownership upon new object detection
-        self.new_obj_sub = rospy.Subscriber("new_object", PredicateMsg,
+        self.new_obj_sub = rospy.Subscriber("new_object", ObjectMsg,
                                             self.newObjectCb)
-
         # Publisher for ownership predictions
         self.owner_pub = rospy.Publisher("owner_prediction", ObjectMsg,
                                          queue_size=10)
@@ -28,12 +30,38 @@ class OwnerPredictor:
         # Client for looking up tracked objects
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
 
+        # How much to trust ownership claims
+        self.claim_trust = rospy.get_param("~claim_trust", 0.9)
+        
         # Logistic regression params and objects for percept-based prediction
         self.reg_strength = rospy.get_param("~reg_strength", 0.1)
         self.max_features = rospy.get_param("~max_features", 20)
         self.nys = Nystroem(kernel='precomputed', random_state=0)
         self.log_reg = LogisticRegression(C=1/self.reg_strength,
                                           solver='newton-cg')
+        
+    def ownerClaimCb(self, msg):
+        """Callback upon receiving claim of ownership about object."""
+        # Unpack object and owner identity from isOwned predicate
+        pred = Predicate.fromMsg(msg)
+        obj = pred.bindings[0]
+        agent = pred.bindings[1]
+        if pred.name != predicates.isOwned.name:
+            return
+        if not isinstance(obj, Object):
+            return
+        if not isinstance(agent, Agent):
+            # TODO: Handle non-specific and group ownership claims
+            return
+
+        # Compute ownership probability as product of trust and truth value
+        p_owned = self.claim_trust * msg.truth
+        if pred.negated:
+            p_owned = 1 - p_owned
+        obj.ownership[agent.id] = p_owned
+
+        # Send ownership info back to object tracker
+        self.owner_pub.publish(obj.toMsg())
         
     def permInputCb(self, msg):
         """Callback upon receiving permission information about objects."""
@@ -94,9 +122,11 @@ class OwnerPredictor:
             # P(owned by a|perm) =
             # P(owned by a|forbidden) P(forbidden|perm) +
             # P(owned by a|allowed) P(allowed|perm)
-            p_owned_post[a.id] = \
-                (p_f_owned[a.id] / p_forbidden * truth +
-                 p_a_owned[a.id] / p_allowed * (1-truth))
+            p_owned_post[a.id] = 0
+            if p_forbidden > 0:
+                p_owned_post[a.id] += p_f_owned[a.id] / p_forbidden * truth
+            if p_allowed > 0:
+                p_owned_post[a.id] += p_a_owned[a.id] / p_allowed * (1-truth)
 
         # Reset ownership to original
         obj.ownership = p_owned_prior
