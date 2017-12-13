@@ -17,6 +17,10 @@
     <rosparam command="load" param="areas"
 	      file="$(find ownage_bot)/params/areas.yaml" />
 
+    <!-- Load path parameters -->
+    <rosparam command="load" param="areas"
+	      file="$(find ownage_bot)/params/paths.yaml" />
+    
     <!-- Load category parameters -->
     <rosparam param="categories">
       ["block", "mug", "pen", "laptop", "wallet", "charger", "wrapper"]

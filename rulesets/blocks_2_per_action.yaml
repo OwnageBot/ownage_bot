@@ -1,0 +1,6 @@
+- forbid trash if ownedBy any
+- forbid trash if isColored color1
+- forbid pickUp if ownedBy 2
+- forbid pickUp if isColored color2 and inArea trash
+- forbid collect if not isColored color0
+- forbid collect if inArea trash

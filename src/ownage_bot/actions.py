@@ -55,7 +55,7 @@ MoveTo._call = _moveTo
 
 Scan = Action("scan")
 def _scan(target):
-    scan_path = rospy.get_param("areas/workspace_left/corners",
+    scan_path = rospy.get_param("paths/workspace_left/corners",
                                 [[-0.05, 0.85, 0.30],
                                  [0.473, 0.506, 0.274],
                                  [0.731, 0.463, 0.277],
