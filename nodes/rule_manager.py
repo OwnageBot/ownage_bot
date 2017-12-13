@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import rospy
 from collections import namedtuple
-from std_srvs.srv import Trigger, TriggerResponse
+from std_srvs.srv import *
 from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
@@ -30,6 +30,10 @@ class RuleManager:
         # Database of object specific permissions
         self.perm_db = dict()
 
+        # Whether rule and permission databases are frozen
+        self.freeze_perms = rospy.get_param("~freeze_perms", False)
+        self.freeze_rules = rospy.get_param("~freeze_rules", False)
+
         # Initialize databases with empty dicts/sets
         for a in actions.db.iterkeys():
             self.active_rule_db[a] = set()
@@ -50,6 +54,10 @@ class RuleManager:
                                           self.resetPermsCb)
         self.rst_rule_srv = rospy.Service("reset_rules", Trigger,
                                           self.resetRulesCb)
+        self.frz_perm_srv = rospy.Service("freeze_perms", SetBool,
+                                          self.freezePermsCb)
+        self.frz_rule_srv = rospy.Service("freeze_rules", SetBool,
+                                          self.freezeRulesCb)
 
     def resetPermsCb(self, req):
         """Clears the permission database."""
@@ -63,7 +71,17 @@ class RuleManager:
             self.active_rule_db[a].clear()
             self.given_rule_db[a].clear()
         return TriggerResponse(True, "")
-        
+
+    def freezePermsCb(self, req):
+        """Freezes permission database (and associated learning)."""
+        self.freeze_perms = req.data
+        return SetBoolResponse(True, "")
+
+    def freezeRulesCb(self, req):
+        """Freezes rule database (and associated learning)."""
+        self.freeze_rules = req.data
+        return SetBoolResponse(True, "")
+    
     def lookupPermCb(self, req):
         """Returns action permission for requested action-target pair."""
         if req.action in self.perm_db:
@@ -88,6 +106,10 @@ class RuleManager:
         
     def permInputCb(self, msg):
         """Updates database with new permission, then accomodates the rules."""
+        # Do nothing if perm database is frozen
+        if self.freeze_perms:
+            return
+        
         # Ignore perms which are not about actions
         if msg.predicate not in actions.db:
             return
@@ -111,6 +133,10 @@ class RuleManager:
 
     def ruleInputCb(self, msg):
         """Updates given rule database, adjusts active rule database."""
+        # Do nothing if rule database is frozen
+        if self.freeze_rules:
+            return
+
         action = actions.db[msg.action]
         rule = Rule.fromMsg(msg)
 

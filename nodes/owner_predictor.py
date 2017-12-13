@@ -3,7 +3,7 @@ import rospy
 import numpy as np
 from sklearn.kernel_approximation import Nystroem
 from sklearn.linear_model import LogisticRegression
-from std_srvs.srv import Trigger, TriggerResponse
+from std_srvs.srv import *
 from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
@@ -12,6 +12,13 @@ class OwnerPredictor:
     """Predicts ownership based on physical and social observation."""
     
     def __init__(self):
+        # Flag to disable rule-based inference
+        self.disable_inference =\
+            rospy.get_param("~disable_inference", False)
+        # Flag to disable percept-based extrapolation
+        self.disable_extrapolate =\
+            rospy.get_param("~disable_extrapolate", False)
+        
         # Set up callback to handle ownership claims
         self.owner_sub = rospy.Subscriber("owner_input", PredicateMsg,
                                           self.ownerClaimCb)
@@ -24,14 +31,20 @@ class OwnerPredictor:
         # Publisher for ownership predictions
         self.owner_pub = rospy.Publisher("owner_prediction", ObjectMsg,
                                          queue_size=10)
+
+        # Services to stop owner prediction
+        self.dis_infer_srv = rospy.Service("disable_inference", SetBool,
+                                           self.disableInferenceCb)
+        self.dis_extra_srv = rospy.Service("disable_extrapolate", SetBool,
+                                           self.disableExtrapolateCb)
         
         # Client for looking up active rules
         self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
         # Client for looking up tracked objects
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
-
+        
         # How much to trust ownership claims
-        self.claim_trust = rospy.get_param("~claim_trust", 0.9)
+        self.claim_trust = rospy.get_param("~claim_trust", 1.0)
         
         # Logistic regression params and objects for percept-based prediction
         self.reg_strength = rospy.get_param("~reg_strength", 0.1)
@@ -39,6 +52,16 @@ class OwnerPredictor:
         self.nys = Nystroem(kernel='precomputed', random_state=0)
         self.log_reg = LogisticRegression(C=1/self.reg_strength,
                                           solver='newton-cg')
+
+    def disableInferenceCb(self, req):
+        """Disables rule-based ownership inference."""
+        self.disable_inference = req.data
+        return SetBoolResponse(True, "")
+
+    def disableExtrapolateCb(self, req):
+        """Disables percept-based ownership extrapolation."""
+        self.disable_extrapolate = req.data
+        return SetBoolResponse(True, "")
         
     def ownerClaimCb(self, msg):
         """Callback upon receiving claim of ownership about object."""
@@ -65,6 +88,10 @@ class OwnerPredictor:
         
     def permInputCb(self, msg):
         """Callback upon receiving permission information about objects."""
+        # Do nothing if inference is disabled
+        if self.disable_inference:
+            return
+        
         # Ignore perms which are not about actions
         if msg.predicate not in actions.db:
             return
@@ -84,6 +111,10 @@ class OwnerPredictor:
 
     def newObjectCb(self, msg):
         """Callback upon new object detection."""
+        # Do nothing if extrapolation is disabled
+        if self.disable_extrapolate:
+            return
+
         obj = Object.fromMsg(msg)
 
         # Guess ownership and publish prediction
