@@ -42,11 +42,19 @@
 	      file="$(find ownage_bot)/params/blocks_world.yaml" />
     </group>
     
-    <!-- Object tracker node -->
-    <node pkg="ownage_bot" type="object_tracker.py"
-	  output="screen" name="object_tracker">
+    <!-- Object tracker node (actual) -->
+    <node pkg="ownage_bot" type="baxter_tracker.py"
+	  output="screen" name="object_tracker" unless="$(arg simulation)$">
       <!-- How often (in seconds) objects get updated -->
-      <param name="latency" type="double" value="0.2" />
+      <param name="aruco_latency" type="double" value="0.1"/>
+      <param name="endpoint_latency" type="double" value="0.1"/>
+    </node>
+
+    <!-- Object tracker node (simulated) -->
+    <node pkg="ownage_bot" type="simulated_tracker.py"
+	  output="screen" name="object_tracker" if="$(arg simulation)$">
+      <!-- How often (in seconds) objects get updated -->
+      <param name="simulated_latency" type="double" value="0.1"/>
     </node>
 
     <!-- World simulator, provides simulated environment and actions -->
