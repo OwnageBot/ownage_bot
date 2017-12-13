@@ -5,7 +5,7 @@ from ownage_bot.msg import *
 from ownage_bot.srv import *
 from ownage_bot import *
 
-class ObjectTracker:
+class ObjectTracker(object):
     """Base class for tracking and updating object properties."""
 
     def __init__(self):

@@ -54,7 +54,7 @@ class EndpointTracker(ObjectTracker):
 
         # Don't update too frequently
         t_now = rospy.get_rostime()
-        if (t_now - self.endpoint_update_t) < self.endpoint_latency):
+        if (t_now - self.endpoint_update_t) < self.endpoint_latency:
             return
         self.endpoint_update_t = t_now
         

@@ -5,7 +5,7 @@ from ownage_bot.msg import *
 from ownage_bot.srv import *
 from ownage_bot import *
 
-class AgentTracker:
+class AgentTracker(object):
     """Node that tracks and updates agent properties."""
 
     def __init__(self):
@@ -20,7 +20,7 @@ class AgentTracker:
 
         # Publisher to notify other nodes about new agent
         self.new_agt_pub = rospy.Publisher("new_agent",
-                                             AgentMsg, queue_size = 10)
+                                           AgentMsg, queue_size = 10)
         
         # Services for looking up and resetting agent database
         self.lkp_agt_srv = rospy.Service("lookup_agent", LookupAgent,

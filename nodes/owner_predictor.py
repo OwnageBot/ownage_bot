@@ -8,7 +8,7 @@ from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
 
-class OwnerPredictor:
+class OwnerPredictor(object):
     """Predicts ownership based on physical and social observation."""
     
     def __init__(self):
@@ -175,7 +175,7 @@ class OwnerPredictor:
         X = self.nys.fit_transform(K)
         
         # Duplicate samples to account for uncertainty in class labels
-        X = np.tile(kern_mat, [2,1])
+        X = np.tile(X, [2,1])
         y = [True] * len(objs) + [False] * len(objs)
         
         # Train the classifier for each possible owner and predict ownership
@@ -183,7 +183,7 @@ class OwnerPredictor:
         for a in Agent.universe():
             # Weight samples according to the certainty of ownership
             weights = np.array([o.ownership[a.id] for o in objs] +
-                               [1.0-o.ownership[a.id] for in objs])
+                               [1.0-o.ownership[a.id] for o in objs])
             self.log_reg.fit(X, y, sample_weight=weights)
 
             # Predict ownership of new object
@@ -207,3 +207,8 @@ class OwnerPredictor:
         sq_dists = np.array([[np.dot(d, d) for d in row] for row in diffs])
         return np.exp(-gamma * sq_dists)
         
+
+if __name__ == '__main__':
+    rospy.init_node('owner_predictor')
+    OwnerPredictor()
+    rospy.spin()

@@ -17,12 +17,18 @@ class SimulatedTracker(ObjectTracker):
         # Set up service to lookup objects from simulator
         self.getSimulated = rospy.ServiceProxy("simulation/visible_objects",
                                                ListObjects)
+
         # Periodically lookup simulated objects
         rospy.Timer(self.simulated_latency,
                     lambda evt : self.simulatedUpdate())
 
     def simulatedUpdate(self):
         """Updates all perceivable properties of simulated objects."""
+        try:
+            rospy.wait_for_service("simulation/visible_objects", 0.5)
+        except rospy.ROSException:
+            rospy.logwarn("simulation/visible_objects service not available")
+            return
         objs = self.getSimulated().objects
         for msg in objs:
             if msg.id not in self.object_db:

@@ -7,7 +7,7 @@ from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
 
-class DialogManager:
+class DialogManager(object):
     """Manages dialog with users, generates replies and parses instructions."""
 
     def __init__(self):
@@ -47,6 +47,12 @@ class DialogManager:
         self.reset["agents"] = rospy.ServiceProxy("reset_agents", Trigger)
         self.reset["simulation"] = rospy.ServiceProxy("simulation/reset",
                                                       Trigger)
+
+        # Lookup simulated data
+        self.getObjects = rospy.ServiceProxy("simulation/all_objects",
+                                             ListObjects)
+        self.getAgents = rospy.ServiceProxy("simulation/all_agents",
+                                            ListAgents)
         
     def inputCb(self, msg):
         """Handles dialog input and publishes commands."""
@@ -114,15 +120,30 @@ class DialogManager:
                             ['objects', 'predicates', 'rules',
                              'actions', 'tasks'])
         elif args[1] == "objects":
-            objs = sorted(list(Object.universe()), key=lambda o : o.id)
-            obj_strs = ["{:3d} {:10} ({:04.2f},{:04.2f},{:04.2f})"\
+            if len(args) > 2 and args[2] == "simulated":
+                objs = [Object.fromMsg(m) for m in self.getObjects().objects]
+                objs.sort(key=lambda o : o.id)
+                header_str = "Simulated objects:"
+            else:
+                objs = sorted(list(Object.universe()), key=lambda o : o.id)
+                header_str = "Tracked objects:"
+            obj_strs = ["{:3d} {:10} ({: 04.2f},{: 04.2f},{: 04.2f}) "\
                         .format(o.id, o.color,
-                                o.position.x, o.position.y, o.position.z)
+                                o.position.x, o.position.y, o.position.z) +
+                        ", ".join(["{:2d}: {: 04.1f}".format(k, v) for
+                                   k, v in o.ownership.iteritems()])
                         for o in objs]
-            out = "\n".join(["Tracked objects:"] + obj_strs)
+            out = "\n".join([header_str] + obj_strs)
         elif args[1] == "agents":
-            agents = sorted(list(Agent.universe()), key=lambda a : a.id)
-            a
+            if len(args) > 2 and args[2] == "simulated":
+                agents = [Agent.fromMsg(m) for m in self.getAgents().agents]
+                agents.sort(key=lambda a : a.id)
+                header_str = "Simulated agents:"
+            else:
+                agents = sorted(list(Agent.universe()), key=lambda a : a.id)
+                header_str = "Tracked agents:"
+            agent_strs = ["{:3d} {:10}".format(a.id, a.name) for a in agents]
+            out = "\n".join([header_str] + agent_strs)
         elif args[1] == "predicates":
             out = "\n".join(["Available predicates:"] + predicates.db.keys())
         elif args[1] == "rules":

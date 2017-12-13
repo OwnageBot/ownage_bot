@@ -10,7 +10,7 @@ from ownage_bot.msg import *
 from ownage_bot.srv import *
 from geometry_msgs.msg import Point
 
-class WorldSimulator():
+class WorldSimulator(object):
     """Generates and maintains a simulated world of objects and avatars."""
     
     def __init__(self):

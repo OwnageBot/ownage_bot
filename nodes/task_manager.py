@@ -8,7 +8,7 @@ from ownage_bot.srv import *
 from std_msgs.msg import String
 from geometry_msgs.msg import Point
 
-class TaskManager:
+class TaskManager(object):
     """Manages the task currently assigned to the robot."""
 
     def __init__(self):

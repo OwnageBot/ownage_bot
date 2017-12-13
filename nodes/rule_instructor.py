@@ -6,7 +6,7 @@ from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
 
-class RuleInstructor:
+class RuleInstructor(object):
     """Automatically teaches rules by example or direct instruction."""
 
     def __init__(self):

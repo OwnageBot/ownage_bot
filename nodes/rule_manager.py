@@ -11,7 +11,7 @@ PerfMetric = namedtuple('PerfMetric',
                         ['tp', 'tn', 'fp', 'fn',
                          'prec', 'rec', 'acc', 'm_est'])
 
-class RuleManager:
+class RuleManager(object):
     """Manages, updates and learns (ownership) rules."""
     
     def __init__(self):

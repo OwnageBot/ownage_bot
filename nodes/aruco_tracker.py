@@ -75,7 +75,7 @@ class ArUcoTracker(ObjectTracker):
         """Callback upon receiving list of markers from ArUco."""
         # Don't update too frequently
         t_now = rospy.get_rostime()
-        if (t_now - self.aruco_update_t) < self.aruco_latency):
+        if (t_now - self.aruco_update_t) < self.aruco_latency:
             return
         self.aruco_update_t = t_now
         # One-time subscribe for image data
