@@ -358,7 +358,7 @@ class RuleManager(object):
             if len(new.conditions) <= len(r.conditions):
                 r_cover = set([tgt for tgt, val in perm_set.items()
                                if r.evaluate(tgt) >= 0.5])
-                if r_cover <= new_cover:
+                if r_cover < new_cover:
                     rospy.loginfo("Subsuming rule: [%s].", r.toPrint())
                     rule_set.remove(r)
         else:
