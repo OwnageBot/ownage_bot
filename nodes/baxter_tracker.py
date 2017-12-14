@@ -4,7 +4,7 @@ from aruco_tracker import ArUcoTracker
 from endpoint_tracker import EndpointTracker
 from ownership_tracker import OwnershipTracker
 
-class BaxterTracker(ArUcoTracker, EndpointTracker, OwnershipTracker):
+class BaxterTracker(ArUcoTracker, EndpointTracker):
     """Combines ArUco, endpoint and ownership tracking into one node."""
 
     def __init__(self):

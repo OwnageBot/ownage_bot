@@ -32,15 +32,17 @@ class SimulatedTracker(OwnershipTracker):
         objs = self.getSimulated().objects
         for msg in objs:
             if msg.id not in self.object_db:
-                new_obj = Object.fromMsg(msg)
-                new_obj.ownership = dict() # Blind tracker to ownership data
-                self.object_db[msg.id] = new_obj
-                self.new_obj_pub.publish(new_obj.toMsg())
+                obj = Object.fromMsg(msg)
+                obj.ownership = dict() # Blind tracker to ownership data
+                self.object_db[obj.id] = obj
+                super(SimulatedTracker, self).newObjectCb(obj.id)
+                self.new_obj_pub.publish(obj.toMsg())
             else:
-                self.object_db[msg.id].position = msg.position
-                self.object_db[msg.id].orientation = msg.orientation
-                self.object_db[msg.id].color = msg.color
-                self.object_db[msg.id].categories = list(msg.categories)
+                obj = self.object_db[msg.id]
+                obj.position = msg.position
+                obj.orientation = msg.orientation
+                obj.color = msg.color
+                obj.categories = list(msg.categories)
 
 if __name__ == '__main__':
     rospy.init_node('object_tracker')

@@ -34,7 +34,7 @@ class EndpointTracker(ObjectTracker):
         self.cur_action = msg.action
         if self.cur_action == self.prev_action:
             return
-        if self.cur_action == "get":
+        if self.cur_action == "get" and int(msg.object) in self.object_db:
             # Start tracking object at endpoint
             self.gripped_id = int(msg.object)
             topic = "/robot/limb/left/endpoint_state"

@@ -109,7 +109,13 @@ class OwnershipTracker(ObjectTracker):
         # Default ownership probability to 0.5
         for o_id in self.object_db.keys():
             self.object_db[o_id].ownership[msg.id] = 0.5
-        
+
+    def newObjectCb(self, o_id):
+        """Callback upon insertion of new object."""
+        # Default ownership probability to 0.5
+        for a in Agent.universe():
+            self.object_db[o_id].ownership[a.id] = 0.5
+            
     def inferFromPerm(self, act_name, obj, truth):
         """Infer ownership from permission info."""
         rule_set = self.lookupRules(act_name).rule_set

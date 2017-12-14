@@ -8,9 +8,9 @@ from ownage_bot.srv import *
 from ownage_bot import *
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
-from object_tracker import ObjectTracker
+from ownership_tracker import OwnershipTracker
 
-class ArUcoTracker(ObjectTracker):
+class ArUcoTracker(OwnershipTracker):
     """Uses ArUco to track and updates object properties."""
 
     def __init__(self):
@@ -48,6 +48,7 @@ class ArUcoTracker(ObjectTracker):
         self.object_db[marker.id] = obj
         # Initialize fields which are dynamically changing
         self.updateObject(marker)
+        super(ArUcoTracker, self).newObjectCb(obj.id)
         return obj
 
     def updateObject(self, marker):
