@@ -7,11 +7,14 @@ from std_srvs.srv import *
 from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
+from object_tracker import ObjectTracker
 
-class OwnerPredictor(object):
-    """Predicts ownership based on physical and social observation."""
+class OwnershipTracker(ObjectTracker):
+    """Tracks ownership based on physical and social observation."""
     
     def __init__(self):
+        super(OwnershipTracker, self).__init__()
+
         # Flag to disable rule-based inference
         self.disable_inference =\
             rospy.get_param("~disable_inference", False)
@@ -26,11 +29,8 @@ class OwnerPredictor(object):
         self.perm_sub = rospy.Subscriber("perm_input", PredicateMsg,
                                          self.permInputCb)
         # Set up callback to predict ownership upon new object detection
-        self.new_obj_sub = rospy.Subscriber("new_object", ObjectMsg,
-                                            self.newObjectCb)
-        # Publisher for ownership predictions
-        self.owner_pub = rospy.Publisher("owner_prediction", ObjectMsg,
-                                         queue_size=10)
+        self.new_agt_sub = rospy.Subscriber("new_agent", AgentMsg,
+                                            self.newAgentCb)
 
         # Services to stop owner prediction
         self.dis_infer_srv = rospy.Service("disable_inference", SetBool,
@@ -40,8 +40,6 @@ class OwnerPredictor(object):
         
         # Client for looking up active rules
         self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
-        # Client for looking up tracked objects
-        self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
         
         # How much to trust ownership claims
         self.claim_trust = rospy.get_param("~claim_trust", 1.0)
@@ -69,7 +67,7 @@ class OwnerPredictor(object):
         pred = Predicate.fromMsg(msg)
         obj = pred.bindings[0]
         agent = pred.bindings[1]
-        if pred.name != predicates.isOwned.name:
+        if pred.name != predicates.OwnedBy.name:
             return
         if not isinstance(obj, Object):
             return
@@ -81,10 +79,7 @@ class OwnerPredictor(object):
         p_owned = self.claim_trust * msg.truth
         if pred.negated:
             p_owned = 1 - p_owned
-        obj.ownership[agent.id] = p_owned
-
-        # Send ownership info back to object tracker
-        self.owner_pub.publish(obj.toMsg())
+        self.object_db[obj.id].ownership[agent.id] = p_owned
         
     def permInputCb(self, msg):
         """Callback upon receiving permission information about objects."""
@@ -100,30 +95,23 @@ class OwnerPredictor(object):
         # Ignore actions without objects as targets
         if len(msg.bindings) != 1:
             raise TypeError("Action perm should have exactly one argument.")
-        if (msg.bindings[0] == objects.Nil.toStr() or action.tgtype == Object):
-            return
+        if (msg.bindings[0] == objects.Nil.toStr() or action.tgtype != Object):
+            raise TypeError("Action perm should have object as argument.")
         obj = Object.fromStr(msg.bindings[0])
-
-        # Guess ownership and publish prediction
-        ownership = self.guessFromPerm(action, obj, msg.truth)
-        obj.ownership = ownership
-        self.owner_pub.publish(obj.toMsg())
-
-    def newObjectCb(self, msg):
-        """Callback upon new object detection."""
-        # Do nothing if extrapolation is disabled
-        if self.disable_extrapolate:
-            return
-
-        obj = Object.fromMsg(msg)
-
-        # Guess ownership and publish prediction
-        ownership = self.guessFromPercepts(obj)
-        obj.ownership = ownership
-        self.owner_pub.publish(obj.toMsg())
         
-    def guessFromPerm(self, act_name, obj, truth):
-        """Guess ownership from permission info."""
+        # Guess ownership and publish prediction
+        ownership = self.inferFromPerm(action.name, obj, msg.truth)
+        print ownership
+        self.object_db[obj.id].ownership = ownership
+
+    def newAgentCb(self, msg):
+        """Callback upon new agent introduction."""
+        # Default ownership probability to 0.5
+        for o_id in self.object_db.keys():
+            self.object_db[o_id].ownership[msg.id] = 0.5
+        
+    def inferFromPerm(self, act_name, obj, truth):
+        """Infer ownership from permission info."""
         rule_set = self.lookupRules(act_name).rule_set
         rule_set = [Rule.fromMsg(r) for r in rule_set]
 
@@ -165,10 +153,8 @@ class OwnerPredictor(object):
         # Return posterior probabilities
         return p_owned_post
 
-    def guessFromPercepts(self, new):
+    def extrapolateFromPercepts(self, new):
         """Guess ownership of new object from physical percepts."""
-        objs = self.listObjects().objects
-
         # Compute Gram matrix and kernel map for kernel logistic regression
         K = self.perceptKern(objs, objs)
         self.nys.n_components = min(len(objs), self.max_features)
@@ -205,10 +191,9 @@ class OwnerPredictor(object):
         """Computes RBF kernel matrix for the percept features of objects."""
         diffs = [[self.perceptDiff(o1, o2) for o2 in objs2] for o1 in objs1]
         sq_dists = np.array([[np.dot(d, d) for d in row] for row in diffs])
-        return np.exp(-gamma * sq_dists)
-        
+        return np.exp(-gamma * sq_dists)        
 
 if __name__ == '__main__':
-    rospy.init_node('owner_predictor')
-    OwnerPredictor()
+    rospy.init_node('ownership_tracker')
+    OwnershipTracker()
     rospy.spin()

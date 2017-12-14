@@ -15,15 +15,11 @@ class RuleInstructor(object):
         # Fraction of objects used as training examples
         self.train_frac = rospy.get_param("~train_frac", 0.5)
         # Fraction of objects whose owners are introduced before training
-        self.intro_frac_pre = rospy.get_param("~intro_frac_pre", 1.0)
+        self.intro_frac_pre = rospy.get_param("~intro_frac_pre", 0.0)
         # Fraction of objects whose owners are introduced after training
-        self.intro_frac_post = rospy.get_param("~intro_frac_post", 1.0)
-        
-        if self.mode == "by_script":
-            self.script_msgs = self.loadScript()
-        else:
-            self.rule_db = self.loadRules()
-            
+        self.intro_frac_post = rospy.get_param("~intro_frac_post", 0.0)
+
+        self.agt_pub_rate = rospy.Rate(rospy.get_param("~agt_pub_rate", 3))
         self.pub_rate = rospy.Rate(rospy.get_param("~pub_rate", 10))
             
         # Publishers
@@ -38,10 +34,17 @@ class RuleInstructor(object):
         
         # Servers
         self.getObjects = rospy.ServiceProxy("simulation/all_objects",
-                                              ListObjects)
+                                             ListObjects)
         self.getAgents = rospy.ServiceProxy("simulation/all_agents",
-                                              ListAgents)
+                                            ListAgents)
 
+    def loadInstructions(self):
+        """Load instructions (should be called after introducing agents)."""
+        if self.mode == "by_script":
+            self.script_msgs = self.loadScript()
+        else:
+            self.rule_db = self.loadRules()
+        
     def loadRules(self):
         """Loads rules from parameter server."""
         rule_strs = rospy.get_param("~rules", [])
@@ -81,7 +84,7 @@ class RuleInstructor(object):
         """Looks up all simulated agents and introduces them to the tracker."""
         agts = self.getAgents().agents
         for a in agts:
-            self.pub_rate.sleep()
+            self.agt_pub_rate.sleep()
             self.agent_pub.publish(a)
 
     def introduceOwners(self, fraction=1.0):
@@ -90,11 +93,11 @@ class RuleInstructor(object):
         sample = random.sample(objs, int(fraction * len(objs)))
         for o in sample:
             for agent_id, p_owned in o.ownership.iteritems():
-                msg = PredicateMsg(predicate=predicates.isOwned.name,
+                msg = PredicateMsg(predicate=predicates.OwnedBy.name,
                                    bindings=[o.toStr(), str(agent_id)],
                                    negated=False, truth=p_owned)
-                self.owner_pub.publish(msg)
                 self.pub_rate.sleep()
+                self.owner_pub.publish(msg)
             
     def batchInstruct(self):
         """Teaches all information in one batch."""
@@ -142,11 +145,11 @@ class RuleInstructor(object):
     def batchScriptInstruct(self):
         """Publish instruction messages in exact order of the script."""
         for msg in self.script_msgs:
+            self.pub_rate.sleep()
             if isinstance(msg, PredicateMsg):
                 self.perm_pub.publish(msg)
             elif isinstance(msg, RuleMsg):
                 self.rule_pub.publish(msg)
-            self.pub_rate.sleep()
             
 if __name__ == '__main__':
     rospy.init_node('rule_instructor')
@@ -156,5 +159,6 @@ if __name__ == '__main__':
         rospy.spin()
     else:
         rule_instructor.introduceAgents()
+        rule_instructor.loadInstructions()
         rule_instructor.batchInstruct()
         

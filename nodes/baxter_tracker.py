@@ -2,9 +2,10 @@
 import rospy
 from aruco_tracker import ArUcoTracker
 from endpoint_tracker import EndpointTracker
+from ownership_tracker import OwnershipTracker
 
-class BaxterTracker(ArUcoTracker, EndpointTracker):
-    """Combines ArUco tracking and endpoint tracking into one node."""
+class BaxterTracker(ArUcoTracker, EndpointTracker, OwnershipTracker):
+    """Combines ArUco, endpoint and ownership tracking into one node."""
 
     def __init__(self):
         super(BaxterTracker, self).__init__()

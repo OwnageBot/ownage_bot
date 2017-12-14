@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import rospy
 from std_msgs.msg import String
-from std_srvs.srv import Trigger
+from std_srvs.srv import *
 from geometry_msgs.msg import Point
 from ownage_bot import *
 from ownage_bot.msg import *
@@ -39,7 +39,7 @@ class DialogManager(object):
         # Looks up rule database from rule manager
         self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
 
-        # Resets various databases
+        # Serviecs that reset various databases
         self.reset = dict()
         self.reset["perms"] = rospy.ServiceProxy("reset_perms", Trigger)
         self.reset["rules"] = rospy.ServiceProxy("reset_rules", Trigger)
@@ -47,7 +47,19 @@ class DialogManager(object):
         self.reset["agents"] = rospy.ServiceProxy("reset_agents", Trigger)
         self.reset["simulation"] = rospy.ServiceProxy("simulation/reset",
                                                       Trigger)
+        
+        # Services that freeze/unfreeze various databases
+        self.freeze = dict()
+        self.freeze["perms"] = rospy.ServiceProxy("freeze_perms", SetBool)
+        self.freeze["rules"] = rospy.ServiceProxy("freeze_rules", SetBool)
 
+        # Services that disable/enable various functions
+        self.disable = dict()
+        self.disable["inference"] = \
+            rospy.ServiceProxy("disable_inference", SetBool)
+        self.disable["extrapolate"] = \
+            rospy.ServiceProxy("disable_extrapolate", SetBool)
+        
         # Lookup simulated data
         self.getObjects = rospy.ServiceProxy("simulation/all_objects",
                                              ListObjects)
@@ -64,9 +76,17 @@ class DialogManager(object):
         if args[0] == "list":
             self.handleList(args)
             return
-        # Reset various entities (rules, permissions, simulation)
+        # Reset various entities (rules, permissions, simulation, etc.)
         if args[0] == "reset":
             self.handleReset(args)
+            return
+        # Freeze / unfreeze various databases (rules, permissions)
+        if args[0] in ["freeze", "unfreeze"]:
+            self.handleFreeze(args)
+            return
+        # Disable / enable various functions (owner inference, extrapolation)
+        if args[0] in ["disable", "enable"]:
+            self.handleDisable(args)
             return
         # Try parsing as agent introduction
         agent = parse.asAgent(msg.data)
@@ -191,6 +211,63 @@ class DialogManager(object):
             out = "Keyword not recognized."
             self.output_pub.publish(out)
 
+    def handleFreeze(self, args):
+        """Handles freeze command."""
+        val = True if args[0] == "freeze" else False
+        if len(args) < 2:
+            out = "\n".join(["Freeze one of the following databases:"] +
+                            self.freeze.keys() + ["all"])
+        elif args[1] in self.freeze:
+            key = args[1]
+            try:
+                self.freeze[key].wait_for_service(timeout=0.5)
+                self.freeze[key](val)
+                return
+            except rospy.ROSException:
+                out = "Freeze service for {} is unavailable.".format(key)
+                self.output_pub.publish(out)
+                return
+        elif args[1] == "all":
+            # Try to freeze all databases
+            for k, freeze_f in self.freeze.iteritems():
+                try:
+                    freeze_f.wait_for_service(timeout=0.5)
+                    freeze_f(val)
+                except rospy.ROSException:
+                    # Fail silently for unavailable services
+                    pass
+        else:
+            out = "Keyword not recognized."
+            self.output_pub.publish(out)
+
+    def handleDisable(self, args):
+        """Handles disable command."""
+        val = True if args[0] == "disable" else False
+        if len(args) < 2:
+            out = "\n".join(["Disable one of the following functions:"] +
+                            self.disable.keys() + ["all"])
+        elif args[1] in self.disable:
+            key = args[1]
+            try:
+                self.disable[key].wait_for_service(timeout=0.5)
+                self.disable[key](val)
+                return
+            except rospy.ROSException:
+                out = "Disable service for {} is unavailable.".format(key)
+                self.output_pub.publish(out)
+                return
+        elif args[1] == "all":
+            # Try to disable all functions
+            for k, disable_f in self.disable.iteritems():
+                try:
+                    disable_f.wait_for_service(timeout=0.5)
+                    disable_f(val)
+                except rospy.ROSException:
+                    # Fail silently for unavailable services
+                    pass
+        else:
+            out = "Keyword not recognized."
+            self.output_pub.publish(out)
             
 if __name__ == '__main__':
     rospy.init_node('dialog_manager')

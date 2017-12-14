@@ -182,11 +182,14 @@ class Agent:
         """Convert to Agent from string."""
         agents = cls.universe()
         for a in agents:
-            if int(s) == a.id:
+            if s.isdigit() and int(s) == a.id:
                 return a
             if len(s) > 0 and s == a.name:
                 return a
-        return None
+        if s.isdigit():
+            return cls(id=int(s))
+        else:
+            return cls(name=s)
 
     @classmethod
     def fromMsg(cls, msg):
@@ -246,14 +249,22 @@ class Area:
     @classmethod
     def fromStr(cls, s):
         """Convert to Area from string."""
-        new = cls(eval(s))
-        # Try looking up name of area
+        new = None
+        try:
+            points = eval(s)
+            if type(points) in [tuple, list]:
+                new = cls(points)
+        except:
+            pass
+        # Try looking up in database
         areas = rospy.get_param("areas", dict())
         for k, v in areas.iteritems():
             a = cls(v["corners"], name=k)
-            if new == a:
+            if (new == None and s == a.name) or (new == a):
                 return a
-        return new
+        if new != None:
+            return new
+        raise ValueError("Could not construct or lookup Area.")
 
     @classmethod
     def universe(cls):

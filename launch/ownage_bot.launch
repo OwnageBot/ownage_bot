@@ -48,6 +48,8 @@
       <!-- How often (in seconds) objects get updated -->
       <param name="aruco_latency" type="double" value="0.1"/>
       <param name="endpoint_latency" type="double" value="0.1"/>
+      <param name="disable_inference" type="bool" value="false"/>
+      <param name="disable_extrapolate" type="bool" value="false"/>
     </node>
 
     <!-- Object tracker node (simulated) -->
@@ -55,6 +57,8 @@
 	  output="screen" name="object_tracker" if="$(arg simulation)">
       <!-- How often (in seconds) objects get updated -->
       <param name="simulated_latency" type="double" value="0.1"/>
+      <param name="disable_inference" type="bool" value="false"/>
+      <param name="disable_extrapolate" type="bool" value="false"/>
     </node>
 
     <!-- Agent tracker node -->
@@ -80,13 +84,6 @@
     <!-- Rule manager node -->
     <node pkg="ownage_bot" type="rule_manager.py"
           name="rule_manager" output="screen" unless="$(arg manual)">
-    </node>
-
-    <!-- Owner predictor node -->
-    <node pkg="ownage_bot" type="owner_predictor.py"
-          name="owner_predictor" output="screen" unless="$(arg manual)">
-      <param name="disable_inference" type="bool" value="false"/>
-      <param name="disable_extrapolate" type="bool" value="false"/>
     </node>
     
     <!-- Dialog manager node -->

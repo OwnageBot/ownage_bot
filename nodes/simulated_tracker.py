@@ -3,9 +3,9 @@ import rospy
 from ownage_bot.msg import *
 from ownage_bot.srv import *
 from ownage_bot import *
-from object_tracker import ObjectTracker
+from ownership_tracker import OwnershipTracker
 
-class SimulatedTracker(ObjectTracker):
+class SimulatedTracker(OwnershipTracker):
     """Simulates object tracking by periodically querying simulator."""
 
     def __init__(self):

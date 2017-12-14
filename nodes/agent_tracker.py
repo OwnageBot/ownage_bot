@@ -35,8 +35,9 @@ class AgentTracker(object):
         agent = Agent.fromMsg(msg)
 
         # Check if agent is already known
-        for a in self.agent_db.items():
-            if a.name == agent.name:
+        for a_id, a in self.agent_db.items():
+            if (a_id == agent.id or
+                (len(agent.name) > 0 and a.name == agent.name)):
                 self.current_agent = a
                 return
 
