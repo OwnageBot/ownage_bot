@@ -8,12 +8,12 @@ class Rule:
     """Condition-action pairs that the robot should follow."""    
     
     # Constants defining rule types
-    forbidden = "forbidden"
-    allowed = "allowed"
-    obligatory = "obligatory"
+    forbidden = "forbid"
+    allowed = "allow"
+    obligatory = "ensure"
     
     def __init__(self, action=actions.Empty, conditions=[],
-                 detype="forbidden"):
+                 detype="forbid"):
         # Action to be performed
         self.action = action
         # Set of predicates that have to be true for the rule to follow
@@ -198,9 +198,8 @@ class Rule:
     
     def toPrint(self):
         """Converts to human-readable string."""
-        return " ".join([self.action.name, "on"] +
-                        [p.toPrint() for p in self.conditions] +
-                        ["target","is",self.detype])
+        cond_str = " and ".join([p.toPrint() for p in self.conditions])
+        return "{} {} if {}".format(self.detype, self.action.name, cond_str)
 
     def toMsg(self):
         """Convert to ROS message."""

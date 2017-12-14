@@ -106,11 +106,12 @@ class DialogManager(object):
         # Try to parse as ownership claim
         pred = parse.asPredicate(msg.data)
         if pred:
-            if pred.name != predicates.OwnedBy.name:
+            if pred.predicate != predicates.OwnedBy.name:
                 self.output_pub.publish("Only ownedBy predicate is handled.")
                 return
             self.output_pub.publish(str(pred))
             self.owner_pub.publish(pred)
+            return
         # Try to parse object-specific permissions
         perm = parse.asPerm(msg.data)
         if perm:

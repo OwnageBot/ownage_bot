@@ -117,7 +117,7 @@ def asRule(s):
     truth = float(match.group(1) == "forbid")
     preds = match.group(3).strip().split(" and ")
     conditions = [asPredicate(p, n_unbound=1) for p in preds]
-    rule = RuleMsg(name, conditions, "forbidden", truth)
+    rule = RuleMsg(name, conditions, "forbid", truth)
     return rule
     
 def asAgent(s):
