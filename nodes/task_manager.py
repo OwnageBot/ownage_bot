@@ -31,12 +31,6 @@ class TaskManager(object):
         self.lookupPerm = rospy.ServiceProxy("lookup_perm", LookupPerm)
         self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
 
-    def sendFeedback(self, feedback):
-        """Gives feedback for rule learning."""
-        msg = FeedbackMsg()
-        msg.stamp = rospy.Time.now()
-        self.feedback_pub.publish(msg)
-
     def taskInCb(self, msg):
         """Handles incoming tasks."""
         task = tasks.Idle
