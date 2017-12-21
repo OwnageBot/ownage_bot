@@ -1,5 +1,3 @@
-Header header
-
 # ARuco ID of the object
 int32 id
 

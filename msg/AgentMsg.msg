@@ -1,5 +1,3 @@
-Header header
-
 # Agent ID
 int32 id
 
