@@ -12,13 +12,8 @@ class RuleInstructor(object):
     def __init__(self):
         # Learning mode (by rule, permission, or script)
         self.mode = rospy.get_param("~mode", "by_perm")
-        # Fraction of objects used as training examples
-        self.train_frac = rospy.get_param("~train_frac", 0.5)
-        # Fraction of objects whose owners are introduced before training
-        self.intro_frac_pre = rospy.get_param("~intro_frac_pre", 0.0)
-        # Fraction of objects whose owners are introduced after training
-        self.intro_frac_post = rospy.get_param("~intro_frac_post", 0.0)
 
+        # Message publishing rates
         self.agt_pub_rate = rospy.Rate(rospy.get_param("~agt_pub_rate", 3))
         self.pub_rate = rospy.Rate(rospy.get_param("~pub_rate", 10))
             
@@ -37,6 +32,7 @@ class RuleInstructor(object):
                                              ListObjects)
         self.getAgents = rospy.ServiceProxy("simulation/all_agents",
                                             ListAgents)
+        self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
 
     def loadInstructions(self):
         """Load instructions (should be called after introducing agents)."""
@@ -90,8 +86,9 @@ class RuleInstructor(object):
     def introduceOwners(self, fraction=1.0):
         """Provides ownership labels for a random subset of the objects."""
         objs = [Object.fromMsg(m) for m in self.getObjects().objects]
-        sample = random.sample(objs, int(fraction * len(objs)))
-        for o in sample:
+        objs = [o for o in objs if not o.is_avatar]
+        objs = random.sample(objs, int(fraction * len(objs)))
+        for o in objs:
             for agent_id, p_owned in o.ownership.iteritems():
                 msg = PredicateMsg(predicate=predicates.OwnedBy.name,
                                    bindings=[o.toStr(), str(agent_id)],
@@ -101,8 +98,6 @@ class RuleInstructor(object):
             
     def batchInstruct(self):
         """Teaches all information in one batch."""
-        if self.intro_frac_pre > 0:
-            rule_instructor.introduceOwners(self.intro_frac_pre)
         if self.mode == "by_perm":
             self.batchPermInstruct()
         elif self.mode == "by_rule":
@@ -111,23 +106,17 @@ class RuleInstructor(object):
             self.batchScriptInstruct()
         else:
             rospy.logerror("Instructor mode %s unrecognized", mode)
-        if self.intro_frac_post > 0:
-            rule_instructor.introduceOwners(self.intro_frac_post)
             
-    def batchPermInstruct(self):
+    def batchPermInstruct(self, fraction=1.0):
         """Provides all object-specific permissions in one batch."""
         objs = [Object.fromMsg(m) for m in self.getObjects().objects]
         # Get rid of avatars
         objs = [o for o in objs if not o.is_avatar]
-        # Randomize object order
-        random.shuffle(objs)
-        # Use only a fraction as training examples (rounded down)
-        objs = objs[0:int(self.train_frac * len(objs))]
+        # Sample random fraction
+        objs = random.sample(objs, int(fraction * len(objs)))
         # Feed permissions for each action separately
         for act_name, rule_set in self.rule_db.iteritems():
             for o in objs:
-                if o.is_avatar:
-                    continue
                 truth = Rule.evaluateOr(rule_set, o)
                 perm = PredicateMsg(predicate=act_name,
                                     bindings=[o.toStr()],
@@ -150,6 +139,25 @@ class RuleInstructor(object):
                 self.perm_pub.publish(msg)
             elif isinstance(msg, RuleMsg):
                 self.rule_pub.publish(msg)
+
+    def evaluateRules(self):
+        """Evalutes accuracy of learned rules against actual rules."""
+        objs = [Object.fromMsg(m) for m in self.getObjects().objects]
+        objs = [o for o in objs if not o.is_avatar]
+        accuracy = dict()
+        for a, rule_set in self.rule_db.iteritems():
+            learned = [Rule.fromMsg(m) for m in self.lookupRules(a).rule_set]
+            accuracy[a] = 0.0
+            for o in objs:
+                actual = Rule.evaluateOr(rule_set, o)
+                predicted = Rule.evaluateOr(learned, o)
+                correct = (actual-0.5)*(predicted-0.5) > 0
+                accuracy[a] += correct
+            accuracy[a] /= len(objs)
+        tot_accuracy = sum(accuracy.values()) / len(accuracy)
+        print accuracy
+        print "Total accuracy: {}".format(tot_accuracy)
+        return tot_accuracy, accuracy
             
 if __name__ == '__main__':
     rospy.init_node('rule_instructor')
@@ -158,7 +166,15 @@ if __name__ == '__main__':
         rule_instructor.initOnline()
         rospy.spin()
     else:
-        rule_instructor.introduceAgents()
-        rule_instructor.loadInstructions()
-        rule_instructor.batchInstruct()
+        n_iters = 1
+        accuracy = 0.0
+        for i in range(n_iters):
+            rule_instructor.introduceAgents()
+            rule_instructor.loadInstructions()
+            rule_instructor.introduceOwners()
+            rule_instructor.batchPermInstruct(0.25)
+            tot_a, a = rule_instructor.evaluateRules()
+            accuracy += tot_a
+        accuracy /= n_iters
+        print "Average trial accuracy: {}".format(accuracy)
         

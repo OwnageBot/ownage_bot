@@ -46,6 +46,8 @@ class OwnershipTracker(ObjectTracker):
         
         # How much to trust ownership claims
         self.claim_trust = rospy.get_param("~claim_trust", 1.0)
+        # Default ownership prior
+        self.default_prior = rospy.get_param("~default_prior", 0.2)
         
         # Logistic regression params and objects for percept-based prediction
         self.reg_strength = rospy.get_param("~reg_strength", 0.1)
@@ -139,8 +141,10 @@ class OwnershipTracker(ObjectTracker):
             agent_ids = [a.id for a in Agent.universe()]
         for o_id in obj_ids:
             obj = self.object_db[o_id]
+            if obj.is_avatar:
+                continue
             for a_id in agent_ids:
-                obj.ownership[a_id] = 0.5        
+                obj.ownership[a_id] = self.default_prior
             
     def inferFromPerm(self, act_name, obj, truth):
         """Infer ownership from permission info."""
@@ -189,6 +193,8 @@ class OwnershipTracker(ObjectTracker):
         """Guess ownership of objects from physical percepts."""
         # Filter out new objects from training set
         train = [o for o in self.object_db.values() if o.id not in new_ids]
+        # Filter out avatars
+        train = [o for o in train if not o.is_avatar]
 
         # Default to uninformed prior if too few training points
         if len(train) <= 1:
