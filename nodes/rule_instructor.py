@@ -13,9 +13,10 @@ class RuleInstructor(object):
         # Learning mode (by rule, permission, or script)
         self.mode = rospy.get_param("~mode", "by_perm")
 
-        # Message publishing rates
+        # Various rates
         self.agt_pub_rate = rospy.Rate(rospy.get_param("~agt_pub_rate", 3))
         self.pub_rate = rospy.Rate(rospy.get_param("~pub_rate", 10))
+        self.iter_rate = rospy.Rate(rospy.get_param("~iter_rate", 10))
             
         # Publishers
         self.agent_pub = rospy.Publisher("agent_input", AgentMsg,
@@ -34,6 +35,27 @@ class RuleInstructor(object):
                                             ListAgents)
         self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
 
+        # Services that reset various databases
+        self.reset = dict()
+        self.reset["perms"] = rospy.ServiceProxy("reset_perms", Trigger)
+        self.reset["rules"] = rospy.ServiceProxy("reset_rules", Trigger)
+        self.reset["objects"] = rospy.ServiceProxy("reset_objects", Trigger)
+        self.reset["agents"] = rospy.ServiceProxy("reset_agents", Trigger)
+        self.reset["simulation"] = rospy.ServiceProxy("simulation/reset",
+                                                      Trigger)
+        
+        # Services that freeze/unfreeze various databases
+        self.freeze = dict()
+        self.freeze["perms"] = rospy.ServiceProxy("freeze_perms", SetBool)
+        self.freeze["rules"] = rospy.ServiceProxy("freeze_rules", SetBool)
+
+        # Services that disable/enable various functions
+        self.disable = dict()
+        self.disable["inference"] = \
+            rospy.ServiceProxy("disable_inference", SetBool)
+        self.disable["extrapolate"] = \
+            rospy.ServiceProxy("disable_extrapolate", SetBool)
+        
     def loadInstructions(self):
         """Load instructions (should be called after introducing agents)."""
         if self.mode == "by_script":
@@ -144,20 +166,47 @@ class RuleInstructor(object):
         """Evalutes accuracy of learned rules against actual rules."""
         objs = [Object.fromMsg(m) for m in self.getObjects().objects]
         objs = [o for o in objs if not o.is_avatar]
-        accuracy = dict()
-        for a, rule_set in self.rule_db.iteritems():
-            learned = [Rule.fromMsg(m) for m in self.lookupRules(a).rule_set]
-            accuracy[a] = 0.0
+        rule_acc = dict()
+        print "Rule\t\tAccuracy"
+        for act_name, actual_rules in self.rule_db.iteritems():
+            learned_rules = [Rule.fromMsg(m) for m in
+                             self.lookupRules(act_name).rule_set]
+            rule_acc[act_name] = 0.0
             for o in objs:
-                actual = Rule.evaluateOr(rule_set, o)
-                predicted = Rule.evaluateOr(learned, o)
-                correct = (actual-0.5)*(predicted-0.5) > 0
-                accuracy[a] += correct
-            accuracy[a] /= len(objs)
-        tot_accuracy = sum(accuracy.values()) / len(accuracy)
-        print accuracy
-        print "Total accuracy: {}".format(tot_accuracy)
-        return tot_accuracy, accuracy
+                actual_perms = Rule.evaluateOr(actual_rules, o)
+                learned_perms = Rule.evaluateOr(learned_rules, o)
+                correct = (actual_perms-0.5)*(predicted_perms-0.5) > 0
+                rule_acc[act_name] += correct
+            rule_acc[act_name] /= len(objs)
+            print "{}\t\t{}".format(act_name, rule_acc[act_name])
+        avg_rule_acc = sum(rule_acc.values()) / len(rule_acc)
+        print "Average rule accuracy: {}".format(avg_rule_acc)
+        return avg_rule_acc, rule_acc
+
+    def resetAll(self):
+        """Resets all database to prepare for next instruction trial."""
+        self.reset["perms"]()
+        self.reset["rules"]()
+        self.reset["objects"]()
+        self.reset["agents"]()
+        self.reset["simulation"]()
+    
+    def testRuleLearning(n_iters):
+        tot_accuracy = 0.0
+        for i in range(n_iters):
+            print "-- Trial {} --".format(i)
+            rule_instructor.introduceAgents()
+            rule_instructor.loadInstructions()
+            rule_instructor.introduceOwners()
+            rule_instructor.batchPermInstruct(0.25)
+            trial_acc, rule_acc = rule_instructor.evaluateRules()
+            tot_acc += trial_acc
+            self.resetAll()
+            self.iter_rate.sleep()
+            
+        tot_acc /= n_iters
+        print "Total accuracy over {} trials: {}".format(n_iters, tot_acc)
+        return tot_acc
             
 if __name__ == '__main__':
     rospy.init_node('rule_instructor')
@@ -166,15 +215,5 @@ if __name__ == '__main__':
         rule_instructor.initOnline()
         rospy.spin()
     else:
-        n_iters = 1
-        accuracy = 0.0
-        for i in range(n_iters):
-            rule_instructor.introduceAgents()
-            rule_instructor.loadInstructions()
-            rule_instructor.introduceOwners()
-            rule_instructor.batchPermInstruct(0.25)
-            tot_a, a = rule_instructor.evaluateRules()
-            accuracy += tot_a
-        accuracy /= n_iters
-        print "Average trial accuracy: {}".format(accuracy)
+        testRuleLearning(1)
         
