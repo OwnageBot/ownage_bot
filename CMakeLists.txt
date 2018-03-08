@@ -80,6 +80,8 @@ add_service_files(
   LookupAgent.srv
   LookupPerm.srv
   LookupRules.srv
+  SendObjects.srv
+  SendAgents.srv
 )
 
 ## Generate actions in the 'action' folder

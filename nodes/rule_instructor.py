@@ -14,13 +14,10 @@ class RuleInstructor(object):
         self.mode = rospy.get_param("~mode", "by_perm")
 
         # Various rates
-        self.agt_pub_rate = rospy.Rate(rospy.get_param("~agt_pub_rate", 3))
         self.pub_rate = rospy.Rate(rospy.get_param("~pub_rate", 10))
         self.iter_rate = rospy.Rate(rospy.get_param("~iter_rate", 10))
             
         # Publishers
-        self.agent_pub = rospy.Publisher("agent_input", AgentMsg,
-                                         queue_size=10)
         self.owner_pub = rospy.Publisher("owner_input", PredicateMsg,
                                          queue_size=10)
         self.perm_pub = rospy.Publisher("perm_input", PredicateMsg,
@@ -33,6 +30,7 @@ class RuleInstructor(object):
                                              ListObjects)
         self.getAgents = rospy.ServiceProxy("simulation/all_agents",
                                             ListAgents)
+        self.setAgents = rospy.ServiceProxy("set_agents", SendAgents)
         self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
 
         # Services that reset various databases
@@ -59,9 +57,9 @@ class RuleInstructor(object):
     def loadInstructions(self):
         """Load instructions (should be called after introducing agents)."""
         if self.mode == "by_script":
-            self.script_msgs = self.loadScript()
+            self.loadScript()
         else:
-            self.rule_db = self.loadRules()
+            self.loadRules()
         
     def loadRules(self):
         """Loads rules from parameter server."""
@@ -75,7 +73,7 @@ class RuleInstructor(object):
             if r.action.name not in rule_db:
                 rule_db[r.action.name] = set()
             rule_db[r.action.name].add(r)
-        return rule_db
+        self.rule_db = rule_db
 
     def loadScript(self):
         """Loads script from parameter server."""
@@ -92,7 +90,7 @@ class RuleInstructor(object):
                 continue
             if msg is None:
                 raise SyntaxError("Script was in the wrong syntax")
-        return script_msgs
+        self.script_msgs = script_msgs
         
     def initOnline(self):
         """Sets up subscribers for online instruction."""
@@ -100,23 +98,27 @@ class RuleInstructor(object):
 
     def introduceAgents(self):
         """Looks up all simulated agents and introduces them to the tracker."""
-        agts = self.getAgents().agents
-        for a in agts:
-            self.agt_pub_rate.sleep()
-            self.agent_pub.publish(a)
+        agents = self.getAgents().agents
+        self.setAgents(agents)
 
-    def introduceOwners(self, fraction=1.0):
+    def introduceOwners(self, fraction=1.0, own_mean=1.0, own_dev=0.0):
         """Provides ownership labels for a random subset of the objects."""
         objs = [Object.fromMsg(m) for m in self.getObjects().objects]
         objs = [o for o in objs if not o.is_avatar]
+        # Sample random fraction objects
         objs = random.sample(objs, int(fraction * len(objs)))
         for o in objs:
             for agent_id, p_owned in o.ownership.iteritems():
+                # Make ownership labels uncertain
+                p_owned = own_mean if p_owned > 0.5 else (1-own_mean)
+                p_owned += random.uniform(-own_dev, +own_dev)
+                p_owned = min(max(p_owned, 0.0), 1.0)
                 msg = PredicateMsg(predicate=predicates.OwnedBy.name,
                                    bindings=[o.toStr(), str(agent_id)],
                                    negated=False, truth=p_owned)
                 self.pub_rate.sleep()
                 self.owner_pub.publish(msg)
+        return objs
             
     def batchInstruct(self):
         """Teaches all information in one batch."""
@@ -129,12 +131,13 @@ class RuleInstructor(object):
         else:
             rospy.logerror("Instructor mode %s unrecognized", mode)
             
-    def batchPermInstruct(self, fraction=1.0):
+    def batchPermInstruct(self, fraction=1.0, objs=None):
         """Provides all object-specific permissions in one batch."""
-        objs = [Object.fromMsg(m) for m in self.getObjects().objects]
-        # Get rid of avatars
-        objs = [o for o in objs if not o.is_avatar]
-        # Sample random fraction
+        if objs != None:
+            # Load objects from simulator if not provided
+            objs = [Object.fromMsg(m) for m in self.getObjects().objects]
+            objs = [o for o in objs if not o.is_avatar]
+        # Sample random fraction of (given objects)
         objs = random.sample(objs, int(fraction * len(objs)))
         # Feed permissions for each action separately
         for act_name, rule_set in self.rule_db.iteritems():
@@ -192,13 +195,17 @@ class RuleInstructor(object):
         self.reset["simulation"]()
     
     def testRuleLearning(n_iters):
+        own_frac = rospy.get_param("~own_frac", 1.0)
+        own_mean = rospy.get_param("~own_mean", 1.0)
+        own_dev = rospy.get_param("~own_dev", 0.0)
+        perm_frac = rospy.get_param("~perm_frac", 1.0)
         tot_accuracy = 0.0
         for i in range(n_iters):
             print "-- Trial {} --".format(i)
-            rule_instructor.introduceAgents()
-            rule_instructor.loadInstructions()
-            rule_instructor.introduceOwners()
-            rule_instructor.batchPermInstruct(0.25)
+            self.introduceAgents()
+            self.loadRules()
+            objs = self.introduceOwners(own_frac, own_mean, own_dev)
+            self.batchPermInstruct(perm_frac, objs)
             trial_acc, rule_acc = rule_instructor.evaluateRules()
             tot_acc += trial_acc
             self.resetAll()

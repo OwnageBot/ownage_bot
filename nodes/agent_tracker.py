@@ -27,9 +27,12 @@ class AgentTracker(object):
                                          self.lookupAgentCb)
         self.lst_agt_srv = rospy.Service("list_agents", ListAgents,
                                          self.listAgentsCb)
+        self.set_agt_srv = rospy.Service("set_agents", SendAgents,
+                                         self.setAgentsCb)
         self.rst_agt_srv = rospy.Service("reset_agents", Trigger,
                                          self.resetAgentsCb)
 
+        
     def agentInputCb(self, msg):
         """Updates database and current agent with new information."""
         agent = Agent.fromMsg(msg)
@@ -65,7 +68,14 @@ class AgentTracker(object):
         """Clears the object databases."""
         self.agent_db.clear()
         return TriggerResponse(True, "")
-        
+
+    def setAgentsCb(self, req):
+        """Sets database to the received list of agents."""
+        self.agent_db.clear()
+        for msg in req.agents:
+            agent = Agent.fromMsg(msg)
+            self.agent_db[agent.id] = agent
+        return SendAgentsResponse(True)
 
 if __name__ == '__main__':
     rospy.init_node('agent_tracker')

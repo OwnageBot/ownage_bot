@@ -39,7 +39,7 @@ class DialogManager(object):
         # Looks up rule database from rule manager
         self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
 
-        # Serviecs that reset various databases
+        # Services that reset various databases
         self.reset = dict()
         self.reset["perms"] = rospy.ServiceProxy("reset_perms", Trigger)
         self.reset["rules"] = rospy.ServiceProxy("reset_rules", Trigger)
