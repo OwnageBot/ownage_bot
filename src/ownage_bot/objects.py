@@ -46,6 +46,9 @@ class Object:
 
     _lookupObject = rospy.ServiceProxy("lookup_object", LookupObject)
     _listObjects = rospy.ServiceProxy("list_objects", ListObjects)
+    _universe_cache = []
+    _last_cache_time = rospy.Time()
+    _cache_latency = rospy.Duration(0.2)
     
     def __init__(self, id=-1, name="",
                  position=Point(), orientation=Quaternion(),
@@ -130,15 +133,22 @@ class Object:
     @classmethod
     def universe(cls):
         """Returns a sorted list of all known Objects."""
-        rospy.wait_for_service("list_objects")
-        l = [cls.fromMsg(m) for m in cls._listObjects().objects]
-        return sorted(l, key=lambda x : x.toStr())
+        # Update cache if it has gotten old
+        if (rospy.Time.now() - cls._last_cache_time) > cls._cache_latency:
+            rospy.wait_for_service("list_objects")
+            cls._universe_cache =  [cls.fromMsg(m) for m in
+                                    cls._listObjects().objects]
+            cls._universe_cache.sort(key = lambda x : x.toStr())
+        return cls._universe_cache
     
 class Agent:
     """Represents an agent that can own and act on objects."""
 
     _lookupAgent = rospy.ServiceProxy("lookup_agent", LookupAgent)
     _listAgents = rospy.ServiceProxy("list_agents", ListAgents)
+    _universe_cache = []
+    _last_cache_time = rospy.Time()
+    _cache_latency = rospy.Duration(0.2)
     
     def __init__(self, id=-1, name="", avatar_id=-1):
         self.id = id # Unique ID
@@ -208,9 +218,13 @@ class Agent:
     @classmethod
     def universe(cls):
         """Returns a sorted list of all known Agents."""
-        rospy.wait_for_service("list_agents")
-        l = [cls.fromMsg(m) for m in cls._listAgents().agents]
-        return sorted(l, key = lambda x : x.toStr())
+        # Update cache if it has gotten old
+        if (rospy.Time.now() - cls._last_cache_time) > cls._cache_latency:
+            rospy.wait_for_service("list_agents")
+            cls._universe_cache =  [cls.fromMsg(m) for m in
+                                    cls._listAgents().agents]
+            cls._universe_cache.sort(key = lambda x : x.toStr())
+        return cls._universe_cache
     
 class Area:
     """Defines a 2D polygonal area."""
