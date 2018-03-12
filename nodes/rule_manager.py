@@ -29,7 +29,7 @@ class RuleManager(object):
         self.given_rule_db = dict()
         # Database of object specific permissions
         self.perm_db = dict()
-
+        
         # Whether rule and permission databases are frozen
         self.freeze_perms = rospy.get_param("~freeze_perms", False)
         self.freeze_rules = rospy.get_param("~freeze_rules", False)
@@ -105,7 +105,7 @@ class RuleManager(object):
         return LookupRulesResponse(rule_set)
         
     def permInputCb(self, msg):
-        """Updates database with new permission, then accomodates the rules."""
+        """Updates database with new permission, then accommodates rules."""
         # Do nothing if perm database is frozen
         if self.freeze_perms:
             return
@@ -215,7 +215,7 @@ class RuleManager(object):
                 rospy.loginfo("Subtracting [%s] from [%s].",
                               new_rule.toPrint(), init_rule.toPrint())
                 remainder = Rule.difference(init_rule, new_rule)
-                rule_set.remove(init_rule)
+                rule_set.discard(init_rule)
                 for new in remainder:
                     self.mergeRule(rule_set, new)
             else:
@@ -289,7 +289,7 @@ class RuleManager(object):
             # Replace rule with remainder
             rospy.loginfo("Subtracting [%s] from [%s].",
                           new_rule.toPrint(), r.toPrint())
-            rule_set.remove(r)
+            rule_set.discard(r)
             for new in remainder:
                 self.mergeRule(rule_set, new)
             
