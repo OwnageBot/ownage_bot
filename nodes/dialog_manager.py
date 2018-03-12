@@ -138,8 +138,8 @@ class DialogManager(object):
         """Handles list command."""
         if len(args) < 2:
             out = "\n".join(["List one of the following:"] +
-                            ['objects', 'predicates', 'rules',
-                             'actions', 'tasks'])
+                            ['objects', 'agents', 'predicates',
+                             'rules', 'actions', 'tasks'])
         elif args[1] == "objects":
             if len(args) > 2 and args[2] == "simulated":
                 objs = [Object.fromMsg(m) for m in self.getObjects().objects]
@@ -210,13 +210,13 @@ class DialogManager(object):
                     pass
         else:
             out = "Keyword not recognized."
-            self.output_pub.publish(out)
+        self.output_pub.publish(out)
 
     def handleFreeze(self, args):
         """Handles freeze command."""
         val = True if args[0] == "freeze" else False
         if len(args) < 2:
-            out = "\n".join(["Freeze one of the following databases:"] +
+            out = "\n".join(["(Un)Freeze one of the following databases:"] +
                             self.freeze.keys() + ["all"])
         elif args[1] in self.freeze:
             key = args[1]
@@ -239,13 +239,13 @@ class DialogManager(object):
                     pass
         else:
             out = "Keyword not recognized."
-            self.output_pub.publish(out)
+        self.output_pub.publish(out)
 
     def handleDisable(self, args):
         """Handles disable command."""
         val = True if args[0] == "disable" else False
         if len(args) < 2:
-            out = "\n".join(["Disable one of the following functions:"] +
+            out = "\n".join(["Enable/disable one of the following:"] +
                             self.disable.keys() + ["all"])
         elif args[1] in self.disable:
             key = args[1]
@@ -268,7 +268,7 @@ class DialogManager(object):
                     pass
         else:
             out = "Keyword not recognized."
-            self.output_pub.publish(out)
+        self.output_pub.publish(out)
             
 if __name__ == '__main__':
     rospy.init_node('dialog_manager')

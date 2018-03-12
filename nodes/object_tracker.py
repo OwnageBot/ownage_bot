@@ -29,14 +29,7 @@ class ObjectTracker(object):
         # Publishers, subscribers, etc
         self.new_obj_pub = rospy.Publisher("new_object",
                                            ObjectMsg, queue_size = 10)
-        self.owner_sub = rospy.Subscriber("owner_prediction",
-                                          ObjectMsg, self.ownershipCb)
-                        
-    def ownershipCb(self, msg):
-        """Callback for owner prediction, updates database accordingly."""
-        obj = Object.fromMsg(msg)
-        self.object_db[obj.id].ownership = dict(obj.ownership)
-                
+        
     def lookupObjectCb(self, req):
         """ Returns properties of particular object"""
         if req.id in self.object_db:

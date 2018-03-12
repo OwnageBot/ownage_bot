@@ -47,7 +47,7 @@ class OwnershipTracker(ObjectTracker):
         # How much to trust ownership claims
         self.claim_trust = rospy.get_param("~claim_trust", 1.0)
         # Default ownership prior
-        self.default_prior = rospy.get_param("~default_prior", 0.2)
+        self.default_prior = rospy.get_param("~default_prior", 0.0)
         
         # Logistic regression params and objects for percept-based prediction
         self.reg_strength = rospy.get_param("~reg_strength", 0.1)
@@ -80,7 +80,13 @@ class OwnershipTracker(ObjectTracker):
             # TODO: Handle non-specific and group ownership claims
             return
 
+        # Ignore claim if object not in database (i.e. not tracked)
+        if obj.id not in self.object_db:
+            return
+        
         # Add object ID to claim database
+        if agent.id not in self.claim_db:
+            self.newAgentCb(agent.toMsg())
         self.claim_db[agent.id].add(obj.id)
         
         # Compute ownership probability as product of trust and truth value

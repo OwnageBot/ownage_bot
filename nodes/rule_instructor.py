@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import rospy
 import random
+from std_srvs.srv import *
 from geometry_msgs.msg import Point
 from ownage_bot import *
 from ownage_bot.msg import *
@@ -15,7 +16,7 @@ class RuleInstructor(object):
 
         # Various rates
         self.pub_rate = rospy.Rate(rospy.get_param("~pub_rate", 10))
-        self.iter_rate = rospy.Rate(rospy.get_param("~iter_rate", 10))
+        self.iter_wait = rospy.get_param("~iter_wait", 0.5)
             
         # Publishers
         self.owner_pub = rospy.Publisher("owner_input", PredicateMsg,
@@ -101,10 +102,19 @@ class RuleInstructor(object):
         agents = self.getAgents().agents
         self.setAgents(agents)
 
-    def introduceOwners(self, fraction=1.0, own_mean=1.0, own_dev=0.0):
-        """Provides ownership labels for a random subset of the objects."""
-        objs = [Object.fromMsg(m) for m in self.getObjects().objects]
-        objs = [o for o in objs if not o.is_avatar]
+    def introduceOwners(self, fraction=1.0, own_mean=1.0,
+                        own_dev=0.0, objs=None):
+        """Provides ownership labels for a random subset of the objects.
+
+        fraction - Fraction of objs for which owner labels will be given.
+        own_mean - Average probability of ownership for given labels
+        own_dev - Half-range of ownership probability for the labels
+        objs - List of objects from which the fraction will be sampled.
+        """
+        # Load objects from simulator if not provided
+        if objs is None:
+            objs = [Object.fromMsg(m) for m in self.getObjects().objects]
+            objs = [o for o in objs if not o.is_avatar]
         # Sample random fraction objects
         objs = random.sample(objs, int(fraction * len(objs)))
         for o in objs:
@@ -132,9 +142,13 @@ class RuleInstructor(object):
             rospy.logerror("Instructor mode %s unrecognized", mode)
             
     def batchPermInstruct(self, fraction=1.0, objs=None):
-        """Provides all object-specific permissions in one batch."""
-        if objs != None:
-            # Load objects from simulator if not provided
+        """Provides all object-specific permissions in one batch.
+        
+        fraction - Fraction of objs for which permissions will be given.
+        objs - List of objects from which the fraction will be sampled.
+        """
+        # Load objects from simulator if not provided
+        if objs is None:
             objs = [Object.fromMsg(m) for m in self.getObjects().objects]
             objs = [o for o in objs if not o.is_avatar]
         # Sample random fraction of (given objects)
@@ -178,7 +192,7 @@ class RuleInstructor(object):
             for o in objs:
                 actual_perms = Rule.evaluateOr(actual_rules, o)
                 learned_perms = Rule.evaluateOr(learned_rules, o)
-                correct = (actual_perms-0.5)*(predicted_perms-0.5) > 0
+                correct = (actual_perms-0.5)*(learned_perms-0.5) > 0
                 rule_acc[act_name] += correct
             rule_acc[act_name] /= len(objs)
             print "{}\t\t{}".format(act_name, rule_acc[act_name])
@@ -194,22 +208,33 @@ class RuleInstructor(object):
         self.reset["agents"]()
         self.reset["simulation"]()
     
-    def testRuleLearning(n_iters):
+    def testRuleLearning(self, n_iters):
+        """Test rule learning by providing labelled examples."""
+
+        # Fraction of objects whose owner labels are given
         own_frac = rospy.get_param("~own_frac", 1.0)
+        # Average ownership probability for the training examples
         own_mean = rospy.get_param("~own_mean", 1.0)
+        # Half-range of ownership probability for the training examples
         own_dev = rospy.get_param("~own_dev", 0.0)
+        # Fraction of owner-labeled objects for which permissions are given
         perm_frac = rospy.get_param("~perm_frac", 1.0)
-        tot_accuracy = 0.0
+
+        # Disable ownership inference and extrapolation
+        self.disable["inference"](True)
+        self.disable["extrapolate"](True)
+        
+        tot_acc = 0.0
         for i in range(n_iters):
-            print "-- Trial {} --".format(i)
+            print "-- Trial {} --".format(i+1)
+            self.resetAll()
+            rospy.sleep(self.iter_wait)
             self.introduceAgents()
             self.loadRules()
             objs = self.introduceOwners(own_frac, own_mean, own_dev)
             self.batchPermInstruct(perm_frac, objs)
             trial_acc, rule_acc = rule_instructor.evaluateRules()
             tot_acc += trial_acc
-            self.resetAll()
-            self.iter_rate.sleep()
             
         tot_acc /= n_iters
         print "Total accuracy over {} trials: {}".format(n_iters, tot_acc)
@@ -222,5 +247,6 @@ if __name__ == '__main__':
         rule_instructor.initOnline()
         rospy.spin()
     else:
-        testRuleLearning(1)
+        n_iters = rospy.get_param("~n_iters", 1)
+        rule_instructor.testRuleLearning(n_iters)
         
