@@ -57,7 +57,7 @@
 	  output="screen" name="object_tracker" if="$(arg simulation)">
       <!-- How often (in seconds) objects get updated -->
       <param name="simulated_latency" type="double" value="0.1"/>
-      <param name="default_prior" type="double" value="0.0"/>
+      <param name="default_prior" type="double" value="0.5"/>
       <param name="disable_inference" type="bool" value="false"/>
       <param name="disable_extrapolate" type="bool" value="true"/>
     </node>

@@ -201,7 +201,7 @@ class DialogManager(object):
                 return
         elif args[1] == "all":
             # Try to reset all databases
-            for k, reset_f in self.reset.iteritems():
+            for reset_f in self.reset.values():
                 try:
                     reset_f.wait_for_service(timeout=0.5)
                     reset_f()
@@ -230,7 +230,7 @@ class DialogManager(object):
                 return
         elif args[1] == "all":
             # Try to freeze all databases
-            for k, freeze_f in self.freeze.iteritems():
+            for freeze_f in self.freeze.values():
                 try:
                     freeze_f.wait_for_service(timeout=0.5)
                     freeze_f(val)
@@ -259,7 +259,7 @@ class DialogManager(object):
                 return
         elif args[1] == "all":
             # Try to disable all functions
-            for k, disable_f in self.disable.iteritems():
+            for disable_f in self.disable.values():
                 try:
                     disable_f.wait_for_service(timeout=0.5)
                     disable_f(val)

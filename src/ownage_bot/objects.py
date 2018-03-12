@@ -148,7 +148,7 @@ class Agent:
     _listAgents = rospy.ServiceProxy("list_agents", ListAgents)
     _universe_cache = []
     _last_cache_time = rospy.Time()
-    _cache_latency = rospy.Duration(0.2)
+    _cache_latency = rospy.Duration(0.5)
     
     def __init__(self, id=-1, name="", avatar_id=-1):
         self.id = id # Unique ID

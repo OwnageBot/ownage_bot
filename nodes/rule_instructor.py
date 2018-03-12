@@ -117,14 +117,18 @@ class RuleInstructor(object):
             objs = [o for o in objs if not o.is_avatar]
         # Sample random fraction objects
         objs = random.sample(objs, int(fraction * len(objs)))
+        # Load agents
+        agents = self.getAgents().agents
         for o in objs:
-            for agent_id, p_owned in o.ownership.iteritems():
+            for a in agents:
+                # Default to unowned if agent not in ownership database
+                p_owned = 0 if a.id not in o.ownership else o.ownership[a.id]
                 # Make ownership labels uncertain
                 p_owned = own_mean if p_owned > 0.5 else (1-own_mean)
                 p_owned += random.uniform(-own_dev, +own_dev)
                 p_owned = min(max(p_owned, 0.0), 1.0)
                 msg = PredicateMsg(predicate=predicates.OwnedBy.name,
-                                   bindings=[o.toStr(), str(agent_id)],
+                                   bindings=[o.toStr(), str(a.id)],
                                    negated=False, truth=p_owned)
                 self.pub_rate.sleep()
                 self.owner_pub.publish(msg)
@@ -202,11 +206,13 @@ class RuleInstructor(object):
 
     def resetAll(self):
         """Resets all database to prepare for next instruction trial."""
-        self.reset["perms"]()
-        self.reset["rules"]()
-        self.reset["objects"]()
-        self.reset["agents"]()
-        self.reset["simulation"]()
+        for reset_f in self.reset.values():
+            try:
+                reset_f.wait_for_service(timeout=0.5)
+                reset_f()
+            except rospy.ROSException:
+                # Fail silently for unavailable services
+                pass
     
     def testRuleLearning(self, n_iters):
         """Test rule learning by providing labelled examples."""
