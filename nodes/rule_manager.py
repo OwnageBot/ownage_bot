@@ -16,8 +16,8 @@ class RuleManager(object):
     
     def __init__(self):
         # Learning parameters
-        self.add_perm_thresh = rospy.get_param("~add_perm_thresh", 0.9)
-        self.sub_perm_thresh = rospy.get_param("~sub_perm_thresh", 0.9)
+        self.add_perm_thresh = rospy.get_param("~add_perm_thresh", 0.1)
+        self.sub_perm_thresh = rospy.get_param("~sub_perm_thresh", 0.1)
         self.add_rule_thresh = rospy.get_param("~add_rule_thresh", 0.1)
         self.sub_rule_thresh = rospy.get_param("~sub_rule_thresh", 0.1)
         self.max_cand_rules = rospy.get_param("~max_cand_rules", 3)
@@ -171,7 +171,9 @@ class RuleManager(object):
 
         # Search for rule starting with empty rule
         init_rule = Rule(actions.db[act_name], conditions=[])
-        score_thresh = self.add_perm_thresh
+        # Added rule should not cover more than a fraction of the
+        # negative examples, or 1 negative example, whichever is higher
+        score_thresh = max(1.0, self.add_perm_thresh * len(neg_perms))
         new_rule, new_score, success = \
             self.ruleSearch(init_rule, score_thresh,
                             score_f, [inactive_f, cover_f])
@@ -205,8 +207,9 @@ class RuleManager(object):
             score_f = lambda r : sum([min(p_val, r.evaluate(p_tgt)) for
                                       p_tgt, p_val in pos_perms.items()])
 
-            # Search for rule that minimizes positive perms covered
-            score_thresh = self.sub_perm_thresh
+            # Subtracted rule should not cover more than a fraction of the
+            # positive examples, or 1 positive example, whichever is higher
+            score_thresh = max(1.0, self.sub_perm_thresh * len(pos_perms))
             new_rule, new_score, success = \
                 self.ruleSearch(init_rule, score_thresh, score_f, [cover_f])
 
