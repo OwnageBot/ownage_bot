@@ -40,6 +40,10 @@ class OwnershipTracker(ObjectTracker):
                                            self.disableInferenceCb)
         self.dis_extra_srv = rospy.Service("disable_extrapolate", SetBool,
                                            self.disableExtrapolateCb)
+
+        # Reset service for ownership claims
+        self.rst_clm_srv = rospy.Service("reset_claims", Trigger,
+                                         self.resetClaimsCb)
         
         # Client for looking up active rules
         self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
@@ -65,6 +69,11 @@ class OwnershipTracker(ObjectTracker):
         """Disables percept-based ownership extrapolation."""
         self.disable_extrapolate = req.data
         return SetBoolResponse(True, "")
+
+    def resetClaimsCb(self, req):
+        """Resets datbase of ownership claims."""
+        self.claim_db.clear()
+        return TriggerResponse(True, "")
         
     def ownerClaimCb(self, msg):
         """Callback upon receiving claim of ownership about object."""
@@ -127,6 +136,8 @@ class OwnershipTracker(ObjectTracker):
         
     def newAgentCb(self, msg):
         """Callback upon new agent introduction."""
+        rospy.loginfo("Agent {} introduced, guessing ownership...".\
+                      format(msg.id))
         # Add list of claimed objects for each agent
         self.claim_db[msg.id] = set()
         # Default ownership probability to priors
