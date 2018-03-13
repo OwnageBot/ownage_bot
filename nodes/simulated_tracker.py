@@ -42,7 +42,6 @@ class SimulatedTracker(OwnershipTracker):
                 obj.position = msg.position
                 obj.orientation = msg.orientation
                 obj.color = msg.color
-                obj.categories = list(msg.categories)
 
 if __name__ == '__main__':
     rospy.init_node('object_tracker')

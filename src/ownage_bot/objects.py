@@ -86,13 +86,15 @@ class Object:
     def toMsg(self):
         """Converts Object to a ROS message."""
         msg = ObjectMsg()
-        uncopyable = ["ownership"] 
+        uncopyable = ["ownership", "categories"] 
         for k, v in self.__dict__.items():
             if k in uncopyable:
                 continue
             setattr(msg, k, copy.deepcopy(v))
         msg.owners = self.ownership.keys()
         msg.ownership = self.ownership.values()
+        msg.categories = self.categories.keys()
+        msg.categoriness = self.categories.values()
         return msg
 
     def toStr(self):
