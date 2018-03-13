@@ -4,7 +4,7 @@ import predicates
 import actions
 from ownage_bot.msg import *
 
-class Rule:
+class Rule(object):
     """Condition-action pairs that the robot should follow."""    
     
     # Constants defining rule types

@@ -7,7 +7,7 @@ from ownage_bot.msg import *
 from ownage_bot.srv import *
 from geometry_msgs.msg import Point, Quaternion
 
-class Constant:
+class Constant(object):
     """Stores special constants with string representations."""
     def __init__(self, name):
         self.name = name
@@ -41,7 +41,7 @@ Any = Constant("any")
 # Constant that represents empty / unbound argument
 Nil = Constant("nil")
         
-class Object:
+class Object(object):
     """Represents objects in the workspace and their properties."""
 
     _lookupObject = rospy.ServiceProxy("lookup_object", LookupObject)
@@ -143,7 +143,7 @@ class Object:
             cls._universe_cache.sort(key = lambda x : x.toStr())
         return cls._universe_cache
     
-class Agent:
+class Agent(object):
     """Represents an agent that can own and act on objects."""
 
     _lookupAgent = rospy.ServiceProxy("lookup_agent", LookupAgent)
@@ -228,7 +228,7 @@ class Agent:
             cls._universe_cache.sort(key = lambda x : x.toStr())
         return cls._universe_cache
     
-class Area:
+class Area(object):
     """Defines a 2D polygonal area."""
     def __init__(self, points, name=""):
         """Takes an iterable of 2-tuples and stores them."""
@@ -289,7 +289,7 @@ class Area:
         l = [cls(v["corners"], name=k) for k, v in areas.iteritems()]
         return sorted(l, key = lambda x : x.toStr())
     
-class Location:
+class Location(object):
     """Defines a location in space."""
     def __init__(self, point):
         """Takes a 3-tuple and stores it."""
@@ -328,7 +328,7 @@ class Location:
         """Convert to Location."""
         return cls(eval(s))
 
-class Category:
+class Category(object):
     """Defines a category of objects."""
     def __init__(self, name):
         self.name = name # Human-readable name

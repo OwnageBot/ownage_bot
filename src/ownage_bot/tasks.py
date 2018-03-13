@@ -6,7 +6,7 @@ from objects import Object, Area, Location
 from Queue import Queue
 from geometry_msgs.msg import Point
 
-class Task:
+class Task(object):
     "Higher-level tasks that construct actions based on the world state."
     
     def __init__(self, name):

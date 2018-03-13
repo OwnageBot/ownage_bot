@@ -4,7 +4,7 @@ import copy
 from objects import *
 from ownage_bot.msg import *
 
-class Predicate:
+class Predicate(object):
     """Functional representation of object properties and relations."""
     
     def __init__(self, name="", argtypes=[]):

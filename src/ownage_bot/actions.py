@@ -15,7 +15,7 @@ _cancel_left = rospy.ServiceProxy(
 _cancel_right = rospy.ServiceProxy(
     "/action_provider/cancel_right", Trigger)
 
-class Action:
+class Action(object):
     """Defines actions that can be performed on objects."""    
     def __init__(self, name="", tgtype=type(None), dependencies=[]):
         self.name = name # Human-readable name
