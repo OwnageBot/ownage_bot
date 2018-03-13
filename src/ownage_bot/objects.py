@@ -138,9 +138,13 @@ class Object(object):
         # Update cache if it has gotten old
         if (rospy.Time.now() - cls._last_cache_time) > cls._cache_latency:
             rospy.wait_for_service("list_objects")
-            cls._universe_cache =  [cls.fromMsg(m) for m in
-                                    cls._listObjects().objects]
-            cls._universe_cache.sort(key = lambda x : x.toStr())
+            try:
+                resp = cls._listObjects()
+                cls._universe_cache =  [cls.fromMsg(m) for m in resp.objects]
+                cls._universe_cache.sort(key = lambda x : x.toStr())
+            except rospy.ServiceException:
+                # Just return cache if service call could not be executed
+                rospy.logwarn("Service error, returning cache instead...")
         return cls._universe_cache
     
 class Agent(object):
@@ -223,9 +227,13 @@ class Agent(object):
         # Update cache if it has gotten old
         if (rospy.Time.now() - cls._last_cache_time) > cls._cache_latency:
             rospy.wait_for_service("list_agents")
-            cls._universe_cache =  [cls.fromMsg(m) for m in
-                                    cls._listAgents().agents]
-            cls._universe_cache.sort(key = lambda x : x.toStr())
+            try:
+                resp = cls._listAgents()
+                cls._universe_cache =  [cls.fromMsg(m) for m in resp.agents]
+                cls._universe_cache.sort(key = lambda x : x.toStr())
+            except rospy.ServiceException:
+                # Just return cache if service call could not be executed
+                rospy.logwarn("Service error, returning cache instead...")
         return cls._universe_cache
     
 class Area(object):
