@@ -3,6 +3,8 @@
   <arg name="test_mode" default="rules"/>
   <arg name="online" default="false"/>
   <arg name="n_iters" default="1"/>
+  <arg name="disable_inference" default="-1"/>
+  <arg name="disable_extrapolate" default="-1"/>
   <arg name="own_mean" default="1.0"/>
   <arg name="own_dev" default="0.0"/>
   <arg name="own_frac" default="1.0"/>
@@ -21,6 +23,12 @@
     <param name="online" type="bool" value="$(arg online)" />
     <!-- Number of training iterations for system evaluation -->
     <param name="n_iters" type="int" value="$(arg n_iters)" />
+    <!-- Whether or not to disable ownership inference, -1 for default -->
+    <param name="disable_inference" type="int"
+	   value="$(arg disable_inference)" />
+    <!-- Whether or not to disable ownership extrapolation, -1 for default -->
+    <param name="disable_extrapolate" type="int"
+	   value="$(arg disable_extrapolate)" />
     <!-- Average ownership probability for given ownership labels-->
     <param name="own_mean" type="double" value="$(arg own_mean)" />
     <!-- Half-range of ownership probabilities for given ownership labels-->

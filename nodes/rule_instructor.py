@@ -240,10 +240,17 @@ class RuleInstructor(object):
             owner_acc[a.id] /= len(true_objs)
             print "{}\t\t{}".format(a.id, owner_acc[a.id])
         return owner_acc
-            
+
+    def toggleOwnerPrediction(self, def_infer, def_extra):
+        inference = rospy.get_param("~disable_inference", -1)
+        inference = def_infer if (inference < 0) else bool(inference)
+        extrapolate = rospy.get_param("~disable_extrapolate", -1)
+        extrapolate = def_extra if (extrapolate < 0) else bool(extrapolate)
+        self.disable["inference"](inference)
+        self.disable["extrapolate"](extrapolate)
+    
     def testRuleLearning(self, n_iters):
         """Test rule learning by providing labelled examples."""
-
         # Fraction of objects whose owner labels are given
         own_frac = rospy.get_param("~own_frac", 1.0)
         # Average ownership probability for the training examples
@@ -253,10 +260,9 @@ class RuleInstructor(object):
         # Fraction of owner-labeled objects for which permissions are given
         perm_frac = rospy.get_param("~perm_frac", 1.0)
 
-        # Disable ownership inference and extrapolation
-        self.disable["inference"](True)
-        self.disable["extrapolate"](True)
-
+        # Disable ownership inference and extrapolation by default
+        self.toggleOwnerPrediction(def_infer=True, def_extra=True)
+        
         tot_acc = 0.0
         tot_rule_acc = defaultdict(float)
 
@@ -289,10 +295,9 @@ class RuleInstructor(object):
         """Test ownership inference by providing permissions."""
         # Fraction of objects for which permissions are given
         perm_frac = rospy.get_param("~perm_frac", 1.0)
-        # Enable ownership inference
-        self.disable["inference"](False)
-        # Disable ownership extrapolation
-        self.disable["extrapolate"](True)
+
+        # Enable ownership inference, disable extrapolation by default
+        self.toggleOwnerPrediction(def_infer=False, def_extra=True)
 
         # Run trials
         tot_owner_acc = defaultdict(float)
