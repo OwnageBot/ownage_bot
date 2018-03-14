@@ -220,7 +220,7 @@ class RuleInstructor(object):
     def evaluateOwnership(self):
         """Evaluates accuracy of predicted against actual ownership."""
         true_objs = [Object.fromMsg(m) for m in self.simuObjects().objects]
-        true_objs = [o for o in objs if not o.is_avatar]
+        true_objs = [o for o in true_objs if not o.is_avatar]
         true_objs = dict(zip([o.id for o in true_objs], true_objs))
         pred_objs = [Object.fromMsg(m) for m in self.listObjects().objects]
         pred_objs = dict(zip([o.id for o in pred_objs], pred_objs))
@@ -231,14 +231,14 @@ class RuleInstructor(object):
             pred_obj = pred_objs[o_id]
             for a in agents:
                 true_own = (0.0 if a.id not in true_obj.ownership
-                            else true_obj.ownership[a.id]) 
+                            else true_obj.ownership[a.id])
                 pred_own = (0.0 if a.id not in pred_obj.ownership
-                            else pred_obj.ownership[a.id]) 
+                            else pred_obj.ownership[a.id])
                 correct = (true_own-0.5)*(pred_own-0.5) > 0
                 owner_acc[a.id] += correct
         for a in agents:
             owner_acc[a.id] /= len(true_objs)
-            print "{}\t\t{}".format(a.id, owner_acc[a_id])
+            print "{}\t\t{}".format(a.id, owner_acc[a.id])
         return owner_acc
             
     def testRuleLearning(self, n_iters):
@@ -298,17 +298,19 @@ class RuleInstructor(object):
         tot_owner_acc = defaultdict(float)
         for i in range(n_iters):
             print "-- Trial {} --".format(i+1)
+            self.freeze["rules"](False)
+            self.freeze["perms"](False)
             self.resetAll()
             rospy.sleep(self.iter_wait)
             self.introduceAgents()
             self.loadRules()
-            self.freeze["rules"](False)
             self.batchRuleInstruct()
             self.freeze["rules"](True)
+            self.freeze["perms"](True)
             self.batchPermInstruct(perm_frac)
             owner_acc = self.evaluateOwnership()
             for a_id, acc in owner_acc.iteritems():
-            tot_owner_acc[a_id] += acc
+                tot_owner_acc[a_id] += acc
 
         # Compute and print averages
         print "-- Overall  accuracy after {} trials --".format(n_iters)

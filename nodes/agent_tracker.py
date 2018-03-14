@@ -75,6 +75,7 @@ class AgentTracker(object):
         for msg in req.agents:
             agent = Agent.fromMsg(msg)
             self.agent_db[agent.id] = agent
+            self.new_agt_pub.publish(agent.toMsg())
         return SendAgentsResponse(True)
 
 if __name__ == '__main__':

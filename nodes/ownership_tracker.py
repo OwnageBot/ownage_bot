@@ -125,6 +125,7 @@ class OwnershipTracker(ObjectTracker):
         if (msg.bindings[0] == objects.Nil.toStr() or action.tgtype != Object):
             raise TypeError("Action perm should have object as argument.")
         obj = Object.fromStr(msg.bindings[0])
+        obj = self.object_db[obj.id]
         
         # Guess and update ownership
         ownership = self.inferFromPerm(action.name, obj, msg.truth)

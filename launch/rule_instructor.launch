@@ -1,5 +1,6 @@
 <launch>
   <arg name="mode" default="by_perm"/>
+  <arg name="test_mode" default="rules"/>
   <arg name="online" default="false"/>
   <arg name="n_iters" default="1"/>
   <arg name="own_mean" default="1.0"/>
@@ -14,6 +15,8 @@
 	output="screen" name="rule_instructor">
     <!-- Whether to teach by example, rules, or script -->
     <param name="mode" type="string" value="$(arg mode)" />
+    <!-- Test learning for 'rules', owner 'inference' or 'extrapolate' -->
+    <param name="test_mode" type="string" value="$(arg test_mode)" />
     <!-- Whether to use online instruction or batch instruction -->
     <param name="online" type="bool" value="$(arg online)" />
     <!-- Number of training iterations for system evaluation -->
