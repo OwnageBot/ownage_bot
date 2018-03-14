@@ -277,7 +277,7 @@ class RuleInstructor(object):
         for act_name in self.rule_db.keys():
             tot_rule_acc[act_name] /= n_iters
         tot_acc = sum(tot_rule_acc.values()) / len(tot_rule_acc)
-        print "Overall accuracy after {} trials:".format(n_iters)
+        print "-- Overall accuracy after {} trials -- ".format(n_iters)
         print "Action\t\tAccuracy"
         for act_name, acc in tot_rule_acc.iteritems():
             print "{}\t\t{}".format(act_name, acc)
@@ -311,7 +311,7 @@ class RuleInstructor(object):
             tot_owner_acc[a_id] += acc
 
         # Compute and print averages
-        print "-- Overall  accuracy after {} trials --:".format(n_iters)
+        print "-- Overall  accuracy after {} trials --".format(n_iters)
         print "Owner\t\tAccuracy"
         for a_id in tot_owner_acc.keys():
             tot_owner_acc[a_id]  /= n_iters
