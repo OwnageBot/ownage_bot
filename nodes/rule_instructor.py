@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import rospy
 import random
+from collections import defaultdict
 from std_srvs.srv import *
 from geometry_msgs.msg import Point
 from ownage_bot import *
@@ -27,10 +28,12 @@ class RuleInstructor(object):
                                         queue_size=10)
         
         # Servers
-        self.getObjects = rospy.ServiceProxy("simulation/all_objects",
-                                             ListObjects)
-        self.getAgents = rospy.ServiceProxy("simulation/all_agents",
-                                            ListAgents)
+        self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
+        self.listAgents = rospy.ServiceProxy("list_agents", ListAgents)
+        self.simuObjects = rospy.ServiceProxy("simulation/all_objects",
+                                              ListObjects)
+        self.simuAgents = rospy.ServiceProxy("simulation/all_agents",
+                                             ListAgents)
         self.setAgents = rospy.ServiceProxy("set_agents", SendAgents)
         self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
 
@@ -55,6 +58,16 @@ class RuleInstructor(object):
             rospy.ServiceProxy("disable_inference", SetBool)
         self.disable["extrapolate"] = \
             rospy.ServiceProxy("disable_extrapolate", SetBool)
+
+    def resetAll(self):
+        """Resets all database to prepare for next instruction trial."""
+        for reset_f in self.reset.values():
+            try:
+                reset_f.wait_for_service(timeout=0.5)
+                reset_f()
+            except rospy.ROSException:
+                # Fail silently for unavailable services
+                pass
         
     def loadInstructions(self):
         """Load instructions (should be called after introducing agents)."""
@@ -100,7 +113,7 @@ class RuleInstructor(object):
 
     def introduceAgents(self):
         """Looks up all simulated agents and introduces them to the tracker."""
-        agents = self.getAgents().agents
+        agents = self.simuAgents().agents
         self.setAgents(agents)
 
     def introduceOwners(self, fraction=1.0, own_mean=1.0,
@@ -114,12 +127,12 @@ class RuleInstructor(object):
         """
         # Load objects from simulator if not provided
         if objs is None:
-            objs = [Object.fromMsg(m) for m in self.getObjects().objects]
+            objs = [Object.fromMsg(m) for m in self.simuObjects().objects]
             objs = [o for o in objs if not o.is_avatar]
         # Sample random fraction objects
         objs = random.sample(objs, int(fraction * len(objs)))
         # Load agents
-        agents = self.getAgents().agents
+        agents = self.simuAgents().agents
         for o in objs:
             for a in agents:
                 # Default to unowned if agent not in ownership database
@@ -154,7 +167,7 @@ class RuleInstructor(object):
         """
         # Load objects from simulator if not provided
         if objs is None:
-            objs = [Object.fromMsg(m) for m in self.getObjects().objects]
+            objs = [Object.fromMsg(m) for m in self.simuObjects().objects]
             objs = [o for o in objs if not o.is_avatar]
         # Sample random fraction of (given objects)
         objs = random.sample(objs, int(fraction * len(objs)))
@@ -186,14 +199,13 @@ class RuleInstructor(object):
 
     def evaluateRules(self):
         """Evalutes accuracy of learned rules against actual rules."""
-        objs = [Object.fromMsg(m) for m in self.getObjects().objects]
+        objs = [Object.fromMsg(m) for m in self.simuObjects().objects]
         objs = [o for o in objs if not o.is_avatar]
-        rule_acc = dict()
-        print "Rule\t\tAccuracy"
+        rule_acc = defaultdict(float)
+        print "Action\t\tAccuracy"
         for act_name, actual_rules in self.rule_db.iteritems():
             learned_rules = [Rule.fromMsg(m) for m in
                              self.lookupRules(act_name).rule_set]
-            rule_acc[act_name] = 0.0
             for o in objs:
                 actual_perms = Rule.evaluateOr(actual_rules, o)
                 learned_perms = Rule.evaluateOr(learned_rules, o)
@@ -202,19 +214,33 @@ class RuleInstructor(object):
             rule_acc[act_name] /= len(objs)
             print "{}\t\t{}".format(act_name, rule_acc[act_name])
         avg_rule_acc = sum(rule_acc.values()) / len(rule_acc)
-        print "Average rule accuracy: {}".format(avg_rule_acc)
+        print "Average accuracy across actions: {}".format(avg_rule_acc)
         return avg_rule_acc, rule_acc
 
-    def resetAll(self):
-        """Resets all database to prepare for next instruction trial."""
-        for reset_f in self.reset.values():
-            try:
-                reset_f.wait_for_service(timeout=0.5)
-                reset_f()
-            except rospy.ROSException:
-                # Fail silently for unavailable services
-                pass
-    
+    def evaluateOwnership(self):
+        """Evaluates accuracy of predicted against actual ownership."""
+        true_objs = [Object.fromMsg(m) for m in self.simuObjects().objects]
+        true_objs = [o for o in objs if not o.is_avatar]
+        true_objs = dict(zip([o.id for o in true_objs], true_objs))
+        pred_objs = [Object.fromMsg(m) for m in self.listObjects().objects]
+        pred_objs = dict(zip([o.id for o in pred_objs], pred_objs))
+        agents = self.simuAgents().agents
+        owner_acc = defaultdict(float)
+        print "Owner\t\tAccuracy"
+        for o_id, true_obj in true_objs.iteritems():
+            pred_obj = pred_objs[o_id]
+            for a in agents:
+                true_own = (0.0 if a.id not in true_obj.ownership
+                            else true_obj.ownership[a.id]) 
+                pred_own = (0.0 if a.id not in pred_obj.ownership
+                            else pred_obj.ownership[a.id]) 
+                correct = (true_own-0.5)*(pred_own-0.5) > 0
+                owner_acc[a.id] += correct
+        for a in agents:
+            owner_acc[a.id] /= len(true_objs)
+            print "{}\t\t{}".format(a.id, owner_acc[a_id])
+        return owner_acc
+            
     def testRuleLearning(self, n_iters):
         """Test rule learning by providing labelled examples."""
 
@@ -230,8 +256,11 @@ class RuleInstructor(object):
         # Disable ownership inference and extrapolation
         self.disable["inference"](True)
         self.disable["extrapolate"](True)
-        
+
         tot_acc = 0.0
+        tot_rule_acc = defaultdict(float)
+
+        # Run trials
         for i in range(n_iters):
             print "-- Trial {} --".format(i+1)
             self.resetAll()
@@ -240,13 +269,55 @@ class RuleInstructor(object):
             self.loadRules()
             objs = self.introduceOwners(own_frac, own_mean, own_dev)
             self.batchPermInstruct(perm_frac, objs)
-            trial_acc, rule_acc = rule_instructor.evaluateRules()
-            tot_acc += trial_acc
+            trial_acc, rule_acc = self.evaluateRules()
+            for act_name in self.rule_db.keys():
+                tot_rule_acc[act_name] += rule_acc[act_name]
+
+        # Compute and print averages            
+        for act_name in self.rule_db.keys():
+            tot_rule_acc[act_name] /= n_iters
+        tot_acc = sum(tot_rule_acc.values()) / len(tot_rule_acc)
+        print "Overall accuracy after {} trials:".format(n_iters)
+        print "Action\t\tAccuracy"
+        for act_name, acc in tot_rule_acc.iteritems():
+            print "{}\t\t{}".format(act_name, acc)
+        print "Average accuracy across actions: {}".format(tot_acc)
             
-        tot_acc /= n_iters
-        print "Total accuracy over {} trials: {}".format(n_iters, tot_acc)
-        return tot_acc
-            
+        return tot_acc, tot_rule_acc
+
+    def testOwnerInference(self, n_iters):
+        """Test ownership inference by providing permissions."""
+        # Fraction of objects for which permissions are given
+        perm_frac = rospy.get_param("~perm_frac", 1.0)
+        # Enable ownership inference
+        self.disable["inference"](False)
+        # Disable ownership extrapolation
+        self.disable["extrapolate"](True)
+
+        # Run trials
+        tot_owner_acc = defaultdict(float)
+        for i in range(n_iters):
+            print "-- Trial {} --".format(i+1)
+            self.resetAll()
+            rospy.sleep(self.iter_wait)
+            self.introduceAgents()
+            self.loadRules()
+            self.freeze["rules"](False)
+            self.batchRuleInstruct()
+            self.freeze["rules"](True)
+            self.batchPermInstruct(perm_frac)
+            owner_acc = self.evaluateOwnership()
+            for a_id, acc in owner_acc.iteritems():
+            tot_owner_acc[a_id] += acc
+
+        # Compute and print averages
+        print "-- Overall  accuracy after {} trials --:".format(n_iters)
+        print "Owner\t\tAccuracy"
+        for a_id in tot_owner_acc.keys():
+            tot_owner_acc[a_id]  /= n_iters
+            print "{}\t\t{}".format(a_id, tot_owner_acc[a_id])
+        return tot_owner_acc
+    
 if __name__ == '__main__':
     rospy.init_node('rule_instructor')
     rule_instructor = RuleInstructor()
@@ -255,5 +326,9 @@ if __name__ == '__main__':
         rospy.spin()
     else:
         n_iters = rospy.get_param("~n_iters", 1)
-        rule_instructor.testRuleLearning(n_iters)
-        
+        test_mode = rospy.get_param("~test_mode", "rules")
+        if test_mode == "rules":
+            rule_instructor.testRuleLearning(n_iters)
+        elif test_mode == "inference":
+            rule_instructor.testOwnerInference(n_iters)
+            

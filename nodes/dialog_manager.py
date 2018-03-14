@@ -62,10 +62,10 @@ class DialogManager(object):
             rospy.ServiceProxy("disable_extrapolate", SetBool)
         
         # Lookup simulated data
-        self.getObjects = rospy.ServiceProxy("simulation/all_objects",
-                                             ListObjects)
-        self.getAgents = rospy.ServiceProxy("simulation/all_agents",
-                                            ListAgents)
+        self.simuObjects = rospy.ServiceProxy("simulation/all_objects",
+                                              ListObjects)
+        self.simuAgents = rospy.ServiceProxy("simulation/all_agents",
+                                             ListAgents)
         
     def inputCb(self, msg):
         """Handles dialog input and publishes commands."""
@@ -143,7 +143,7 @@ class DialogManager(object):
                              'rules', 'actions', 'tasks'])
         elif args[1] == "objects":
             if len(args) > 2 and args[2] == "simulated":
-                objs = [Object.fromMsg(m) for m in self.getObjects().objects]
+                objs = [Object.fromMsg(m) for m in self.simuObjects().objects]
                 objs.sort(key=lambda o : o.id)
                 header_str = "Simulated objects:"
             else:
@@ -158,7 +158,7 @@ class DialogManager(object):
             out = "\n".join([header_str] + obj_strs)
         elif args[1] == "agents":
             if len(args) > 2 and args[2] == "simulated":
-                agents = [Agent.fromMsg(m) for m in self.getAgents().agents]
+                agents = [Agent.fromMsg(m) for m in self.simuAgents().agents]
                 agents.sort(key=lambda a : a.id)
                 header_str = "Simulated agents:"
             else:
