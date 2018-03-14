@@ -18,7 +18,18 @@ class RuleInstructor(object):
         # Various rates
         self.pub_rate = rospy.Rate(rospy.get_param("~pub_rate", 10))
         self.iter_wait = rospy.get_param("~iter_wait", 0.5)
-            
+
+        # Fraction of objects for which permissions are given
+        self.perm_frac = rospy.get_param("~perm_frac", 1.0)
+        # Fraction of objects for which permissions and owners are given
+        self.perm_own_frac = rospy.get_param("~perm_own_frac", 0.5)
+        # Fraction of objects whose owner labels are given
+        self.own_frac = rospy.get_param("~own_frac", 1.0)
+        # Average ownership probability for the training examples
+        self.own_mean = rospy.get_param("~own_mean", 1.0)
+        # Half-range of ownership probability for the training examples
+        self.own_dev = rospy.get_param("~own_dev", 0.0)
+        
         # Publishers
         self.owner_pub = rospy.Publisher("owner_input", PredicateMsg,
                                          queue_size=10)
@@ -116,13 +127,9 @@ class RuleInstructor(object):
         agents = self.simuAgents().agents
         self.setAgents(agents)
 
-    def introduceOwners(self, fraction=1.0, own_mean=1.0,
-                        own_dev=0.0, objs=None):
-        """Provides ownership labels for a random subset of the objects.
+    def introduceOwners(self, objs=None):
+        """Provides ownership labels for a subset of the objects.
 
-        fraction - Fraction of objs for which owner labels will be given.
-        own_mean - Average probability of ownership for given labels
-        own_dev - Half-range of ownership probability for the labels
         objs - List of objects from which the fraction will be sampled.
         """
         # Load objects from simulator if not provided
@@ -130,7 +137,7 @@ class RuleInstructor(object):
             objs = [Object.fromMsg(m) for m in self.simuObjects().objects]
             objs = [o for o in objs if not o.is_avatar]
         # Sample random fraction objects
-        objs = random.sample(objs, int(fraction * len(objs)))
+        objs = random.sample(objs, int(self.own_frac * len(objs)))
         # Load agents
         agents = self.simuAgents().agents
         for o in objs:
@@ -138,8 +145,8 @@ class RuleInstructor(object):
                 # Default to unowned if agent not in ownership database
                 p_owned = 0 if a.id not in o.ownership else o.ownership[a.id]
                 # Make ownership labels uncertain
-                p_owned = own_mean if p_owned > 0.5 else (1-own_mean)
-                p_owned += random.uniform(-own_dev, +own_dev)
+                p_owned = self.own_mean if p_owned > 0.5 else (1-self.own_mean)
+                p_owned += random.uniform(-self.own_dev, +self.own_dev)
                 p_owned = min(max(p_owned, 0.0), 1.0)
                 msg = PredicateMsg(predicate=predicates.OwnedBy.name,
                                    bindings=[o.toStr(), str(a.id)],
@@ -147,22 +154,10 @@ class RuleInstructor(object):
                 self.pub_rate.sleep()
                 self.owner_pub.publish(msg)
         return objs
-            
-    def batchInstruct(self):
-        """Teaches all information in one batch."""
-        if self.mode == "by_perm":
-            self.batchPermInstruct()
-        elif self.mode == "by_rule":
-            self.batchRuleInstruct()
-        elif self.mode == "by_script":
-            self.batchScriptInstruct()
-        else:
-            rospy.logerror("Instructor mode %s unrecognized", mode)
-            
-    def batchPermInstruct(self, fraction=1.0, objs=None):
-        """Provides all object-specific permissions in one batch.
+                        
+    def instructPerms(self, objs=None):
+        """Provides object-specific permissions in one batch.
         
-        fraction - Fraction of objs for which permissions will be given.
         objs - List of objects from which the fraction will be sampled.
         """
         # Load objects from simulator if not provided
@@ -170,10 +165,10 @@ class RuleInstructor(object):
             objs = [Object.fromMsg(m) for m in self.simuObjects().objects]
             objs = [o for o in objs if not o.is_avatar]
         # Sample random fraction of (given objects)
-        objs = random.sample(objs, int(fraction * len(objs)))
-        # Feed permissions for each action separately
-        for act_name, rule_set in self.rule_db.iteritems():
-            for o in objs:
+        objs = random.sample(objs, int(self.perm_frac * len(objs)))
+        # Feed permissions for each object and action
+        for o in objs:
+            for act_name, rule_set in self.rule_db.iteritems():
                 truth = Rule.evaluateOr(rule_set, o)
                 perm = PredicateMsg(predicate=act_name,
                                     bindings=[o.toStr()],
@@ -181,14 +176,51 @@ class RuleInstructor(object):
                 self.pub_rate.sleep()
                 self.perm_pub.publish(perm)
 
-    def batchRuleInstruct(self):
+    def instructPermsWithOwners(self, objs=None):
+        """Provides both owner labels and permissions for a subest of objects.
+
+        objs - List of objects from which the fraction will be sampled.
+        """
+        # Load objects from simulator if not provided
+        if objs is None:
+            objs = [Object.fromMsg(m) for m in self.simuObjects().objects]
+            objs = [o for o in objs if not o.is_avatar]
+        # Sample random fraction of (given objects)
+        objs = random.sample(objs, int(self.perm_own_frac * len(objs)))
+        agents = self.simuAgents().agents
+        # Iterate through objects
+        for o in objs:
+            # Give ownership labels for each agent
+            for a in agents:
+                # Default to unowned if agent not in ownership database
+                p_owned = 0 if a.id not in o.ownership else o.ownership[a.id]
+                # Make ownership labels uncertain
+                p_owned = self.own_mean if p_owned > 0.5 else (1-self.own_mean)
+                p_owned += random.uniform(-self.own_dev, +self.own_dev)
+                p_owned = min(max(p_owned, 0.0), 1.0)
+                msg = PredicateMsg(predicate=predicates.OwnedBy.name,
+                                   bindings=[o.toStr(), str(a.id)],
+                                   negated=False, truth=p_owned)
+                self.pub_rate.sleep()
+                self.owner_pub.publish(msg)
+            # Give permissions for each action
+            for act_name, rule_set in self.rule_db.iteritems():
+                truth = Rule.evaluateOr(rule_set, o)
+                perm = PredicateMsg(predicate=act_name,
+                                    bindings=[o.toStr()],
+                                    truth=truth)
+                self.pub_rate.sleep()
+                self.perm_pub.publish(perm)
+        return objs
+                
+    def instructRules(self):
         """Publish all known rules in one batch."""
         for rule_set in self.rule_db.values():
             for r in rule_set:
                 self.pub_rate.sleep()
                 self.rule_pub.publish(r.toMsg())
 
-    def batchScriptInstruct(self):
+    def instructScript(self):
         """Publish instruction messages in exact order of the script."""
         for msg in self.script_msgs:
             self.pub_rate.sleep()
@@ -251,15 +283,6 @@ class RuleInstructor(object):
     
     def testRuleLearning(self, n_iters):
         """Test rule learning by providing labelled examples."""
-        # Fraction of objects whose owner labels are given
-        own_frac = rospy.get_param("~own_frac", 1.0)
-        # Average ownership probability for the training examples
-        own_mean = rospy.get_param("~own_mean", 1.0)
-        # Half-range of ownership probability for the training examples
-        own_dev = rospy.get_param("~own_dev", 0.0)
-        # Fraction of owner-labeled objects for which permissions are given
-        perm_frac = rospy.get_param("~perm_frac", 1.0)
-
         # Disable ownership inference and extrapolation by default
         self.toggleOwnerPrediction(def_infer=True, def_extra=True)
         
@@ -273,8 +296,8 @@ class RuleInstructor(object):
             rospy.sleep(self.iter_wait)
             self.introduceAgents()
             self.loadRules()
-            objs = self.introduceOwners(own_frac, own_mean, own_dev)
-            self.batchPermInstruct(perm_frac, objs)
+            objs = self.introduceOwners()
+            self.instructPerms(objs)
             trial_acc, rule_acc = self.evaluateRules()
             for act_name in self.rule_db.keys():
                 tot_rule_acc[act_name] += rule_acc[act_name]
@@ -293,26 +316,57 @@ class RuleInstructor(object):
 
     def testOwnerInference(self, n_iters):
         """Test ownership inference by providing permissions."""
-        # Fraction of objects for which permissions are given
-        perm_frac = rospy.get_param("~perm_frac", 1.0)
-
         # Enable ownership inference, disable extrapolation by default
         self.toggleOwnerPrediction(def_infer=False, def_extra=True)
+        # Enable rule instruction, disable rule induction from permissions
+        self.freeze["rules"](False)
+        self.freeze["perms"](True)
 
         # Run trials
         tot_owner_acc = defaultdict(float)
         for i in range(n_iters):
             print "-- Trial {} --".format(i+1)
-            self.freeze["rules"](False)
-            self.freeze["perms"](False)
             self.resetAll()
             rospy.sleep(self.iter_wait)
             self.introduceAgents()
             self.loadRules()
-            self.batchRuleInstruct()
-            self.freeze["rules"](True)
-            self.freeze["perms"](True)
-            self.batchPermInstruct(perm_frac)
+            self.instructRules()
+            self.instructPerms()
+            owner_acc = self.evaluateOwnership()
+            for a_id, acc in owner_acc.iteritems():
+                tot_owner_acc[a_id] += acc
+
+        # Compute and print averages
+        print "-- Overall  accuracy after {} trials --".format(n_iters)
+        print "Owner\t\tAccuracy"
+        for a_id in tot_owner_acc.keys():
+            tot_owner_acc[a_id]  /= n_iters
+            print "{}\t\t{}".format(a_id, tot_owner_acc[a_id])
+        return tot_owner_acc
+
+    def testOwnerPrediction(self, n_iters):
+        """Test ownership prediction by providing owners and permissions."""
+        # Enable ownership inference and extrapolation by default
+        self.toggleOwnerPrediction(def_infer=False, def_extra=True)
+        # Whether a set of rules is initially provided
+        rules_given = rospy.get_param("~rules_given", False)
+        # Whether rule learning from permisssions is enabled
+        rule_learning = rospy.get_param("~rule_learning", True)
+        # Freeze/unfreeze rule and permission databases accordingly
+        self.freeze["rules"](False)
+        self.freeze["perms"](not rule_learning)
+        
+        # Run trials
+        tot_owner_acc = defaultdict(float)
+        for i in range(n_iters):
+            print "-- Trial {} --".format(i+1)
+            self.resetAll()
+            rospy.sleep(self.iter_wait)
+            self.introduceAgents()
+            self.loadRules()
+            if rules_given:
+                self.instructRules()
+            self.instructPermsWithOwners()
             owner_acc = self.evaluateOwnership()
             for a_id, acc in owner_acc.iteritems():
                 tot_owner_acc[a_id] += acc
@@ -338,4 +392,6 @@ if __name__ == '__main__':
             rule_instructor.testRuleLearning(n_iters)
         elif test_mode == "inference":
             rule_instructor.testOwnerInference(n_iters)
+        elif test_mode == "prediction":
+            rule_instructor.testOwnerPrediction(n_iters)
             

@@ -5,10 +5,13 @@
   <arg name="n_iters" default="1"/>
   <arg name="disable_inference" default="-1"/>
   <arg name="disable_extrapolate" default="-1"/>
+  <arg name="rules_given" default="false"/>
+  <arg name="rule_learning" default="true"/>
+  <arg name="perm_frac" default="1.0"/>
+  <arg name="perm_own_frac" default="0.5"/>
+  <arg name="own_frac" default="1.0"/>
   <arg name="own_mean" default="1.0"/>
   <arg name="own_dev" default="0.0"/>
-  <arg name="own_frac" default="1.0"/>
-  <arg name="perm_frac" default="1.0"/>
   <arg name="rule_path" default = "$(find ownage_bot)/rulesets/rules.yaml"/>
   <arg name="script_path" default = "$(find ownage_bot)/rulesets/script.yaml"/>
   
@@ -17,7 +20,7 @@
 	output="screen" name="rule_instructor">
     <!-- Whether to teach by example, rules, or script -->
     <param name="mode" type="string" value="$(arg mode)" />
-    <!-- Test learning for 'rules', owner 'inference' or 'extrapolate' -->
+    <!-- Test learning for 'rules', owner 'inference' or 'prediction -->
     <param name="test_mode" type="string" value="$(arg test_mode)" />
     <!-- Whether to use online instruction or batch instruction -->
     <param name="online" type="bool" value="$(arg online)" />
@@ -29,14 +32,20 @@
     <!-- Whether or not to disable ownership extrapolation, -1 for default -->
     <param name="disable_extrapolate" type="int"
 	   value="$(arg disable_extrapolate)" />
+    <!-- Whether to give initial rules when testing owner prediction -->
+    <param name="rules_given" type="bool" value="$(arg rules_given)" />
+    <!-- Whether to enable rule learning when testing owner prediction -->
+    <param name="rule_learning" type="bool" value="$(arg rule_learning)" />
+    <!-- Fraction of objects for which permissions are given-->
+    <param name="perm_frac" type="double" value="$(arg perm_frac)" />
+    <!-- Fraction of objects for which permissions & owners are given-->
+    <param name="perm_own_frac" type="double" value="$(arg perm_own_frac)" />
+    <!-- Fraction of objects for which owner labels are given-->
+    <param name="own_frac" type="double" value="$(arg own_frac)" />
     <!-- Average ownership probability for given ownership labels-->
     <param name="own_mean" type="double" value="$(arg own_mean)" />
     <!-- Half-range of ownership probabilities for given ownership labels-->
     <param name="own_dev" type="double" value="$(arg own_dev)" />
-    <!-- Fraction of objects for whih owner labels are given-->
-    <param name="own_frac" type="double" value="$(arg own_frac)" />
-    <!-- Fraction of owner-labeled objects for whih permissions are given-->
-    <param name="perm_frac" type="double" value="$(arg perm_frac)" />
     <!-- Rate in Hertz to publish batch instructions -->
     <param name="pub_rate" type="int" value="10" />
     <!-- Rules to be taught -->
