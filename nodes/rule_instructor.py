@@ -233,7 +233,8 @@ class RuleInstructor(object):
         """Evaluates performance of learned rules against actual rules."""
         objs = [Object.fromMsg(m) for m in self.simuObjects().objects]
         objs = [o for o in objs if not o.is_avatar]
-
+        acts = self.rule_db.keys()
+        
         metrics = defaultdict(lambda : defaultdict(float))
         headers = ["accuracy", "precision", "recall", "f1"]
 
@@ -241,7 +242,8 @@ class RuleInstructor(object):
         f1 = lambda x, y: guard_div(2*x*y, (x+y), 0.0)
 
         # Compute performance metrics
-        for act, actual_rules in self.rule_db.iteritems():
+        for act in acts:
+            actual_rules = self.rule_db[act]
             learned_rules = [Rule.fromMsg(m) for m in
                              self.lookupRules(act).rule_set]
             n_pos_actual = 0
@@ -269,8 +271,8 @@ class RuleInstructor(object):
 
         # Average across actions
         for k in headers:
-            metrics["average"][k] = sum([metrics[act][k] for act in
-                                         self.rule_db.keys()]) / len(metrics)
+            metrics["average"][k] =\
+                sum([metrics[act][k] for act in acts]) / len(acts)
 
         # Print metrics
         print "\t".join(["action"] + [h[:3] for h in headers])
@@ -325,8 +327,8 @@ class RuleInstructor(object):
 
         # Average across agents
         for k in headers:
-            metrics["average"][k] = sum([metrics[a.id][k]
-                                         for a in agents]) / len(agents)
+            metrics["average"][k] =\
+                sum([metrics[a.id][k] for a in agents]) / len(agents)
 
         # Print metrics
         print "\t".join(["owner"] + [h[:3] for h in headers])
@@ -360,7 +362,8 @@ class RuleInstructor(object):
             objs = self.introduceOwners()
             self.instructPerms(objs)
             metrics = self.evaluateRules()
-            for act in self.rule_db.keys():
+            acts = self.rule_db.keys()
+            for act in acts:
                 for k, v in metrics[act].iteritems():
                     avg_metrics[act][k] += metrics[act][k]
 
@@ -371,8 +374,7 @@ class RuleInstructor(object):
                 avg_metrics[act][k] /= n_iters
         for k in headers:
             avg_metrics["average"][k] =\
-                sum([avg_metrics[act][k] for act in avg_metrics.keys()]) \
-                / len(avg_metrics.keys())
+                sum([avg_metrics[act][k] for act in acts]) / len(acts)
 
         # Print averages
         print "== Overall performance after {} trials ==".format(n_iters)
