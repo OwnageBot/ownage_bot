@@ -166,8 +166,8 @@ class RuleManager(object):
         # Candidate rules must cover the new permission
         cover_f = lambda r : r.evaluate(tgt) >= truth
         # Compute score as false positive value for each candidate rule
-        score_f = lambda r : sum([max(r.evaluate(n_tgt) - n_val, 0) for
-                                  n_tgt, n_val in neg_perms.items()])
+        score_f = lambda r : sum([float(r.evaluate(n_tgt) >= 0.5) for
+                                  n_tgt in neg_perms.keys()])
 
         # Search for rule starting with empty rule
         init_rule = Rule(actions.db[act_name], conditions=[])
@@ -204,15 +204,15 @@ class RuleManager(object):
                          if v >= 0.5 and init_rule.evaluate(k) >= 0.5}
 
             # Compute score as true positive value for each candidate rule
-            score_f = lambda r : sum([min(p_val, r.evaluate(p_tgt)) for
-                                      p_tgt, p_val in pos_perms.items()])
+            score_f = lambda r : sum([float(r.evaluate(p_tgt) >= 0.5) for
+                                      p_tgt in pos_perms.keys()])
 
             # Subtracted rule should not cover more than a fraction of the
             # positive examples, or 1 positive example, whichever is higher
             score_thresh = max(1.0, self.sub_perm_thresh * len(pos_perms))
             new_rule, new_score, success = \
                 self.ruleSearch(init_rule, score_thresh, score_f, [cover_f])
-
+            
             # Subtract found rule from covering rule
             if success:
                 rospy.loginfo("Subtracting [%s] from [%s].",
