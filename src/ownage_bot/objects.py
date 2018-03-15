@@ -55,7 +55,7 @@ class Object(object):
                  color="none", owners=[], categories=[], is_avatar=False):
         self.id = id
         self.name = name
-        self.last_update = rospy.get_rostime()
+        self.last_update = rospy.Time()
         self.position = position
         self.orientation = orientation
         self.proximities = [] # List of distances to avatars

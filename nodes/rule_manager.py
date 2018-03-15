@@ -21,6 +21,7 @@ class RuleManager(object):
         self.add_rule_thresh = rospy.get_param("~add_rule_thresh", 0.1)
         self.sub_rule_thresh = rospy.get_param("~sub_rule_thresh", 0.1)
         self.max_cand_rules = rospy.get_param("~max_cand_rules", 3)
+        self.max_rule_conds = rospy.get_param("~max_rule_conds", 4)
         self.m_param = rospy.get_param("~m_param", 3)
         
         # Database of actively-followed rules
@@ -164,7 +165,7 @@ class RuleManager(object):
         # Search only for inactive rules (pointless to refine active rules) 
         inactive_f = lambda r : r not in rule_set
         # Candidate rules must cover the new permission
-        cover_f = lambda r : r.evaluate(tgt) >= truth
+        cover_f = lambda r : r.evaluate(tgt) >= 0.5
         # Compute score as false positive value for each candidate rule
         score_f = lambda r : sum([float(r.evaluate(n_tgt) >= 0.5) for
                                   n_tgt in neg_perms.keys()])
@@ -195,7 +196,7 @@ class RuleManager(object):
         cover_rules = [r for r in rule_set if r.evaluate(tgt) >= 0.5]
 
         # Candidate rules must cover negative perm
-        cover_f = lambda r : r.evaluate(tgt) >= (1-truth)
+        cover_f = lambda r : r.evaluate(tgt) >= 0.5
 
         # Subtract minimal rule that covers new perm from each covering rule
         for init_rule in cover_rules:
@@ -302,13 +303,15 @@ class RuleManager(object):
         cand_rules = [best_rule]
         success = (all([f(init_rule) for f in filters]) and
                    best_score <= score_thresh)
-        while len(cand_rules) > 0:
+        n_conds = len(init_rule.conditions)
+        while (len(cand_rules) > 0 and n_conds <= self.max_rule_conds):
             # Terminate if score beats threshold
             if success:
                 break
             # Construct list of refinements from previous candidates
             new_rules = [r.refine() for r in cand_rules]
             new_rules = [r for l in new_rules for r in l]
+            n_conds += 1
             # Select rules which match filters
             for f in filters:
                 new_rules = filter(f, new_rules)
