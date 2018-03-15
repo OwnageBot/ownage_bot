@@ -230,24 +230,56 @@ class RuleInstructor(object):
                 self.rule_pub.publish(msg)
 
     def evaluateRules(self):
-        """Evalutes accuracy of learned rules against actual rules."""
+        """Evaluates performance of learned rules against actual rules."""
         objs = [Object.fromMsg(m) for m in self.simuObjects().objects]
         objs = [o for o in objs if not o.is_avatar]
-        rule_acc = defaultdict(float)
-        print "Action\t\tAccuracy"
-        for act_name, actual_rules in self.rule_db.iteritems():
+
+        metrics = defaultdict(lambda : defaultdict(float))
+        headers = ["accuracy", "precision", "recall", "f1"]
+
+        f1 = lambda x, y: 2*x*y/(x+y)
+        guard_div = lambda x, y: 1.0 if (y == 0) else x/y
+
+        # Compute performance metrics
+        for act, actual_rules in self.rule_db.iteritems():
             learned_rules = [Rule.fromMsg(m) for m in
-                             self.lookupRules(act_name).rule_set]
+                             self.lookupRules(act).rule_set]
+            n_pos_actual = 0
+            n_pos_learned = 0
             for o in objs:
-                actual_perms = Rule.evaluateOr(actual_rules, o)
-                learned_perms = Rule.evaluateOr(learned_rules, o)
-                correct = (actual_perms-0.5)*(learned_perms-0.5) > 0
-                rule_acc[act_name] += correct
-            rule_acc[act_name] /= len(objs)
-            print "{}\t\t{}".format(act_name, rule_acc[act_name])
-        avg_rule_acc = sum(rule_acc.values()) / len(rule_acc)
-        print "Average accuracy across actions: {}".format(avg_rule_acc)
-        return avg_rule_acc, rule_acc
+                actual_perm = Rule.evaluateOr(actual_rules, o)
+                learned_perm = Rule.evaluateOr(learned_rules, o)
+                correct = (actual_perm-0.5)*(learned_perm-0.5) >= 0
+                metrics[act]["accuracy"] += correct
+                if actual_perm >= 0.5:
+                    n_pos_actual += 1
+                    metrics[act]["recall"] += correct
+                if learned_perm >= 0.5:
+                    n_pos_learned += 1
+                    metrics[act]["precision"] += correct
+
+            metrics[act]["accuracy"] =\
+                guard_div(metrics[act]["accuracy"], len(objs))
+            metrics[act]["recall"] =\
+                guard_div(metrics[act]["recall"], n_pos_actual)
+            metrics[act]["precision"] =\
+                guard_div(metrics[act]["precision"], n_pos_learned)
+            metrics[act]["f1"] =\
+                f1(metrics[act]["precision"], metrics[act]["recall"]) 
+
+        # Average across actions
+        n_acts = len(self.rule_db)
+        for k in headers:
+            metrics["average"][k] = sum([metrics[act][k] for act in
+                                         self.rule_db.keys()]) / n_acts
+
+        # Print metrics
+        print "\t".join(["action"] + [h[:3] for h in headers])
+        for row in metrics.keys():
+            print "\t".join([row] + [str(metrics[row][k])[:4]
+                                     for k in headers])
+                                        
+        return metrics
 
     def evaluateOwnership(self):
         """Evaluates accuracy of predicted against actual ownership."""
@@ -257,6 +289,7 @@ class RuleInstructor(object):
         pred_objs = [Object.fromMsg(m) for m in self.listObjects().objects]
         pred_objs = dict(zip([o.id for o in pred_objs], pred_objs))
         agents = self.simuAgents().agents
+
         owner_acc = defaultdict(float)
         print "Owner\t\tAccuracy"
         for o_id, true_obj in true_objs.iteritems():
@@ -286,8 +319,7 @@ class RuleInstructor(object):
         # Disable ownership inference and extrapolation by default
         self.toggleOwnerPrediction(def_infer=True, def_extra=True)
         
-        tot_acc = 0.0
-        tot_rule_acc = defaultdict(float)
+        avg_metrics = defaultdict(lambda : defaultdict(float))
 
         # Run trials
         for i in range(n_iters):
@@ -298,21 +330,29 @@ class RuleInstructor(object):
             self.loadRules()
             objs = self.introduceOwners()
             self.instructPerms(objs)
-            trial_acc, rule_acc = self.evaluateRules()
-            for act_name in self.rule_db.keys():
-                tot_rule_acc[act_name] += rule_acc[act_name]
+            metrics = self.evaluateRules()
+            for act in self.rule_db.keys():
+                for k, v in metrics[act].iteritems():
+                    avg_metrics[act][k] += metrics[act][k]
 
-        # Compute and print averages            
-        for act_name in self.rule_db.keys():
-            tot_rule_acc[act_name] /= n_iters
-        tot_acc = sum(tot_rule_acc.values()) / len(tot_rule_acc)
+        # Compute averages
+        headers = ["accuracy", "precision", "recall", "f1"]
+        for act in self.rule_db.keys():
+            for k in avg_metrics[act].keys():
+                avg_metrics[act][k] /= n_iters
+        n_acts = len(self.rule_db.keys())
+        for k in headers:
+            avg_metrics["average"][k] = sum([avg_metrics[act][k] for act in
+                                             self.rule_db.keys()]) / n_acts
+
+        # Print averages
         print "-- Overall accuracy after {} trials -- ".format(n_iters)
-        print "Action\t\tAccuracy"
-        for act_name, acc in tot_rule_acc.iteritems():
-            print "{}\t\t{}".format(act_name, acc)
-        print "Average accuracy across actions: {}".format(tot_acc)
+        print "\t".join(["action"] + [h[:3] for h in headers])
+        for row in avg_metrics.keys():
+            print "\t".join([row] + [str(avg_metrics[row][k])[:4]
+                                     for k in headers])
             
-        return tot_acc, tot_rule_acc
+        return avg_metrics
 
     def testOwnerInference(self, n_iters):
         """Test ownership inference by providing permissions."""
