@@ -237,8 +237,8 @@ class RuleInstructor(object):
         metrics = defaultdict(lambda : defaultdict(float))
         headers = ["accuracy", "precision", "recall", "f1"]
 
-        f1 = lambda x, y: 2*x*y/(x+y)
-        guard_div = lambda x, y: 1.0 if (y == 0) else x/y
+        guard_div = lambda x, y, z: z if (y == 0) else x/y
+        f1 = lambda x, y: guard_div(2*x*y, (x+y), 0.0)
 
         # Compute performance metrics
         for act, actual_rules in self.rule_db.iteritems():
@@ -259,19 +259,18 @@ class RuleInstructor(object):
                     metrics[act]["precision"] += correct
 
             metrics[act]["accuracy"] =\
-                guard_div(metrics[act]["accuracy"], len(objs))
+                guard_div(metrics[act]["accuracy"], len(objs), 1.0)
             metrics[act]["recall"] =\
-                guard_div(metrics[act]["recall"], n_pos_actual)
+                guard_div(metrics[act]["recall"], n_pos_actual, 1.0)
             metrics[act]["precision"] =\
-                guard_div(metrics[act]["precision"], n_pos_learned)
+                guard_div(metrics[act]["precision"], n_pos_learned, 1.0)
             metrics[act]["f1"] =\
                 f1(metrics[act]["precision"], metrics[act]["recall"]) 
 
         # Average across actions
-        n_acts = len(self.rule_db)
         for k in headers:
             metrics["average"][k] = sum([metrics[act][k] for act in
-                                         self.rule_db.keys()]) / n_acts
+                                         self.rule_db.keys()]) / len(metrics)
 
         # Print metrics
         print "\t".join(["action"] + [h[:3] for h in headers])
@@ -290,21 +289,52 @@ class RuleInstructor(object):
         pred_objs = dict(zip([o.id for o in pred_objs], pred_objs))
         agents = self.simuAgents().agents
 
-        owner_acc = defaultdict(float)
-        print "Owner\t\tAccuracy"
-        for o_id, true_obj in true_objs.iteritems():
-            pred_obj = pred_objs[o_id]
-            for a in agents:
+        metrics = defaultdict(lambda : defaultdict(float))
+        headers = ["accuracy", "precision", "recall", "f1"]
+
+        guard_div = lambda x, y, z: z if (y == 0) else x/y
+        f1 = lambda x, y: guard_div(2*x*y, (x+y), 0.0)
+        
+        # Compute performance metrics
+        for a in agents:
+            n_pos_true = 0
+            n_pos_pred = 0
+            for o_id, true_obj in true_objs.iteritems():
+                pred_obj = pred_objs[o_id]
                 true_own = (0.0 if a.id not in true_obj.ownership
                             else true_obj.ownership[a.id])
                 pred_own = (0.0 if a.id not in pred_obj.ownership
                             else pred_obj.ownership[a.id])
                 correct = (true_own-0.5)*(pred_own-0.5) > 0
-                owner_acc[a.id] += correct
-        for a in agents:
-            owner_acc[a.id] /= len(true_objs)
-            print "{}\t\t{}".format(a.id, owner_acc[a.id])
-        return owner_acc
+                metrics[a.id]["accuracy"] += correct
+                if true_own >= 0.5:
+                    n_pos_true += 1
+                    metrics[a.id]["recall"] += correct
+                if pred_own >= 0.5:
+                    n_pos_pred += 1
+                    metrics[a.id]["precision"] += correct
+
+            metrics[a.id]["accuracy"] =\
+                guard_div(metrics[a.id]["accuracy"], len(true_objs), 1.0)
+            metrics[a.id]["recall"] =\
+                guard_div(metrics[a.id]["recall"], n_pos_true, 1.0)
+            metrics[a.id]["precision"] =\
+                guard_div(metrics[a.id]["precision"], n_pos_pred, 1.0)
+            metrics[a.id]["f1"] =\
+                f1(metrics[a.id]["precision"], metrics[a.id]["recall"]) 
+
+        # Average across agents
+        for k in headers:
+            metrics["average"][k] = sum([metrics[a.id][k]
+                                         for a in agents]) / len(agents)
+
+        # Print metrics
+        print "\t".join(["owner"] + [h[:3] for h in headers])
+        for row in metrics.keys():
+            print "\t".join([str(row)] + [str(metrics[row][k])[:4]
+                                          for k in headers])
+
+        return metrics
 
     def toggleOwnerPrediction(self, def_infer, def_extra):
         inference = rospy.get_param("~disable_inference", -1)
@@ -319,9 +349,8 @@ class RuleInstructor(object):
         # Disable ownership inference and extrapolation by default
         self.toggleOwnerPrediction(def_infer=True, def_extra=True)
         
-        avg_metrics = defaultdict(lambda : defaultdict(float))
-
         # Run trials
+        avg_metrics = defaultdict(lambda : defaultdict(float))
         for i in range(n_iters):
             print "-- Trial {} --".format(i+1)
             self.resetAll()
@@ -337,20 +366,20 @@ class RuleInstructor(object):
 
         # Compute averages
         headers = ["accuracy", "precision", "recall", "f1"]
-        for act in self.rule_db.keys():
+        for act in avg_metrics.keys():
             for k in avg_metrics[act].keys():
                 avg_metrics[act][k] /= n_iters
-        n_acts = len(self.rule_db.keys())
         for k in headers:
-            avg_metrics["average"][k] = sum([avg_metrics[act][k] for act in
-                                             self.rule_db.keys()]) / n_acts
+            avg_metrics["average"][k] =\
+                sum([avg_metrics[act][k] for act in avg_metrics.keys()]) \
+                / len(avg_metrics.keys())
 
         # Print averages
-        print "-- Overall accuracy after {} trials -- ".format(n_iters)
+        print "== Overall performance after {} trials ==".format(n_iters)
         print "\t".join(["action"] + [h[:3] for h in headers])
         for row in avg_metrics.keys():
-            print "\t".join([row] + [str(avg_metrics[row][k])[:4]
-                                     for k in headers])
+            print "\t".join([str(row)] + [str(avg_metrics[row][k])[:4]
+                                          for k in headers])
             
         return avg_metrics
 
@@ -363,7 +392,8 @@ class RuleInstructor(object):
         self.freeze["perms"](True)
 
         # Run trials
-        tot_owner_acc = defaultdict(float)
+        agents = self.simuAgents().agents
+        avg_metrics = defaultdict(lambda : defaultdict(float))
         for i in range(n_iters):
             print "-- Trial {} --".format(i+1)
             self.resetAll()
@@ -372,22 +402,33 @@ class RuleInstructor(object):
             self.loadRules()
             self.instructRules()
             self.instructPerms()
-            owner_acc = self.evaluateOwnership()
-            for a_id, acc in owner_acc.iteritems():
-                tot_owner_acc[a_id] += acc
+            metrics = self.evaluateOwnership()
+            for a in agents:
+                for k, v in metrics[a.id].iteritems():
+                    avg_metrics[a.id][k] += metrics[a.id][k]
 
-        # Compute and print averages
-        print "-- Overall  accuracy after {} trials --".format(n_iters)
-        print "Owner\t\tAccuracy"
-        for a_id in tot_owner_acc.keys():
-            tot_owner_acc[a_id]  /= n_iters
-            print "{}\t\t{}".format(a_id, tot_owner_acc[a_id])
-        return tot_owner_acc
+        # Compute averages
+        headers = ["accuracy", "precision", "recall", "f1"]
+        for a_id in avg_metrics.keys():
+            for k in avg_metrics[a_id].keys():
+                avg_metrics[a_id][k] /= n_iters
+        for k in headers:
+            avg_metrics["average"][k] =\
+                sum([avg_metrics[a.id][k] for a in agents]) / len(agents)
+
+        # Print averages
+        print "== Overall performance after {} trials ==".format(n_iters)
+        print "\t".join(["owner"] + [h[:3] for h in headers])
+        for row in avg_metrics.keys():
+            print "\t".join([str(row)] + [str(avg_metrics[row][k])[:4]
+                                          for k in headers])
+            
+        return avg_metrics
 
     def testOwnerPrediction(self, n_iters):
         """Test ownership prediction by providing owners and permissions."""
         # Enable ownership inference and extrapolation by default
-        self.toggleOwnerPrediction(def_infer=False, def_extra=True)
+        self.toggleOwnerPrediction(def_infer=False, def_extra=False)
         # Whether a set of rules is initially provided
         rules_given = rospy.get_param("~rules_given", False)
         # Whether rule learning from permisssions is enabled
@@ -397,7 +438,8 @@ class RuleInstructor(object):
         self.freeze["perms"](not rule_learning)
         
         # Run trials
-        tot_owner_acc = defaultdict(float)
+        agents = self.simuAgents().agents
+        avg_metrics = defaultdict(lambda : defaultdict(float))
         for i in range(n_iters):
             print "-- Trial {} --".format(i+1)
             self.resetAll()
@@ -407,17 +449,28 @@ class RuleInstructor(object):
             if rules_given:
                 self.instructRules()
             self.instructPermsWithOwners()
-            owner_acc = self.evaluateOwnership()
-            for a_id, acc in owner_acc.iteritems():
-                tot_owner_acc[a_id] += acc
+            metrics = self.evaluateOwnership()
+            for a in agents:
+                for k, v in metrics[a.id].iteritems():
+                    avg_metrics[a.id][k] += metrics[a.id][k]
 
-        # Compute and print averages
-        print "-- Overall  accuracy after {} trials --".format(n_iters)
-        print "Owner\t\tAccuracy"
-        for a_id in tot_owner_acc.keys():
-            tot_owner_acc[a_id]  /= n_iters
-            print "{}\t\t{}".format(a_id, tot_owner_acc[a_id])
-        return tot_owner_acc
+        # Compute averages
+        headers = ["accuracy", "precision", "recall", "f1"]
+        for a_id in avg_metrics.keys():
+            for k in avg_metrics[a_id].keys():
+                avg_metrics[a_id][k] /= n_iters
+        for k in headers:
+            avg_metrics["average"][k] =\
+                sum([avg_metrics[a.id][k] for a in agents]) / len(agents)
+
+        # Print averages
+        print "== Overall accuracy after {} trials ==".format(n_iters)
+        print "\t".join(["owner"] + [h[:3] for h in headers])
+        for row in avg_metrics.keys():
+            print "\t".join([str(row)] + [str(avg_metrics[row][k])[:4]
+                                          for k in headers])
+            
+        return avg_metrics
     
 if __name__ == '__main__':
     rospy.init_node('rule_instructor')
