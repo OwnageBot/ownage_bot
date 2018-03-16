@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import rospy
+import threading
 import numpy as np
 from sklearn.kernel_approximation import Nystroem
 from sklearn.linear_model import LogisticRegression
@@ -24,6 +25,9 @@ class OwnershipTracker(ObjectTracker):
 
         # Database of ownership claims
         self.claim_db = dict()
+
+        # Lock to ensure callbacks update ownership synchronously
+        self.owner_lock = threading.Lock()
         
         # Set up callback to handle ownership claims
         self.owner_sub = rospy.Subscriber("owner_input", PredicateMsg,
@@ -98,6 +102,8 @@ class OwnershipTracker(ObjectTracker):
         # Add object ID to claim database
         if agent.id not in self.claim_db:
             self.newAgentCb(agent.toMsg())
+
+        self.owner_lock.acquire()
         self.claim_db[agent.id].add(obj.id)
         
         # Compute ownership probability as product of trust and truth value
@@ -109,6 +115,7 @@ class OwnershipTracker(ObjectTracker):
         # Extrapolate new information to other objects
         if not self.disable_extrapolate:
             self.extrapolateFromPercepts(agent_ids=[agent.id])
+        self.owner_lock.release()
         
     def permInputCb(self, msg):
         """Callback upon receiving permission information about objects."""
@@ -129,29 +136,38 @@ class OwnershipTracker(ObjectTracker):
         obj = Object.fromStr(msg.bindings[0])
         obj = self.object_db[obj.id]
         
-        # Guess and update ownership
+        # Infer ownership
+        self.owner_lock.acquire()
         ownership = self.inferFromPerm(action.name, obj, msg.truth)
-        self.object_db[obj.id].ownership = ownership
+        # Update ownership for agents who have not made claims
+        for a_id in ownership.keys():
+            if obj.id not in self.claim_db[a_id]:
+                obj.ownership[a_id] = ownership[a_id]
 
         # Extrapolate new information to other objects
         if not self.disable_extrapolate:
             self.extrapolateFromPercepts()
+        self.owner_lock.release()
         
     def newAgentCb(self, msg):
         """Callback upon new agent introduction."""
         rospy.loginfo("Agent {} introduced, guessing ownership...".\
                       format(msg.id))
+        self.owner_lock.acquire()
         # Add list of claimed objects for each agent
         self.claim_db[msg.id] = set()
         # Default ownership probability to priors
         self.guessFromNothing(agent_ids=[msg.id])
+        self.owner_lock.release()
 
     def newObjectCb(self, o_id):
         """Callback upon insertion of new object."""
+        self.owner_lock.acquire()
         if self.disable_extrapolate:
             self.guessFromNothing(obj_ids=[o_id])
         else:
             self.extrapolateFromPercepts(new_ids=[o_id])    
+        self.owner_lock.release()
 
     def guessFromNothing(self, obj_ids=[], agent_ids=[]):
         """Guess probability of ownership using default prior."""
@@ -172,7 +188,7 @@ class OwnershipTracker(ObjectTracker):
         rule_set = [Rule.fromMsg(r) for r in rule_set]
 
         # Do Bayesian update using potential explanations
-        p_owned_prior = obj.ownership
+        p_owned_prior = dict(obj.ownership)
         p_owned_post = dict()
         p_f_owned = dict()
         p_a_owned = dict()
