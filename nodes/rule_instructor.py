@@ -19,6 +19,9 @@ class RuleInstructor(object):
         self.pub_rate = rospy.Rate(rospy.get_param("~pub_rate", 10))
         self.iter_wait = rospy.get_param("~iter_wait", 0.5)
 
+        # Which set of objects to evaluate ('all', 'train' or 'test')
+        self.eval_set = rospy.get_param("~eval_set", "all")
+        
         # Fraction of objects for which permissions are given
         self.perm_frac = rospy.get_param("~perm_frac", 1.0)
         # Fraction of objects for which permissions and owners are given
@@ -229,10 +232,17 @@ class RuleInstructor(object):
             elif isinstance(msg, RuleMsg):
                 self.rule_pub.publish(msg)
 
-    def evaluateRules(self):
+    def evaluateRules(self, training_ids=None):
         """Evaluates performance of learned rules against actual rules."""
         objs = [Object.fromMsg(m) for m in self.simuObjects().objects]
         objs = [o for o in objs if not o.is_avatar]
+        if training_ids is not None:
+            if self.eval_set == "train":
+                # Evaluate on training examples
+                objs = [o for o in objs if o.id in training_ids]
+            elif self.eval_set == "test":
+                # Evaluate on testing examples
+                objs = [o for o in objs if o.id not in training_ids]
         acts = self.rule_db.keys()
         
         metrics = defaultdict(lambda : defaultdict(float))
@@ -282,13 +292,26 @@ class RuleInstructor(object):
                                         
         return metrics
 
-    def evaluateOwnership(self):
+    def evaluateOwnership(self, training_ids=None):
         """Evaluates accuracy of predicted against actual ownership."""
         true_objs = [Object.fromMsg(m) for m in self.simuObjects().objects]
         true_objs = [o for o in true_objs if not o.is_avatar]
-        true_objs = dict(zip([o.id for o in true_objs], true_objs))
+
         pred_objs = [Object.fromMsg(m) for m in self.listObjects().objects]
+        pred_objs = [o for o in pred_objs if not o.is_avatar]
+
+        if training_ids is not None:
+            if self.eval_set == "train":
+                # Evaluate on training examples
+                true_objs = [o for o in true_objs if o.id in training_ids]
+                pred_objs = [o for o in pred_objs if o.id in training_ids]
+            elif self.eval_set == "test":
+                # Evaluate on testing examples
+                true_objs = [o for o in true_objs if o.id not in training_ids]
+                pred_objs = [o for o in pred_objs if o.id not in training_ids]
+        true_objs = dict(zip([o.id for o in true_objs], true_objs))
         pred_objs = dict(zip([o.id for o in pred_objs], pred_objs))
+
         agents = self.simuAgents().agents
 
         metrics = defaultdict(lambda : defaultdict(float))
@@ -360,8 +383,8 @@ class RuleInstructor(object):
             self.introduceAgents()
             self.loadRules()
             objs = self.introduceOwners()
-            self.instructPerms(objs)
-            metrics = self.evaluateRules()
+            objs = self.instructPerms(objs)
+            metrics = self.evaluateRules([o.id for o in objs])
             acts = self.rule_db.keys()
             for act in acts:
                 for k, v in metrics[act].iteritems():
@@ -403,8 +426,8 @@ class RuleInstructor(object):
             self.introduceAgents()
             self.loadRules()
             self.instructRules()
-            self.instructPerms()
-            metrics = self.evaluateOwnership()
+            objs = self.instructPerms()
+            metrics = self.evaluateOwnership([o.id for o in objs])
             for a in agents:
                 for k, v in metrics[a.id].iteritems():
                     avg_metrics[a.id][k] += metrics[a.id][k]
@@ -450,8 +473,8 @@ class RuleInstructor(object):
             self.loadRules()
             if rules_given:
                 self.instructRules()
-            self.instructPermsWithOwners()
-            metrics = self.evaluateOwnership()
+            objs = self.instructPermsWithOwners()
+            metrics = self.evaluateOwnership([o.id for o in objs])
             for a in agents:
                 for k, v in metrics[a.id].iteritems():
                     avg_metrics[a.id][k] += metrics[a.id][k]

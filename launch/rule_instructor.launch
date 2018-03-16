@@ -1,6 +1,7 @@
 <launch>
   <arg name="mode" default="by_perm"/>
   <arg name="test_mode" default="rules"/>
+  <arg name="eval_set" default="all"/>
   <arg name="online" default="false"/>
   <arg name="n_iters" default="1"/>
   <arg name="disable_inference" default="-1"/>
@@ -22,6 +23,8 @@
     <param name="mode" type="string" value="$(arg mode)" />
     <!-- Test learning for 'rules', owner 'inference' or 'prediction -->
     <param name="test_mode" type="string" value="$(arg test_mode)" />
+    <!-- Evaluate 'all' objects, 'train' set or 'test' set -->
+    <param name="eval_set" type="string" value="$(arg eval_set)" />
     <!-- Whether to use online instruction or batch instruction -->
     <param name="online" type="bool" value="$(arg online)" />
     <!-- Number of training iterations for system evaluation -->
