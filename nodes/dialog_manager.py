@@ -190,6 +190,7 @@ class DialogManager(object):
         if len(args) < 2:
             out = "\n".join(["Reset one of the following:"] +
                             self.reset.keys() + ["all"])
+            self.output_pub.publish(out)
         elif args[1] in self.reset:
             key = args[1]
             try:
@@ -209,9 +210,10 @@ class DialogManager(object):
                 except rospy.ROSException:
                     # Fail silently for unavailable services
                     pass
+            return
         else:
             out = "Keyword not recognized."
-        self.output_pub.publish(out)
+            self.output_pub.publish(out)
 
     def handleFreeze(self, args):
         """Handles freeze command."""
@@ -219,6 +221,7 @@ class DialogManager(object):
         if len(args) < 2:
             out = "\n".join(["(Un)Freeze one of the following databases:"] +
                             self.freeze.keys() + ["all"])
+            self.output_pub.publish(out)
         elif args[1] in self.freeze:
             key = args[1]
             try:
@@ -238,9 +241,10 @@ class DialogManager(object):
                 except rospy.ROSException:
                     # Fail silently for unavailable services
                     pass
+            return
         else:
             out = "Keyword not recognized."
-        self.output_pub.publish(out)
+            self.output_pub.publish(out)
 
     def handleDisable(self, args):
         """Handles disable command."""
@@ -248,6 +252,7 @@ class DialogManager(object):
         if len(args) < 2:
             out = "\n".join(["Enable/disable one of the following:"] +
                             self.disable.keys() + ["all"])
+            self.output_pub.publish(out)
         elif args[1] in self.disable:
             key = args[1]
             try:
@@ -267,9 +272,10 @@ class DialogManager(object):
                 except rospy.ROSException:
                     # Fail silently for unavailable services
                     pass
+            return
         else:
             out = "Keyword not recognized."
-        self.output_pub.publish(out)
+            self.output_pub.publish(out)
             
 if __name__ == '__main__':
     rospy.init_node('dialog_manager')

@@ -254,7 +254,7 @@ class OwnershipTracker(ObjectTracker):
 
             # Update probabilities of ownership
             for i, t_id in enumerate(test_ids):
-                self.object_db[t_id].ownership[a_id] = probs[i,1]        
+                self.object_db[t_id].ownership[a_id] = probs[i,1]
 
     def perceptDiff(self, o1, o2):
         """Computes raw displacement in perceptual space between objects."""

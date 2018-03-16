@@ -46,7 +46,7 @@ class AgentTracker(object):
 
         # Insert new agent into database if name is unrecognized
         if agent.id < 0:
-            agent.id = len(self.agent_db)
+            agent.id = len(self.agent_db) + 1
         self.agent_db[agent.id] = agent
         self.current_agent = agent
         self.new_agt_pub.publish(agent.toMsg())
