@@ -152,7 +152,7 @@ class DialogManager(object):
             obj_strs = ["{:3d} {:10} ({: 04.2f},{: 04.2f},{: 04.2f}) "\
                         .format(o.id, o.color,
                                 o.position.x, o.position.y, o.position.z) +
-                        ", ".join(["{:2d}: {: 04.1f}".format(k, v) for
+                        ", ".join(["{:2d}: {: 04.2f}".format(k, v) for
                                    k, v in o.ownership.iteritems()])
                         for o in objs]
             out = "\n".join([header_str] + obj_strs)

@@ -54,6 +54,8 @@ class OwnershipTracker(ObjectTracker):
         self.default_prior = rospy.get_param("~default_prior", 0.0)
         
         # Logistic regression params and objects for percept-based prediction
+        self.converge_thresh = rospy.get_param("~converge_thresh", 0.01)
+        self.max_reg_iters = rospy.get_param("~max_reg_iters", 1)
         self.reg_strength = rospy.get_param("~reg_strength", 0.1)
         self.max_features = rospy.get_param("~max_features", 20)
         self.nys = Nystroem(kernel='precomputed', random_state=0)
@@ -236,25 +238,34 @@ class OwnershipTracker(ObjectTracker):
         
         # Train the classifier for each possible owner and predict ownership
         for a_id in agent_ids:
-            # Weight samples according to the certainty of ownership
-            weights = np.array([o.ownership[a_id] for o in train] +
-                               [1.0-o.ownership[a_id] for o in train])
-            self.log_reg.fit(X, y, sample_weight=weights)
-
             # Predict ownership of either new or unclaimed objects
             if len(new_ids) == 0:
-                test_ids = [o_id for o_id in self.object_db.keys()
-                            if o_id not in self.claim_db[a_id]]
+                test = [o for o in train if o.id not in self.claim_db[a_id]]
             else:
-                test_ids = new_ids
-            test = [self.object_db[t_id] for t_id in test_ids]
-            K_test = self.perceptKern(test, train)
-            X_test = self.nys.transform(K_test)
-            probs = self.log_reg.predict_proba(X_test)
+                test = [self.object_db[n_id] for n_id in new_ids]
+                
+            # Repeat until convergence or max iterations
+            for n in range(self.max_reg_iters):
+                # Weight samples according to the certainty of ownership
+                weights = np.array([o.ownership[a_id] for o in train] +
+                                   [1.0-o.ownership[a_id] for o in train])
+                self.log_reg.fit(X, y, sample_weight=weights)
 
-            # Update probabilities of ownership
-            for i, t_id in enumerate(test_ids):
-                self.object_db[t_id].ownership[a_id] = probs[i,1]
+                # Predict new probabilities
+                K_test = self.perceptKern(test, train)
+                X_test = self.nys.transform(K_test)
+                new_probs = self.log_reg.predict_proba(X_test)
+                new_probs = list(new_probs[:,1])
+
+                # Check for convergence
+                test_probs = [o.ownership[a_id] for o in test]
+                if all([abs(p_new - p_old) < self.converge_thresh
+                        for p_new, p_old in zip(new_probs, test_probs)]):
+                    break
+
+                # Update probabilities of ownership
+                for i, o in enumerate(test):
+                    o.ownership[a_id] = new_probs[i]
 
     def perceptDiff(self, o1, o2):
         """Computes raw displacement in perceptual space between objects."""
