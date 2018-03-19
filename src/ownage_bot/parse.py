@@ -4,7 +4,9 @@ import predicates
 import actions
 import rules
 import tasks
+import rospy
 from ownage_bot.msg import *
+from std_srvs.srv import *
 
 error = ""
 
@@ -13,6 +15,11 @@ NO_ACTION = "Action not recognized"
 NO_TASK = "Task not recognized"
 NO_PREDICATE = "Predicate not recognized"
 NO_ARGS_MATCH = "Number of arguments does not match"
+NO_CURRENT_ACT = "Could not look up current action"
+NO_CURRENT_TGT = "Could not look up current target"
+
+_getCurrentAction = rospy.ServiceProxy("cur_action", Trigger)
+_getCurrentTarget = rospy.ServiceProxy("cur_target", Trigger)
 
 def asAction(s):
     """Parse a one-shot task (i.e. action) to be performed.
@@ -75,6 +82,12 @@ def asPredicate(s, n_unbound=0):
     for i in range(len(args)):
         if args[i] == "any":
             args[i] = "_any_"
+        elif args[i] == "current":
+            try:
+                args[i] = _getCurrentTarget().message
+            except rospy.ServiceException:
+                error = NO_CURRENT_TGT
+                return None
     args = [objects.Nil.toStr()] * n_unbound + args
     pred = PredicateMsg(predicate=name, bindings=args,
                         negated=negated, truth=1.0)
@@ -91,10 +104,22 @@ def asPerm(s):
         error = NO_MATCH
         return None
     name = match.group(2)
+    if name == "current":
+        try:
+            name = _getCurrentAction().message
+        except rospy.ServiceException:
+            error = NO_CURRENT_ACT
+            return None
     if name not in actions.db:
         error = NO_ACTION
         return None
     tgt = match.group(3)
+    if tgt == "current":
+        try:
+            tgt = _getCurrentTarget().message
+        except rospy.ServiceException:
+            error = NO_CURRENT_TGT
+            return None
     truth = float(match.group(1) == "forbid")
     perm = PredicateMsg(predicate=name, bindings=[tgt],
                         negated=False, truth=truth)
@@ -111,6 +136,12 @@ def asRule(s):
         error = NO_MATCH
         return None
     name = match.group(2)
+    if name == "current":
+        try:
+            name = _getCurrentAction().message
+        except rospy.ServiceException:
+            error = NO_CURRENT_ACT
+            return None
     if name not in actions.db:
         error = NO_ACTION
         return None

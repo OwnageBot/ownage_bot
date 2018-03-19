@@ -6,6 +6,7 @@ from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
 from std_msgs.msg import String
+from std_srvs.srv import *
 from geometry_msgs.msg import Point
 
 class TaskManager(object):
@@ -14,8 +15,10 @@ class TaskManager(object):
     def __init__(self):
         # Duration in seconds between action updates
         self.update_latency = rospy.get_param("task_update", 0.5)
-        # Current task being performed
+        # Current task, action, and target
         self.cur_task = tasks.Idle
+        self.cur_action = actions.Empty
+        self.cur_target = None
 
         # Queue of action-target pairs
         self.q_lock = threading.Lock()
@@ -30,6 +33,27 @@ class TaskManager(object):
         self.lookupObject = rospy.ServiceProxy("lookup_object", LookupObject)
         self.lookupPerm = rospy.ServiceProxy("lookup_perm", LookupPerm)
         self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
+
+        # Servers that handle lookup requests
+        self.cur_tsk_srv = rospy.Service("cur_task", Trigger,
+                                         self.curTaskCb)
+        self.cur_act_srv = rospy.Service("cur_action", Trigger,
+                                         self.curActionCb)
+        self.cur_tgt_srv = rospy.Service("cur_target", Trigger, 
+                                         self.curTargetCb)
+
+    def curTaskCb(self, req):
+        """Returns name of the current task."""
+        return TriggerResponse(True, self.cur_task.name)
+
+    def curActionCb(self, req):
+        """Returns name of the current action."""
+        return TriggerResponse(True, self.cur_action.name)
+
+    def curTargetCb(self, req):
+        """Returns name of the current target."""
+        name = '_nil_' if self.cur_target is None else self.cur_target.name
+        return TriggerResponse(True, name)
 
     def taskInCb(self, msg):
         """Handles incoming tasks."""
@@ -115,6 +139,8 @@ class TaskManager(object):
                 print "{} on {} is forbidden".format(action, tgt.toStr())
                 continue
             # Call action if all checks pass
+            self.cur_action = action
+            self.cur_target = tgt
             resp = action.call(tgt)
             if not resp.success:
                 self.task_out_pub.publish(resp.response)
