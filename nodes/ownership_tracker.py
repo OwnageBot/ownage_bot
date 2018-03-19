@@ -2,6 +2,7 @@
 import rospy
 import threading
 import numpy as np
+from collections import defaultdict
 from sklearn.kernel_approximation import Nystroem
 from sklearn.linear_model import LogisticRegression
 from std_srvs.srv import *
@@ -24,7 +25,7 @@ class OwnershipTracker(ObjectTracker):
             rospy.get_param("~disable_extrapolate", False)
 
         # Database of ownership claims
-        self.claim_db = dict()
+        self.claim_db = defaultdict(set)
 
         # Lock to ensure callbacks update ownership synchronously
         self.owner_lock = threading.Lock()
@@ -146,7 +147,7 @@ class OwnershipTracker(ObjectTracker):
 
         # Extrapolate new information to other objects
         if not self.disable_extrapolate:
-            self.extrapolateFromPercepts()
+            self.extrapolateFromPercepts(exc_ids=[obj.id])
         self.owner_lock.release()
         
     def newAgentCb(self, msg):
@@ -168,7 +169,7 @@ class OwnershipTracker(ObjectTracker):
         else:
             self.extrapolateFromPercepts(new_ids=[o_id])    
         self.owner_lock.release()
-
+        
     def guessFromNothing(self, obj_ids=[], agent_ids=[]):
         """Guess probability of ownership using default prior."""
         if len(obj_ids) == 0:
@@ -225,7 +226,7 @@ class OwnershipTracker(ObjectTracker):
         # Return posterior probabilities
         return p_owned_post
 
-    def extrapolateFromPercepts(self, new_ids=[], agent_ids=[]):
+    def extrapolateFromPercepts(self, new_ids=[], exc_ids=[], agent_ids=[]):
         """Guess ownership of objects from physical percepts."""
         # Filter out new objects from training set
         train = [o for o in self.object_db.values() if o.id not in new_ids]
@@ -259,6 +260,8 @@ class OwnershipTracker(ObjectTracker):
                 test = [o for o in train if o.id not in self.claim_db[a_id]]
             else:
                 test = [self.object_db[n_id] for n_id in new_ids]
+            # Filter out excluded ids
+            test = [o for o in test if o.id not in exc_ids]
                 
             # Repeat until convergence or max iterations
             for n in range(self.max_reg_iters):
@@ -273,13 +276,13 @@ class OwnershipTracker(ObjectTracker):
                 new_probs = self.log_reg.predict_proba(X_test)
                 new_probs = list(new_probs[:,1])
 
-                # Check for convergence
+                # Check for convergence for probabilties to be updated
                 test_probs = [o.ownership[a_id] for o in test]
                 if all([abs(p_new - p_old) < self.converge_thresh
                         for p_new, p_old in zip(new_probs, test_probs)]):
                     break
 
-                # Update probabilities of ownership
+                # Update probabilities of ownership in place
                 for i, o in enumerate(test):
                     o.ownership[a_id] = new_probs[i]
 
@@ -296,6 +299,11 @@ class OwnershipTracker(ObjectTracker):
         sq_dists = np.array([[np.dot(d, d) for d in row] for row in diffs])
         return np.exp(-gamma * sq_dists)        
 
+    def certaintyCheck(self, p_old, p_new):
+        """Checks if new value will reduce certainty by too much."""
+        return ((abs(p_old-self.default_prior) -
+                 abs(p_new-self.default_prior)) <= 0)
+    
 if __name__ == '__main__':
     rospy.init_node('ownership_tracker')
     OwnershipTracker()

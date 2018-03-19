@@ -178,6 +178,7 @@ class RuleInstructor(object):
                                     truth=truth)
                 self.pub_rate.sleep()
                 self.perm_pub.publish(perm)
+        return objs
 
     def instructPermsWithOwners(self, objs=None):
         """Provides both owner labels and permissions for a subest of objects.
@@ -379,7 +380,7 @@ class RuleInstructor(object):
         for i in range(n_iters):
             print "-- Trial {} --".format(i+1)
             self.resetAll()
-            rospy.sleep(self.iter_wait)
+            rospy.sleep(self.iter_wait/2.0)
             self.introduceAgents()
             self.loadRules()
             objs = self.introduceOwners()
@@ -389,6 +390,7 @@ class RuleInstructor(object):
             for act in acts:
                 for k, v in metrics[act].iteritems():
                     avg_metrics[act][k] += metrics[act][k]
+            rospy.sleep(self.iter_wait/2.0)
 
         # Compute averages
         headers = ["accuracy", "precision", "recall", "f1"]
@@ -422,7 +424,7 @@ class RuleInstructor(object):
         for i in range(n_iters):
             print "-- Trial {} --".format(i+1)
             self.resetAll()
-            rospy.sleep(self.iter_wait)
+            rospy.sleep(self.iter_wait/2.0)
             self.introduceAgents()
             self.loadRules()
             self.instructRules()
@@ -431,6 +433,7 @@ class RuleInstructor(object):
             for a in agents:
                 for k, v in metrics[a.id].iteritems():
                     avg_metrics[a.id][k] += metrics[a.id][k]
+            rospy.sleep(self.iter_wait/2.0)
 
         # Compute averages
         headers = ["accuracy", "precision", "recall", "f1"]
@@ -468,7 +471,7 @@ class RuleInstructor(object):
         for i in range(n_iters):
             print "-- Trial {} --".format(i+1)
             self.resetAll()
-            rospy.sleep(self.iter_wait)
+            rospy.sleep(self.iter_wait/2.0)
             self.introduceAgents()
             self.loadRules()
             if rules_given:
@@ -478,6 +481,7 @@ class RuleInstructor(object):
             for a in agents:
                 for k, v in metrics[a.id].iteritems():
                     avg_metrics[a.id][k] += metrics[a.id][k]
+            rospy.sleep(self.iter_wait/2.0)
 
         # Compute averages
         headers = ["accuracy", "precision", "recall", "f1"]
