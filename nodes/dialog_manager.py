@@ -127,7 +127,7 @@ class DialogManager(object):
             return
 
         # Error out if nothing works
-        out = "Could not parse input."
+        out = "Could not parse input: {}".format(parse.error)
         self.output_pub.publish(out)
 
     def taskOutCb(self, msg):

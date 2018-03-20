@@ -134,7 +134,10 @@ class OwnershipTracker(ObjectTracker):
             raise TypeError("Action perm should have exactly one argument.")
         if (msg.bindings[0] == objects.Nil.toStr() or action.tgtype != Object):
             raise TypeError("Action perm should have object as argument.")
-        obj = Object.fromStr(msg.bindings[0])
+        try:
+            obj = Object.fromStr(msg.bindings[0])
+        except ValueError:
+            raise ValueError("Could not resolve object ID - needs to be int.")
         obj = self.object_db[obj.id]
         
         # Infer ownership

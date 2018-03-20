@@ -15,6 +15,9 @@ _cancel_left = rospy.ServiceProxy(
 _cancel_right = rospy.ServiceProxy(
     "/action_provider/cancel_right", Trigger)
 
+# Allowed target types
+tgtypes = (Object, Location, type(None))
+
 class Action(object):
     """Defines actions that can be performed on objects."""    
     def __init__(self, name="", tgtype=type(None), dependencies=[]):
@@ -123,7 +126,7 @@ Replace._call = _replace
 # List of available actions for each robotic platform
 if os.getenv("OWNAGE_BOT_PLATFORM", "baxter") == "baxter":
     # Only Baxter is currently supported
-    db = [Cancel, GoHome, MoveTo, Scan, PickUp, PutDown,
+    db = [Empty, Cancel, GoHome, MoveTo, Scan, PickUp, PutDown,
           Release, Find, Offer, Trash, Collect, Replace]
 else:
     db = []

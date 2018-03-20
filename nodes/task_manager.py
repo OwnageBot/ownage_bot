@@ -52,7 +52,7 @@ class TaskManager(object):
 
     def curTargetCb(self, req):
         """Returns name of the current target."""
-        name = '_nil_' if self.cur_target is None else self.cur_target.name
+        name = '_nil_' if self.cur_target is None else self.cur_target.toStr()
         return TriggerResponse(True, name)
 
     def taskInCb(self, msg):

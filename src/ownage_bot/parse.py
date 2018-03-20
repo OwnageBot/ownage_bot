@@ -17,6 +17,7 @@ NO_PREDICATE = "Predicate not recognized"
 NO_ARGS_MATCH = "Number of arguments does not match"
 NO_CURRENT_ACT = "Could not look up current action"
 NO_CURRENT_TGT = "Could not look up current target"
+NO_TGT_MATCH = "Argument type cannot serve as target"
 
 _getCurrentAction = rospy.ServiceProxy("cur_action", Trigger)
 _getCurrentTarget = rospy.ServiceProxy("cur_target", Trigger)
@@ -41,8 +42,8 @@ def asAction(s):
         error = NO_ARGS_MATCH
         return None
     tgt = "" if n_args == 0 else args[0]
-    task = TaskMsg(name=name, oneshot=True, interrupt=True, target=tgt)
-    return task
+    msg = TaskMsg(name=name, oneshot=True, interrupt=True, target=tgt)
+    return msg
 
 def asTask(s):
     """Parse a higher-level task to be performed.
@@ -58,8 +59,8 @@ def asTask(s):
     if name not in tasks.db:
         error = NO_TASK
         return None
-    task = TaskMsg(name=name, oneshot=False, interrupt=True, target="")
-    return task
+    msg = TaskMsg(name=name, oneshot=False, interrupt=True, target="")
+    return msg
 
 def asPredicate(s, n_unbound=0):
     """Parse predicate bound to some arguments.
@@ -77,21 +78,25 @@ def asPredicate(s, n_unbound=0):
         error = NO_PREDICATE
         return None
     args = args[1:]
-    if len(args) + n_unbound != predicates.db[name].n_args:
+    pred = predicates.db[name]
+    if len(args) + n_unbound != pred.n_args:
         error = NO_ARGS_MATCH
     for i in range(len(args)):
         if args[i] == "any":
             args[i] = "_any_"
         elif args[i] == "current":
+            if pred.argtypes[i+n_unbound] not in actions.tgtypes:
+                error = NO_TGT_MATCH
+                return None
             try:
                 args[i] = _getCurrentTarget().message
             except rospy.ServiceException:
                 error = NO_CURRENT_TGT
                 return None
     args = [objects.Nil.toStr()] * n_unbound + args
-    pred = PredicateMsg(predicate=name, bindings=args,
-                        negated=negated, truth=1.0)
-    return pred
+    msg = PredicateMsg(predicate=name, bindings=args,
+                       negated=negated, truth=1.0)
+    return msg
 
 def asPerm(s):
     """Parse target-specific action permissions.
@@ -99,7 +104,7 @@ def asPerm(s):
     Example: 'allow pickUp on 5'
     """    
     global error
-    match = re.match("(forbid|allow) (\S+) on (\d*)", s)
+    match = re.match("(forbid|allow) (\S+) on (\S+)", s)
     if match is None:
         error = NO_MATCH
         return None
@@ -121,9 +126,9 @@ def asPerm(s):
             error = NO_CURRENT_TGT
             return None
     truth = float(match.group(1) == "forbid")
-    perm = PredicateMsg(predicate=name, bindings=[tgt],
-                        negated=False, truth=truth)
-    return perm
+    msg = PredicateMsg(predicate=name, bindings=[tgt],
+                       negated=False, truth=truth)
+    return msg
 
 def asRule(s):
     """Parse deontic rules about actions.
@@ -148,8 +153,11 @@ def asRule(s):
     truth = float(match.group(1) == "forbid")
     preds = match.group(3).strip().split(" and ")
     conditions = [asPredicate(p, n_unbound=1) for p in preds]
-    rule = RuleMsg(name, conditions, "forbid", truth)
-    return rule
+    if any([c is None for c in conditions]):
+        error = NO_PREDICATE
+        return None
+    msg = RuleMsg(name, conditions, "forbid", truth)
+    return msg
     
 def asAgent(s):
     """Parse agent introductions.
@@ -160,5 +168,5 @@ def asAgent(s):
     if args[0] != "i" or args[1] != "am":
         return None
     name = args[2]
-    agent = AgentMsg(-1, name, -1)
-    return agent
+    msg = AgentMsg(-1, name, -1)
+    return msg
