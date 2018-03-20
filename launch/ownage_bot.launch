@@ -95,7 +95,7 @@
     <!-- Command prompt node -->
     <node pkg="ownage_bot" type="command_prompt.py"
           name="command_prompt" output="screen" unless="$(arg manual)"
-	  launch-prefix="gnome-terminal --command">
+	  launch-prefix="gnome-terminal --geometry=80x43 --command">
     </node>
   </group>
 

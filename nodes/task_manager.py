@@ -136,7 +136,9 @@ class TaskManager(object):
                 continue
             # Check if action is forbidden by permissions or rules
             if self.checkPerm(action, tgt) or self.checkRules(action, tgt):
-                print "{} on {} is forbidden".format(action, tgt.toStr())
+                out = "{} on {} is forbidden".\
+                    format(action.name, tgt.toPrint())
+                self.task_out_pub.publish(out)
                 continue
             # Call action if all checks pass
             self.cur_action = action
