@@ -19,6 +19,9 @@ class ArUcoTracker(OwnershipTracker):
         self.aruco_latency =\
             rospy.Duration(rospy.get_param("~aruco_latency", 0.1))
         self.aruco_update_t = rospy.get_rostime()
+
+        # Max duration in seconds between updates for speed to be computed
+        self.spd_update_dur = rospy.get_param("~spd_update_dur", 1.0) 
         
         # Margins around ARuco tag for color determination
         self.in_offset = rospy.get_param("~in_offset", 1)
@@ -39,7 +42,7 @@ class ArUcoTracker(OwnershipTracker):
         self.lab_db = cv.cvtColor(np.swapaxes(self.lab_db, 1, 2),
                                   cv.COLOR_RGB2LAB)
         
-    def insertObject(self, marker):
+    def insertObject(self, marker, t_update):
         """Insert object into the database using marker information."""
         # Initialize fields that should be modified only once
         obj = Object()
@@ -47,22 +50,38 @@ class ArUcoTracker(OwnershipTracker):
         obj.is_avatar = marker.id in self.avatar_ids
         self.object_db[marker.id] = obj
         # Initialize fields which are dynamically changing
-        self.updateObject(marker)
-        super(ArUcoTracker, self).newObjectCb(obj.id)
+        self.updateObject(marker, t_update)
+        # New objects should not have meaningful speed or last action data
+        obj.speed = 0.0
+        obj.t_last_actions = dict()
+        super(ArUcoTracker, self).newObjectCb(obj.id)        
         return obj
 
-    def updateObject(self, marker):
+    def updateObject(self, marker, t_update):
         """Updates object database with given marker information."""
         # Assumes that marker.id is already in the database
         obj = self.object_db[marker.id]
+        # Compute position and time difference
+        p_diff = objects.dist(obj.position, marker.pose.pose.position)
+        t_diff = (t_update - obj.t_last_update).to_sec()
+        # Compute instantaneous speed if time difference is small enough
+        obj.speed = 0.0
+        if t_diff > 0 and t_diff <= self.spd_update_dur:
+            obj.speed = p_diff / t_diff
+        # Set action time if speed or distance moved exceeds threshold
+        if obj.speed >= self.act_spd_thresh or p_diff >= self.act_dist_thresh:
+            cur_agent = super(ArUcoTracker, self).getCurrentAgent()
+            if cur_agent is not None:
+                obj.t_last_action[cur_agent.id] = t_update
+        # Update position and orientation
         obj.position = marker.pose.pose.position
         obj.orientation = marker.pose.pose.orientation
         # Proximities are -1 if avatar cannot be found
         obj.proximities = [-1] * len(self.avatar_ids)
         for (i, k) in enumerate(self.avatar_ids):
             if k in self.object_db:
-                avatar = self.object_db[k]
-                obj.proximities[i] = objects.dist(obj, avatar)
+                av = self.object_db[k]
+                obj.proximities[i] = objects.dist(obj.position, av.position)
         # Hard-code colors for now
         if marker.id in [2, 12, 19]:
             obj.color = "red"
@@ -71,6 +90,8 @@ class ArUcoTracker(OwnershipTracker):
         elif marker.id in [1, 3, 6]:
            obj.color = "blue"
         # obj.color = self.determineColor(self.last_image, marker)
+        # Update time
+        obj.t_last_update = t_update
 
     def markersCb(self, msg):
         """Callback upon receiving list of markers from ArUco."""
@@ -85,13 +106,13 @@ class ArUcoTracker(OwnershipTracker):
         for m in msg.markers:
             # Check if object is already in database
             if m.id not in self.object_db:
-                obj = self.insertObject(m)
+                obj = self.insertObject(m, t_now)
                 # Publish that new object was found
                 self.new_obj_pub.publish(obj.toMsg())
                 rospy.loginfo("New object %s found!", obj.id)
             else:
                 # Update object if update period has lapsed
-                self.updateObject(m)
+                self.updateObject(m, t_now)
                 
     def determineColor(self, msg, marker):
         """Determines color of the currently tracked object."""

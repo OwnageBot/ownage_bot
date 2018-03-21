@@ -12,7 +12,7 @@ class AgentTracker(object):
         # Database of known agents
         self.agent_db = dict()
         # Agent currently interacting with the system
-        self.current_agent = None
+        self.cur_agent = None
 
         # Subscriber to new agent introductions
         self.agent_sub = rospy.Subscriber("agent_input", AgentMsg,
@@ -35,27 +35,35 @@ class AgentTracker(object):
         
     def agentInputCb(self, msg):
         """Updates database and current agent with new information."""
-        agent = Agent.fromMsg(msg)
+        new_agent = Agent.fromMsg(msg)
 
-        # Check if agent is already known
-        for a_id, a in self.agent_db.items():
-            if (a_id == agent.id or
-                (len(agent.name) > 0 and a.name == agent.name)):
-                self.current_agent = a
+        # Check if agent ID is already known
+        if new_agent.id in self.agent_db:
+            self.cur_agent = self.agent_db[new_agent.id]
+            return
+
+        # Check if agent name is already known
+        if len(new_agent.name > 0):
+            for a in self.agent_db.values():
+                if new_agent.name == a.name:
+                    self.cur_agent = a
                 return
 
         # Insert new agent into database if name is unrecognized
         if agent.id < 0:
             agent.id = len(self.agent_db) + 1
         self.agent_db[agent.id] = agent
-        self.current_agent = agent
+        self.cur_agent = agent
         self.new_agt_pub.publish(agent.toMsg())
         
     def lookupAgentCb(self, req):
         """ Returns properties of requested agent."""
-        if req.id in self.agent_db:
-            agt = self.agent_db[req.id]
-            return LookupAgentResponse(True, agt.toMsg())
+        if req.id == -1 and self.cur_agent is not None:
+            # Return current agent if ID is -1
+            return LookupAgentResponse(True, self.cur_agent.toMsg())
+        elif req.id in self.agent_db:
+            # Otherwise try to lookup agent in database
+            return LookupAgentResponse(True, self.agent_db[req.id].toMsg())
         else:            
             return LookupAgentResponse(False, AgentMsg())
 

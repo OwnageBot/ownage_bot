@@ -52,16 +52,19 @@ class Object(object):
     
     def __init__(self, id=-1, name="",
                  position=Point(), orientation=Quaternion(),
-                 color="none", owners=[], categories=[], is_avatar=False):
+                 speed=0.0, color="none", is_avatar=False,
+                 owners=[], categories=[]):
         self.id = id
         self.name = name
-        self.last_update = rospy.Time()
+        self.t_last_update = rospy.Time()
         self.position = position
         self.orientation = orientation
+        self.speed = speed
         self.proximities = [] # List of distances to avatars
         self.color = color # Name of color
         self.ownership = dict() # Dictionary of ownership probabilities
         self.categories = dict() # Dictionary of category membership
+        self.t_last_actions = dict() # Dictionary of last action times
         self.is_avatar = is_avatar # Whether object is an avatar
         for o in owners:
             self.ownership[o] = 1.0
@@ -82,11 +85,18 @@ class Object(object):
     def __hash__(self):
         """Hash only the ID."""
         return hash(self.id)
+
+    def copy(self):
+        """Makes a copy of the Object."""
+        obj = self.__class__()
+        for k, v in self.__dict__.items():
+            setattr(obj, k, copy.deepcopy(v))
+        return obj
         
     def toMsg(self):
         """Converts Object to a ROS message."""
         msg = ObjectMsg()
-        uncopyable = ["ownership", "categories"] 
+        uncopyable = ["ownership", "categories", "t_last_actions"] 
         for k, v in self.__dict__.items():
             if k in uncopyable:
                 continue
@@ -95,6 +105,8 @@ class Object(object):
         msg.ownership = self.ownership.values()
         msg.categories = self.categories.keys()
         msg.categoriness = self.categories.values()
+        msg.actors = self.t_last_actions.keys()
+        msg.t_last_actions = self.t_last_actions.values()
         return msg
 
     def toStr(self):
@@ -111,7 +123,7 @@ class Object(object):
         obj = cls()
         if not isinstance(msg, ObjectMsg):
             raise TypeError("Copy constructor expects ObjectMsg.")
-        copyable = ["id", "name", "last_update", "position", "orientation",
+        copyable = ["id", "name", "t_last_update", "position", "orientation",
                     "proximities", "color", "is_avatar"]
         for attr in copyable:
             val = getattr(msg, attr)
@@ -120,6 +132,7 @@ class Object(object):
             obj.__dict__[attr] = copy.deepcopy(val)
         obj.ownership = dict(zip(msg.owners, msg.ownership))
         obj.categories = dict(zip(msg.categories, msg.categoriness))
+        obj.t_last_actions = dict(zip(msg.actors, msg.t_last_actions))
         return obj
 
     @classmethod
@@ -137,12 +150,13 @@ class Object(object):
         """Returns a sorted list of all known Objects."""
         # Update cache if it has gotten old
         if (rospy.Time.now() - cls._last_cache_time) > cls._cache_latency:
-            rospy.wait_for_service("list_objects")
             try:
+                rospy.wait_for_service("list_objects",
+                                       timeout = cls._cache_latency)
                 resp = cls._listObjects()
                 cls._universe_cache =  [cls.fromMsg(m) for m in resp.objects]
                 cls._universe_cache.sort(key = lambda x : x.toStr())
-            except rospy.ServiceException:
+            except (rospy.ROSException, rospy.ServiceException):
                 # Just return cache if service call could not be executed
                 rospy.logwarn("Service error, returning cache instead...")
         return cls._universe_cache
@@ -226,12 +240,13 @@ class Agent(object):
         """Returns a sorted list of all known Agents."""
         # Update cache if it has gotten old
         if (rospy.Time.now() - cls._last_cache_time) > cls._cache_latency:
-            rospy.wait_for_service("list_agents")
             try:
+                rospy.wait_for_service("list_agents",
+                                       timeout = cls._cache_latency)
                 resp = cls._listAgents()
                 cls._universe_cache =  [cls.fromMsg(m) for m in resp.agents]
                 cls._universe_cache.sort(key = lambda x : x.toStr())
-            except rospy.ServiceException:
+            except (rospy.ROSException, rospy.ServiceException):
                 # Just return cache if service call could not be executed
                 rospy.logwarn("Service error, returning cache instead...")
         return cls._universe_cache
@@ -401,10 +416,8 @@ class Color(Category):
         l = [cls(name, hsv_range) for name, hsv_range in colors.items()]
         return sorted(l, key=lambda x : x.toStr())
     
-def dist(obj1, obj2):
-    """Calculates Euclidean distance between two objects."""
-    p1 = obj1.position
-    p2 = obj2.position
+def dist(p1, p2):
+    """Calculates Euclidean distance between two points."""
     diff = [p1.x-p2.x, p1.y-p2.y, p1.z-p2.z]
     return math.sqrt(sum([d*d for d in diff]))
 

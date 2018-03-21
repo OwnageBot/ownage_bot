@@ -219,7 +219,7 @@ class Predicate(object):
     
 # List of pre-defined predicates
 Near = Predicate("near", [Object, Object])
-Near._apply = lambda obj1, obj2: dist(obj1, obj2) < 0.4
+Near._apply = lambda o1, o2: dist(o1.position, obj2.position) < 0.4
 
 OwnedBy = Predicate("ownedBy", [Object, Agent])
 OwnedBy._apply = (lambda obj, agent:

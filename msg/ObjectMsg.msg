@@ -13,6 +13,9 @@ geometry_msgs/Point position
 # Absolute orientation of the object
 geometry_msgs/Quaternion orientation
 
+# Instantaneous speed of object
+float32 speed
+
 # Relative distances to avatars
 float32[] proximities
 
@@ -30,6 +33,12 @@ string[] categories
 
 # List of category membership probabilities
 float32[] categoriness
+
+# List of recent actors
+int32[] actors
+
+# List of last action times for each actor
+float32[] t_last_actions
 
 # Indicates if object is an avatar
 bool is_avatar

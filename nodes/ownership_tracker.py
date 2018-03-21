@@ -78,7 +78,7 @@ class OwnershipTracker(ObjectTracker):
         return SetBoolResponse(True, "")
 
     def resetClaimsCb(self, req):
-        """Resets datbase of ownership claims."""
+        """Resets database of ownership claims."""
         self.claim_db.clear()
         return TriggerResponse(True, "")
         
