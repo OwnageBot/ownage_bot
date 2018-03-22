@@ -1,6 +1,7 @@
 import math
 import copy
 import rospy
+import time
 import numpy as np
 import matplotlib.path as mplPath
 from ownage_bot.msg import *
@@ -113,9 +114,36 @@ class Object(object):
         """Minimal string representation of object."""
         return str(self.id)
 
-    def toPrint(self):
+    def toPrint(self, props=[]):
         """Human-readable string."""
-        return "object {}".format(self.id)
+        if len(props) == 0:
+            return "object {}".format(self.id)
+        out = []
+        for p in props:
+            if p == "id":
+                s = "{:3d}".format(self.id)
+            elif p == "t_last_update":
+                secs = self.t_last_update.to_secs()
+                s = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(secs))
+            elif p == "color":
+                s = "{:10}".format(self.color)
+            elif p == "position":
+                pos = self.position
+                s = "({: 04.2f},{: 04.2f},{: 04.2f})".\
+                    format(pos.x, pos.y, pos.z))
+            elif p == "ownership":
+                s = ", ".join(["{:2d}: {: 04.2f}".format(k, v) for
+                               k, v in self.ownership.iteritems()])
+            elif p == "t_last_actions":
+                t_fmt = "%H:%M:%S"
+                times = {k: time.strftime(t_fmt, time.localtime(v.to_secs()))
+                         for k, v in self.t_last_actions.iteritems()}
+                s = ", ".join(["{:2d}: {}".format(k, v)
+                               for k, v in times.iteritems()])
+            else:
+                s = ""
+            out.append(s)
+        return " ".join(out)
     
     @classmethod
     def fromMsg(cls, msg):

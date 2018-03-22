@@ -146,15 +146,16 @@ class DialogManager(object):
                 objs = [Object.fromMsg(m) for m in self.simuObjects().objects]
                 objs.sort(key=lambda o : o.id)
                 header_str = "Simulated objects:"
+                props = args[3:]
             else:
                 objs = sorted(list(Object.universe()), key=lambda o : o.id)
                 header_str = "Tracked objects:"
-            obj_strs = ["{:3d} {:10} ({: 04.2f},{: 04.2f},{: 04.2f}) "\
-                        .format(o.id, o.color,
-                                o.position.x, o.position.y, o.position.z) +
-                        ", ".join(["{:2d}: {: 04.2f}".format(k, v) for
-                                   k, v in o.ownership.iteritems()])
-                        for o in objs]
+                props = args[2:]
+            if len(props) == 0:
+                props = ["id", "color", "position", "ownership"]
+            else:
+                props = ["id"] + props
+            obj_strs = [o.toPrint(props) for o in objs]
             out = "\n".join([header_str] + obj_strs)
         elif args[1] == "agents":
             if len(args) > 2 and args[2] == "simulated":
