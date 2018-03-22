@@ -35,6 +35,9 @@ class ObjectTracker(object):
         self.t_agt_cache = rospy.Time()
         self.agt_cache_latency = rospy.get_param("~agt_cache_latency", 0.5)
         self.lookupAgent = rospy.ServiceProxy("lookup_agent", LookupAgent)
+
+        # Store when object tracker is initialized
+        self.t_init = rospy.Time.now()
         
     def lookupObjectCb(self, req):
         """ Returns properties of particular object"""
