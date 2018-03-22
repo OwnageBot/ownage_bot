@@ -236,6 +236,11 @@ class OwnershipTracker(ObjectTracker):
         # Filter out avatars
         train = [o for o in train if not o.is_avatar]
 
+        # Set dimensions equal to number of training samples
+        self.nys.n_components = len(train)
+        # Duplicate labels in order to account fo uncertainty
+        y = [True] * len(train) + [False] * len(train)
+
         # Default to uninformed prior if too few training points
         if len(train) <= 1:
             self.guessFromNothing(new_ids, agent_ids)
@@ -247,17 +252,16 @@ class OwnershipTracker(ObjectTracker):
         if len(agent_ids) == 0:
             return
         
-        # Compute Gram matrix and kernel map for kernel logistic regression
-        K = self.perceptKern(train, train)
-        self.nys.n_components = len(train)
-        X = self.nys.fit_transform(K)
-        
-        # Duplicate samples to account for uncertainty in class labels
-        X = np.tile(X, [2,1])
-        y = [True] * len(train) + [False] * len(train)
-        
         # Train the classifier for each possible owner and predict ownership
         for a_id in agent_ids:
+
+            # Compute Gram matrix and kernel map for kernel logistic regression
+            K = self.perceptKern(train, train, a_id=a_id)
+            X = self.nys.fit_transform(K)
+            
+            # Duplicate samples to account for uncertainty in class labels
+            X = np.tile(X, [2,1])
+
             # Predict ownership of either new or unclaimed objects
             if len(new_ids) == 0:
                 test = [o for o in train if o.id not in self.claim_db[a_id]]
@@ -289,18 +293,22 @@ class OwnershipTracker(ObjectTracker):
                 for i, o in enumerate(test):
                     o.ownership[a_id] = new_probs[i]
 
-    def perceptDiff(self, o1, o2):
+    def perceptDiff(self, o1, o2, a_id=None):
         """Computes raw displacement in perceptual space between objects."""
         col_diff = 1.0 if o1.color != o2.color else 0.0
         p1, p2 = o1.position, o2.position
         pos_diff = [p1.x-p2.x, p1.y-p2.y, p1.z-p2.z]
-        return np.array([col_diff] + pos_diff)
+        recency_diff = (0.0 if a_id is None else
+                        (o2.t_last_actions.get(a_id, rospy.Time()) -
+                         o1.t_last_actions.get(a_id, rospy.Time())).to_secs())
+        return np.array([col_diff] + pos_diff + [recency_diff])
 
-    def perceptKern(self, objs1, objs2, gamma=1.0):
+    def perceptKern(self, objs1, objs2, a_id=None, gamma=1.0):
         """Computes RBF kernel matrix for the percept features of objects."""
-        diffs = [[self.perceptDiff(o1, o2) for o2 in objs2] for o1 in objs1]
+        diffs = [[self.perceptDiff(o1, o2, a_id)
+                  for o2 in objs2] for o1 in objs1]
         sq_dists = np.array([[np.dot(d, d) for d in row] for row in diffs])
-        return np.exp(-gamma * sq_dists)        
+        return np.exp(-gamma * sq_dists) 
 
     def certaintyCheck(self, p_old, p_new):
         """Checks if new value will reduce certainty by too much."""
