@@ -57,6 +57,11 @@ class OwnershipTracker(ObjectTracker):
         self.claim_trust = rospy.get_param("~claim_trust", 1.0)
         # Default ownership prior
         self.default_prior = rospy.get_param("~default_prior", 0.5)
+
+        # Feature weights for percept-based prediction
+        self.col_weight = rospy.get_param("~col_weight", 0.1)
+        self.pos_weight = rospy.get_param("~pos_weight", 1.0)
+        self.time_weight = rospy.get_param("~time_weight", 2.0)
         
         # Logistic regression params and objects for percept-based prediction
         self.converge_thresh = rospy.get_param("~converge_thresh", 0.01)
@@ -304,11 +309,14 @@ class OwnershipTracker(ObjectTracker):
         """Computes raw displacement in perceptual space between objects."""
         col_diff = 1.0 if o1.color != o2.color else 0.0
         p1, p2 = o1.position, o2.position
-        pos_diff = [p1.x-p2.x, p1.y-p2.y, p1.z-p2.z]
-        recency_diff = (0.0 if a_id is None else
-                        (o2.t_last_actions.get(a_id, self.t_init) -
-                         o1.t_last_actions.get(a_id, self.t_init)).to_sec())
-        return np.array([col_diff] + pos_diff + [recency_diff])
+        pos_diff = np.array([p1.x-p2.x, p1.y-p2.y, p1.z-p2.z])
+        time_diff = (0.0 if a_id is None else
+                     (o2.t_last_actions.get(a_id, self.t_init) -
+                      o1.t_last_actions.get(a_id, self.t_init)).to_sec())
+        col_diff *= self.col_weight
+        pos_diff *= self.pos_weight
+        time_diff *= self.time_weight
+        return np.concatenate([[col_diff], pos_diff, [time_diff]])
 
     def perceptKern(self, objs1, objs2, a_id=None, gamma=1.0):
         """Computes RBF kernel matrix for the percept features of objects."""
