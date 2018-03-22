@@ -300,7 +300,7 @@ class OwnershipTracker(ObjectTracker):
         pos_diff = [p1.x-p2.x, p1.y-p2.y, p1.z-p2.z]
         recency_diff = (0.0 if a_id is None else
                         (o2.t_last_actions.get(a_id, self.t_init) -
-                         o1.t_last_actions.get(a_id, self.t_init)).to_secs())
+                         o1.t_last_actions.get(a_id, self.t_init)).to_sec())
         return np.array([col_diff] + pos_diff + [recency_diff])
 
     def perceptKern(self, objs1, objs2, a_id=None, gamma=1.0):

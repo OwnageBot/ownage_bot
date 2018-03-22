@@ -76,7 +76,7 @@ class ArUcoTracker(OwnershipTracker):
         if obj.speed >= self.act_spd_thresh or p_diff >= self.act_dist_thresh:
             cur_agent = super(ArUcoTracker, self).getCurrentAgent()
             if cur_agent is not None:
-                obj.t_last_action[cur_agent.id] = t_update
+                obj.t_last_actions[cur_agent.id] = t_update
         # Update position and orientation
         obj.position = marker.pose.pose.position
         obj.orientation = marker.pose.pose.orientation

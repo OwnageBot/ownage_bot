@@ -43,18 +43,18 @@ class AgentTracker(object):
             return
 
         # Check if agent name is already known
-        if len(new_agent.name > 0):
+        if len(new_agent.name) > 0:
             for a in self.agent_db.values():
                 if new_agent.name == a.name:
                     self.cur_agent = a
                 return
 
         # Insert new agent into database if name is unrecognized
-        if agent.id < 0:
-            agent.id = len(self.agent_db) + 1
-        self.agent_db[agent.id] = agent
-        self.cur_agent = agent
-        self.new_agt_pub.publish(agent.toMsg())
+        if new_agent.id < 0:
+            new_agent.id = len(self.agent_db) + 1
+        self.agent_db[new_agent.id] = new_agent
+        self.cur_agent = new_agent
+        self.new_agt_pub.publish(new_agent.toMsg())
         
     def lookupAgentCb(self, req):
         """ Returns properties of requested agent."""

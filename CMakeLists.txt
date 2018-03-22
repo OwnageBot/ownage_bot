@@ -11,6 +11,7 @@ if (DEFINED ENV{OWNAGE_BOT_SIMULATION})
     message_generation
     geometry_msgs
     std_msgs
+    std_srvs
   )
 else()
   message("COMPILING ALL COMPONENTS...")
@@ -21,6 +22,7 @@ else()
     human_robot_collaboration_lib
     geometry_msgs
     std_msgs
+    std_srvs
   )
   find_package(OpenCV 2.4 REQUIRED)
 endif()
@@ -178,8 +180,10 @@ endif()
 ## same as for the library above
 # add_dependencies(ownage_bot_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-#add_dependencies(action_provider    ${${PROJECT_NAME}_EXPORTED_TARGETS}
-#                                          ${catkin_EXPORTED_TARGETS})
+if (NOT DEFINED ENV{OWNAGE_BOT_SIMULATION})
+ add_dependencies(action_provider ${${PROJECT_NAME}_EXPORTED_TARGETS}
+                                  ${catkin_EXPORTED_TARGETS})
+endif()
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(ownage_bot_node
