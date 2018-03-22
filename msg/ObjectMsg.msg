@@ -5,7 +5,7 @@ int32 id
 string name
 
 # Last time these object properties were updated
-time last_update
+time t_last_update
 
 # Absolute position of the object
 geometry_msgs/Point position
@@ -38,7 +38,7 @@ float32[] categoriness
 int32[] actors
 
 # List of last action times for each actor
-float32[] t_last_actions
+time[] t_last_actions
 
 # Indicates if object is an avatar
 bool is_avatar

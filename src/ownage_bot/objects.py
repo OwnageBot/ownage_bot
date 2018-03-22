@@ -123,20 +123,25 @@ class Object(object):
             if p == "id":
                 s = "{:3d}".format(self.id)
             elif p == "t_last_update":
-                secs = self.t_last_update.to_secs()
+                secs = self.t_last_update.to_sec()
                 s = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(secs))
             elif p == "color":
                 s = "{:10}".format(self.color)
             elif p == "position":
                 pos = self.position
                 s = "({: 04.2f},{: 04.2f},{: 04.2f})".\
-                    format(pos.x, pos.y, pos.z))
+                    format(pos.x, pos.y, pos.z)
+            elif p == "speed":
+                s = "{: 04.2f}".format(self.speed)
             elif p == "ownership":
                 s = ", ".join(["{:2d}: {: 04.2f}".format(k, v) for
                                k, v in self.ownership.iteritems()])
+            elif p == "categories":
+                s = ", ".join(["{:10}: {: 04.2f}".format(k, v) for
+                               k, v in self.categories.iteritems()])
             elif p == "t_last_actions":
                 t_fmt = "%H:%M:%S"
-                times = {k: time.strftime(t_fmt, time.localtime(v.to_secs()))
+                times = {k: time.strftime(t_fmt, time.localtime(v.to_sec()))
                          for k, v in self.t_last_actions.iteritems()}
                 s = ", ".join(["{:2d}: {}".format(k, v)
                                for k, v in times.iteritems()])
@@ -180,7 +185,7 @@ class Object(object):
         if (rospy.Time.now() - cls._last_cache_time) > cls._cache_latency:
             try:
                 rospy.wait_for_service("list_objects",
-                                       timeout = cls._cache_latency)
+                                       timeout=cls._cache_latency.to_sec())
                 resp = cls._listObjects()
                 cls._universe_cache =  [cls.fromMsg(m) for m in resp.objects]
                 cls._universe_cache.sort(key = lambda x : x.toStr())
@@ -270,7 +275,7 @@ class Agent(object):
         if (rospy.Time.now() - cls._last_cache_time) > cls._cache_latency:
             try:
                 rospy.wait_for_service("list_agents",
-                                       timeout = cls._cache_latency)
+                                       timeout=cls._cache_latency.to_sec())
                 resp = cls._listAgents()
                 cls._universe_cache =  [cls.fromMsg(m) for m in resp.agents]
                 cls._universe_cache.sort(key = lambda x : x.toStr())

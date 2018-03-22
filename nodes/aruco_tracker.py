@@ -21,7 +21,11 @@ class ArUcoTracker(OwnershipTracker):
         self.aruco_update_t = rospy.get_rostime()
 
         # Max duration in seconds between updates for speed to be computed
-        self.spd_update_dur = rospy.get_param("~spd_update_dur", 1.0) 
+        self.spd_update_dur = rospy.get_param("~spd_update_dur", 1.0)
+        # Speed threshold above which an action is detected (in m/s)
+        self.act_spd_thresh = rospy.get_param("~act_spd_thresh", 0.1)
+        # Distance threshold above which an action is detected (in meters)
+        self.act_dist_thresh = rospy.get_param("~act_dist_thresh", 0.1)
         
         # Margins around ARuco tag for color determination
         self.in_offset = rospy.get_param("~in_offset", 1)
