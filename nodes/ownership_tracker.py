@@ -61,13 +61,8 @@ class OwnershipTracker(ObjectTracker):
         # Feature weights for percept-based prediction
         self.col_weight = rospy.get_param("~col_weight", 0.5)
         self.pos_weight = rospy.get_param("~pos_weight", 1.0)
-        self.rec_weight = rospy.get_param("~rec_weight", 2.0)
+        self.time_weight = rospy.get_param("~time_weight", 0.05)
         
-        # Time at which prediction happens (for recency computation)
-        self.t_predict = rospy.Time.now()
-        # Decay constant for recency (inverse of time constant in seconds)
-        self.recency_decay = rospy.get_param("~recency_decay", 1/30.0)
-
         # Logistic regression params and objects for percept-based prediction
         self.converge_thresh = rospy.get_param("~converge_thresh", 0.01)
         self.max_reg_iters = rospy.get_param("~max_reg_iters", 1)
@@ -263,9 +258,6 @@ class OwnershipTracker(ObjectTracker):
         if len(agent_ids) == 0:
             return
         
-        # Set prediction time to current time
-        self.t_predict = rospy.Time.now()
-        
         # Train the classifier for each possible owner
         for a_id in agent_ids:
 
@@ -316,20 +308,15 @@ class OwnershipTracker(ObjectTracker):
     def perceptDiff(self, o1, o2, a_id=None):
         """Computes raw displacement in perceptual space between objects."""
         col_diff = 1.0 if o1.color != o2.color else 0.0
-
         p1, p2 = o1.position, o2.position
         pos_diff = np.array([p1.x-p2.x, p1.y-p2.y, p1.z-p2.z])
-
-        t1 = o1.t_last_actions.get(a_id, self.t_init)
-        t2 = o2.t_last_actions.get(a_id, self.t_init)
-        recency1 = np.exp(-self.recency_decay * (self.t_predict-t1).to_sec())
-        recency2 = np.exp(-self.recency_decay * (self.t_predict-t2).to_sec())
-        rec_diff = (0.0 if a_id is None else recency1 - recency2)
-
+        time_diff = (0.0 if a_id is None else
+                     (o2.t_last_actions.get(a_id, self.t_init) -
+                      o1.t_last_actions.get(a_id, self.t_init)).to_sec())
         col_diff *= self.col_weight
         pos_diff *= self.pos_weight
-        rec_diff *= self.rec_weight
-        return np.concatenate([[col_diff], pos_diff, [rec_diff]])
+        time_diff *= self.time_weight
+        return np.concatenate([[col_diff], pos_diff, [time_diff]])
 
     def perceptKern(self, objs1, objs2, a_id=None, gamma=1.0):
         """Computes RBF kernel matrix for the percept features of objects."""

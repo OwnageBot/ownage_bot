@@ -37,7 +37,7 @@ class ObjectTracker(object):
         self.agt_cache_latency = rospy.Duration(self.agt_cache_latency)
         self.lookupAgent = rospy.ServiceProxy("lookup_agent", LookupAgent)
 
-        # Store when object tracker is initialized
+        # Store when object tracker is initialized / reset
         self.t_init = rospy.Time.now()
         
     def lookupObjectCb(self, req):
@@ -57,6 +57,7 @@ class ObjectTracker(object):
         """Clears the object databases."""
         self.tentative_db.clear()
         self.object_db.clear()
+        self.t_init = rospy.Time.now()
         return TriggerResponse(True, "")
 
     def getCurrentAgent(self):
