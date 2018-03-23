@@ -105,17 +105,18 @@ class WorldSimulator(object):
         resp = CallActionResponse(success=True)
         req_id = req.object.id
         gripped_id = self.gripped[arm]
+        gripped_obj = self.object_db.get(gripped_id, None)
 
         if req.action == "home":
             if gripped_id >= 0:
-                self.object_db[gripped_id].position = copy(self.home_pos)
+                gripped_obj.position = copy(self.home_pos)
         elif req.action == "release":
             if gripped_id >= 0:
-                self.object_db[gripped_id].position.z = self.ground_lvl
+                gripped_obj.position.z = self.ground_lvl
                 self.gripped[arm] = -1
         elif req.action == "move":
             if gripped_id >= 0:
-                self.object_db[gripped_id].position = copy(req.location)
+                gripped_obj.position = copy(req.location)
         elif req.action == "find":
             if req_id not in self.object_db:
                 resp.success = False
@@ -133,18 +134,18 @@ class WorldSimulator(object):
                 resp.response = "Object {} does not exist".format(req_id)
         elif req.action == "put":
             if gripped_id >= 0:
-                self.object_db[gripped_id].position.z = self.ground_lvl
+                gripped_obj.position.z = self.ground_lvl
                 self.gripped[arm] = -1
             else:
                 resp.success = False
                 resp.response = "No object is currently being held"
         elif req.action == "offer":
             if gripped_id >= 0:
-                self.object_db[gripped_id].position = req.object.position
-                self.object_db[gripped_id].position.z = self.arm_lvl
+                gripped_obj.position = req.object.position
+                gripped_obj.position.z = self.arm_lvl
         elif req.action == "replace":
             if gripped_id >= 0:
-                self.object_db[gripped_id].position = copy(self.pick_loc[arm])
+                gripped_obj.position = copy(self.pick_loc[arm])
                 self.gripped[arm] = -1
             else:
                 resp.success = False
@@ -182,13 +183,22 @@ class WorldSimulator(object):
 
         # Variables to cluster blocks by
         cluster_vars = rospy.get_param("blocks_world/cluster_vars",
-                                       ['color', 'position', 'proximity'])
+                                       ['color', 'position',
+                                        'proximity', 'time'])
 
         # Distance paramaters
         avatar_rng = rospy.get_param("blocks_world/avatar_rng", [0.4, 0.8])
         cluster_rng = rospy.get_param("blocks_world/cluster_rng", [0.4, 0.8])
         cluster_rad = rospy.get_param("blocks_world/cluster_rad", 0.3)
         object_rng = rospy.get_param("blocks_world/object_rng", [-1.0, 1.0])
+
+        # Last action times (how many seconds ago an action occurred)
+        t_last_owned = rospy.get_param("blocks_world/t_last_owned", 0)
+        t_last_owned = rospy.Duration(t_last_owned)
+        t_last_unowned = rospy.get_param("blocks_world/t_last_unowned", 60)
+        t_last_unowned = rospy.Duration(t_last_unowned)
+        # Store scenario generation time
+        t_now = rospy.Time.now()
 
         # Update color database
         for c_id in range(n_agents + 1):
@@ -234,6 +244,9 @@ class WorldSimulator(object):
             obj = Object(id=self.obj_base_id+i)
             c_id = i % (n_agents + 1) # Cluster ID, with 0 unowned
             
+            # Set membership in block category to 1
+            obj.categories["block"] = 1.0
+
             # Generate object locations
             if ('position' in cluster_vars or 'proximity' in cluster_vars):
                 # Cluster around centers
@@ -257,6 +270,14 @@ class WorldSimulator(object):
                 # Choose color uniformly at random
                 col_id = r.choice(range(n_agents+1))
                 obj.color = "color" + str(col_id)
+
+            # Assign last interaction times
+            if 'time' in cluster_vars:
+                for a_id in range(1, n_agents+1):
+                    if a_id == c_id:
+                        obj.t_last_actions[a_id] = t_now - t_last_owned
+                    else:
+                        obj.t_last_actions[a_id] = t_now - t_last_unowned
 
             # Assign ownership if not unowned
             if c_id > 0:
