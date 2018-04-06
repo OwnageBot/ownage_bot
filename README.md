@@ -2,7 +2,13 @@
 A robot that learns the rules of ownership based on interaction with objects and agents in its environment.
 ## Prerequisites
 
+### Python prerequisites
+* `scikit-learn`: for ownership inference via logistic regression
+* `numpy`: for inference related math operations
+
+### Additional prerequisites for use on Baxter
 * `aruco_ros`: for recognition and tracking of QR codes
+* `cv_bridge`: for computer vision via OpenCV
 * `human_robot_collaboration_lib`: for high-level arm control
 
 ## Compilation
@@ -33,17 +39,13 @@ simulated mode.
 1. Be sure that the system you're running the code has access to the Baxter robot. This is usually done by running the `baxter.sh` script that should be provided in your Baxter installation.
 2. Untuck the robot. **@ScazLab students** → we have an alias for this, so you just have to type `untuck`.
 
-### Automated collection
+### Command prompt mode
 
-Intended mode of behavior, where Baxter repeatedly tries to pick up all objects in its workspace and bring them within its designated home area. Negative feedback can be given after it picks up the object, after which it will ask each detected agent in the workspace whether it owns the held object. If an agent claims the object, Baxter will put the object back in its original location, otherwise it will assume the negative feedback was mistaken and put the object in its home area.
+Running `roslaunch ownage_bot.launch` brings up a command prompt for text-based user input. Input can consist of atomic actions, higher-level tasks, permission-based instruction (i.e. forbidding actions on specific objects), rule-based instruction (i.e. forbidding actions on based on object properties), listing and clearing various databases, etc. A detailed list of input commands is given below.
 
-1. Run `roslaunch ownage_bot.launch`
-2. Watch as Baxter tries to collect all QR-tagged objects in the workspace.
-3. Wait until it brings an object above its home area before giving feedback.
-4. Apply negative feedback by pressing any cuff button (3 second window).
-5. Wait for Baxter to offer object to each agent's avatar in turn.
-6. Reject the offer by pressing any cuff button. Accept by simply waiting.
-7. Repeat as necessary.
+#### List of supported input commands
+
+
 
 ### Manual arm control
 

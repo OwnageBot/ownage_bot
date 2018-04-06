@@ -1,0 +1,372 @@
+zero
+one
+two
+three
+four
+five
+six
+seven
+eight
+nine
+one zero
+one one
+one two
+one three
+one four
+one five
+one six
+one seven
+one eight
+one nine
+two zero
+two one
+two two
+two three
+two four
+two five
+two six
+two seven
+two eight
+two nine
+three zero
+three one
+three two
+three three
+three four
+three five
+three six
+three seven
+three eight
+three nine
+four zero
+four one
+four two
+four three
+four four
+four five
+four six
+four seven
+four eight
+four nine
+five zero
+five one
+five two
+five three
+five four
+five five
+five six
+five seven
+five eight
+five nine
+six zero
+six one
+six two
+six three
+six four
+six five
+six six
+six seven
+six eight
+six nine
+seven zero
+seven one
+seven two
+seven three
+seven four
+seven five
+seven six
+seven seven
+seven eight
+seven nine
+eight zero
+eight one
+eight two
+eight three
+eight four
+eight five
+eight six
+eight seven
+eight eight
+eight nine
+nine zero
+nine one
+nine two
+nine three
+nine four
+nine five
+nine six
+nine seven
+nine eight
+nine nine
+
+object zero
+object one
+object two
+object three
+object four
+object five
+object six
+object seven
+object eight
+object nine
+
+agent zero
+agent one
+agent two
+agent three
+agent four
+agent five
+agent six
+agent seven
+agent eight
+agent nine
+
+red
+blue
+green
+
+block
+mug
+pen
+laptop
+wallet
+charger
+wrapper
+
+xuan
+jake
+scaz
+sarah
+aditi
+olivier
+alessandro
+nicole
+meiying
+corina
+
+i am xuan
+i am jake
+i am scaz
+i am sarah
+i am aditi
+i am olivier
+i am alessandro
+i am nicole
+i am meiying
+i am corina
+
+this is mine
+this isn't mine
+that is mine
+that's mine
+this belongs to me
+this doesn't belong to me
+that belongs to me
+that doesn't belong to me
+this belongs to 
+that belongs to 
+this belongs to agent
+that belongs to agent
+this doesn't belong to
+that doesn't belong to
+this doesn't belong to agent
+that doesn't belong to agent
+
+whose is this
+whose object is this
+whose is object
+who does this belong to
+who owns this
+who owns object
+who is the owner of this
+who is the owner of object
+
+baxter
+baxter stop
+baxter that's mine
+no baxter
+no baxter stop
+no baxter that's mine
+
+stop
+stop it
+stop that
+stop what you're doing
+cancel
+cancel that
+cancel what you're doing
+go to the home position
+go home
+reset your arm
+reset your position
+scan the workspace
+scan for objects
+look around
+pick this up
+pick that up
+pick it up
+pick up object
+get this
+get that
+get it
+get object
+put this down
+put that down
+put it down
+put down what you're holding
+release this
+release that
+release it
+release what you're holding
+find object
+trash this
+trash that
+trash it
+trash object
+throw this away
+throw that away
+throw it away
+throw away object
+collect this
+collect that
+collect it
+collect object
+replace this
+replace that
+replace it
+replace object
+
+trash everything
+trash all objects
+clean up the workspace
+clear the workspace
+collect everything
+collect all objects
+
+you can't
+you can't do that
+you can't pick this up
+you can't put this down
+you can't collect this
+you can't trash this
+you can't throw this away
+
+you can do that
+you can pick this up
+you can put this down
+you can collect this
+you can trash this
+you can throw this away
+
+you can't do that if
+you can do that if
+if it's mine
+if it belongs to me
+if it belongs to
+if it belongs to agent
+if it belongs to someone
+if it's owned
+if it's owned by
+if it's owned by me
+if it's owned by someone
+if it's owned by agent
+if it's mine and if
+if it belongs to me and if
+if it belongs to someone and if
+if it's owned and if
+if it's owned by me and if
+if it's owned by someone and if
+if it's red
+if it's blue
+if it's green
+if it's red and if
+if it's blue and if
+if it's green and if
+if it's in the trash area
+if it's in the home area
+if it's in the trash area and if
+if it's in the home area and if
+if it's a block
+if it's a mug
+if it's a pen
+if it's a laptop
+if it's a wallet
+if it's a charger
+if it's a wrapper
+if it isn't mine
+if it's a block and if
+if it's a mug and if
+if it's a pen and if
+if it's a laptop and if
+if it's a wallet and if
+if it's a charger and if
+if it's a wrapper and if
+if it isn't mine
+if it doesn't belong to me
+if it dosen't belong to someone
+if it doesn't belong to agent
+if it isn't owned
+if it isn't owned by
+if it isn't owned by me
+if it isn't owned by someone
+if it isn't owned by agent
+if it isn't mine and if
+if it doesn't belong to me and if
+if it dosen't belong to someone and if
+if it isn't owned and if
+if it isn't owned by me and if
+if it isn't owned by someone and if
+if it isn't red
+if it isn't blue
+if it isn't green
+if it isn't red and if
+if it isn't blue and if
+if it isn't green and if
+if it isn't in the trash area
+if it isn't in the home area
+if it isn't in the trash area and if
+if it isn't in the home area and if
+if it isn't a block
+if it isn't a mug
+if it isn't a pen
+if it isn't a laptop
+if it isn't a wallet
+if it isn't a charger
+if it isn't a wrapper
+if it isn't a block and if
+if it isn't a mug and if
+if it isn't a pen and if
+if it isn't a laptop and if
+if it isn't a wallet and if
+if it isn't a charger and if
+if it isn't a wrapper and if
+
+why did you
+why did you do that
+why did you do that to
+why did you do that to this object
+why did you do that action
+why did you do that action to this object
+why did you pick that up
+why did you put that down
+why did you collect that
+why did you trash that
+why did you throw that away
+why didn't you
+why didn't you do that
+why didn't you do that to
+why didn't you do that to this object
+why didn't you do that action
+why didn't you do that action to this object
+why didn't you pick that up
+why didn't you put that down
+why didn't you collect that
+why didn't you trash that
+why didn't you throw that away
+
+reset objects
+reset agents
+reset permissions
+reset rules
+reset claims
+reset everything

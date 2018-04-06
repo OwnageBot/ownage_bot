@@ -1,0 +1,356 @@
+<s> ZERO </s>
+<s> ONE </s>
+<s> TWO </s>
+<s> THREE </s>
+<s> FOUR </s>
+<s> FIVE </s>
+<s> SIX </s>
+<s> SEVEN </s>
+<s> EIGHT </s>
+<s> NINE </s>
+<s> ONE ZERO </s>
+<s> ONE ONE </s>
+<s> ONE TWO </s>
+<s> ONE THREE </s>
+<s> ONE FOUR </s>
+<s> ONE FIVE </s>
+<s> ONE SIX </s>
+<s> ONE SEVEN </s>
+<s> ONE EIGHT </s>
+<s> ONE NINE </s>
+<s> TWO ZERO </s>
+<s> TWO ONE </s>
+<s> TWO TWO </s>
+<s> TWO THREE </s>
+<s> TWO FOUR </s>
+<s> TWO FIVE </s>
+<s> TWO SIX </s>
+<s> TWO SEVEN </s>
+<s> TWO EIGHT </s>
+<s> TWO NINE </s>
+<s> THREE ZERO </s>
+<s> THREE ONE </s>
+<s> THREE TWO </s>
+<s> THREE THREE </s>
+<s> THREE FOUR </s>
+<s> THREE FIVE </s>
+<s> THREE SIX </s>
+<s> THREE SEVEN </s>
+<s> THREE EIGHT </s>
+<s> THREE NINE </s>
+<s> FOUR ZERO </s>
+<s> FOUR ONE </s>
+<s> FOUR TWO </s>
+<s> FOUR THREE </s>
+<s> FOUR FOUR </s>
+<s> FOUR FIVE </s>
+<s> FOUR SIX </s>
+<s> FOUR SEVEN </s>
+<s> FOUR EIGHT </s>
+<s> FOUR NINE </s>
+<s> FIVE ZERO </s>
+<s> FIVE ONE </s>
+<s> FIVE TWO </s>
+<s> FIVE THREE </s>
+<s> FIVE FOUR </s>
+<s> FIVE FIVE </s>
+<s> FIVE SIX </s>
+<s> FIVE SEVEN </s>
+<s> FIVE EIGHT </s>
+<s> FIVE NINE </s>
+<s> SIX ZERO </s>
+<s> SIX ONE </s>
+<s> SIX TWO </s>
+<s> SIX THREE </s>
+<s> SIX FOUR </s>
+<s> SIX FIVE </s>
+<s> SIX SIX </s>
+<s> SIX SEVEN </s>
+<s> SIX EIGHT </s>
+<s> SIX NINE </s>
+<s> SEVEN ZERO </s>
+<s> SEVEN ONE </s>
+<s> SEVEN TWO </s>
+<s> SEVEN THREE </s>
+<s> SEVEN FOUR </s>
+<s> SEVEN FIVE </s>
+<s> SEVEN SIX </s>
+<s> SEVEN SEVEN </s>
+<s> SEVEN EIGHT </s>
+<s> SEVEN NINE </s>
+<s> EIGHT ZERO </s>
+<s> EIGHT ONE </s>
+<s> EIGHT TWO </s>
+<s> EIGHT THREE </s>
+<s> EIGHT FOUR </s>
+<s> EIGHT FIVE </s>
+<s> EIGHT SIX </s>
+<s> EIGHT SEVEN </s>
+<s> EIGHT EIGHT </s>
+<s> EIGHT NINE </s>
+<s> NINE ZERO </s>
+<s> NINE ONE </s>
+<s> NINE TWO </s>
+<s> NINE THREE </s>
+<s> NINE FOUR </s>
+<s> NINE FIVE </s>
+<s> NINE SIX </s>
+<s> NINE SEVEN </s>
+<s> NINE EIGHT </s>
+<s> NINE NINE </s>
+<s> OBJECT ZERO </s>
+<s> OBJECT ONE </s>
+<s> OBJECT TWO </s>
+<s> OBJECT THREE </s>
+<s> OBJECT FOUR </s>
+<s> OBJECT FIVE </s>
+<s> OBJECT SIX </s>
+<s> OBJECT SEVEN </s>
+<s> OBJECT EIGHT </s>
+<s> OBJECT NINE </s>
+<s> AGENT ZERO </s>
+<s> AGENT ONE </s>
+<s> AGENT TWO </s>
+<s> AGENT THREE </s>
+<s> AGENT FOUR </s>
+<s> AGENT FIVE </s>
+<s> AGENT SIX </s>
+<s> AGENT SEVEN </s>
+<s> AGENT EIGHT </s>
+<s> AGENT NINE </s>
+<s> RED </s>
+<s> BLUE </s>
+<s> GREEN </s>
+<s> BLOCK </s>
+<s> MUG </s>
+<s> PEN </s>
+<s> LAPTOP </s>
+<s> WALLET </s>
+<s> CHARGER </s>
+<s> WRAPPER </s>
+<s> XUAN </s>
+<s> JAKE </s>
+<s> SCAZ </s>
+<s> SARAH </s>
+<s> ADITI </s>
+<s> OLIVIER </s>
+<s> ALESSANDRO </s>
+<s> NICOLE </s>
+<s> MEIYING </s>
+<s> CORINA </s>
+<s> I AM XUAN </s>
+<s> I AM JAKE </s>
+<s> I AM SCAZ </s>
+<s> I AM SARAH </s>
+<s> I AM ADITI </s>
+<s> I AM OLIVIER </s>
+<s> I AM ALESSANDRO </s>
+<s> I AM NICOLE </s>
+<s> I AM MEIYING </s>
+<s> I AM CORINA </s>
+<s> THIS IS MINE </s>
+<s> THIS ISN'T MINE </s>
+<s> THAT IS MINE </s>
+<s> THAT'S MINE </s>
+<s> THIS BELONGS TO ME </s>
+<s> THIS DOESN'T BELONG TO ME </s>
+<s> THAT BELONGS TO ME </s>
+<s> THAT DOESN'T BELONG TO ME </s>
+<s> THIS BELONGS TO </s>
+<s> THAT BELONGS TO </s>
+<s> THIS BELONGS TO AGENT </s>
+<s> THAT BELONGS TO AGENT </s>
+<s> THIS DOESN'T BELONG TO </s>
+<s> THAT DOESN'T BELONG TO </s>
+<s> THIS DOESN'T BELONG TO AGENT </s>
+<s> THAT DOESN'T BELONG TO AGENT </s>
+<s> WHOSE IS THIS </s>
+<s> WHOSE OBJECT IS THIS </s>
+<s> WHOSE IS OBJECT </s>
+<s> WHO DOES THIS BELONG TO </s>
+<s> WHO OWNS THIS </s>
+<s> WHO OWNS OBJECT </s>
+<s> WHO IS THE OWNER OF THIS </s>
+<s> WHO IS THE OWNER OF OBJECT </s>
+<s> BAXTER </s>
+<s> BAXTER STOP </s>
+<s> BAXTER THAT'S MINE </s>
+<s> NO BAXTER </s>
+<s> NO BAXTER STOP </s>
+<s> NO BAXTER THAT'S MINE </s>
+<s> STOP </s>
+<s> STOP IT </s>
+<s> STOP THAT </s>
+<s> STOP WHAT YOU'RE DOING </s>
+<s> CANCEL </s>
+<s> CANCEL THAT </s>
+<s> CANCEL WHAT YOU'RE DOING </s>
+<s> GO TO THE HOME POSITION </s>
+<s> GO HOME </s>
+<s> RESET YOUR ARM </s>
+<s> RESET YOUR POSITION </s>
+<s> SCAN THE WORKSPACE </s>
+<s> SCAN FOR OBJECTS </s>
+<s> LOOK AROUND </s>
+<s> PICK THIS UP </s>
+<s> PICK THAT UP </s>
+<s> PICK IT UP </s>
+<s> PICK UP OBJECT </s>
+<s> GET THIS </s>
+<s> GET THAT </s>
+<s> GET IT </s>
+<s> GET OBJECT </s>
+<s> PUT THIS DOWN </s>
+<s> PUT THAT DOWN </s>
+<s> PUT IT DOWN </s>
+<s> PUT DOWN WHAT YOU'RE HOLDING </s>
+<s> RELEASE THIS </s>
+<s> RELEASE THAT </s>
+<s> RELEASE IT </s>
+<s> RELEASE WHAT YOU'RE HOLDING </s>
+<s> FIND OBJECT </s>
+<s> TRASH THIS </s>
+<s> TRASH THAT </s>
+<s> TRASH IT </s>
+<s> TRASH OBJECT </s>
+<s> THROW THIS AWAY </s>
+<s> THROW THAT AWAY </s>
+<s> THROW IT AWAY </s>
+<s> THROW AWAY OBJECT </s>
+<s> COLLECT THIS </s>
+<s> COLLECT THAT </s>
+<s> COLLECT IT </s>
+<s> COLLECT OBJECT </s>
+<s> REPLACE THIS </s>
+<s> REPLACE THAT </s>
+<s> REPLACE IT </s>
+<s> REPLACE OBJECT </s>
+<s> TRASH EVERYTHING </s>
+<s> TRASH ALL OBJECTS </s>
+<s> CLEAN UP THE WORKSPACE </s>
+<s> CLEAR THE WORKSPACE </s>
+<s> COLLECT EVERYTHING </s>
+<s> COLLECT ALL OBJECTS </s>
+<s> YOU CAN'T </s>
+<s> YOU CAN'T DO THAT </s>
+<s> YOU CAN'T PICK THIS UP </s>
+<s> YOU CAN'T PUT THIS DOWN </s>
+<s> YOU CAN'T COLLECT THIS </s>
+<s> YOU CAN'T TRASH THIS </s>
+<s> YOU CAN'T THROW THIS AWAY </s>
+<s> YOU CAN DO THAT </s>
+<s> YOU CAN PICK THIS UP </s>
+<s> YOU CAN PUT THIS DOWN </s>
+<s> YOU CAN COLLECT THIS </s>
+<s> YOU CAN TRASH THIS </s>
+<s> YOU CAN THROW THIS AWAY </s>
+<s> YOU CAN'T DO THAT IF </s>
+<s> YOU CAN DO THAT IF </s>
+<s> IF IT'S MINE </s>
+<s> IF IT BELONGS TO ME </s>
+<s> IF IT BELONGS TO </s>
+<s> IF IT BELONGS TO AGENT </s>
+<s> IF IT BELONGS TO SOMEONE </s>
+<s> IF IT'S OWNED </s>
+<s> IF IT'S OWNED BY </s>
+<s> IF IT'S OWNED BY ME </s>
+<s> IF IT'S OWNED BY SOMEONE </s>
+<s> IF IT'S OWNED BY AGENT </s>
+<s> IF IT'S MINE AND IF </s>
+<s> IF IT BELONGS TO ME AND IF </s>
+<s> IF IT BELONGS TO SOMEONE AND IF </s>
+<s> IF IT'S OWNED AND IF </s>
+<s> IF IT'S OWNED BY ME AND IF </s>
+<s> IF IT'S OWNED BY SOMEONE AND IF </s>
+<s> IF IT'S RED </s>
+<s> IF IT'S BLUE </s>
+<s> IF IT'S GREEN </s>
+<s> IF IT'S RED AND IF </s>
+<s> IF IT'S BLUE AND IF </s>
+<s> IF IT'S GREEN AND IF </s>
+<s> IF IT'S IN THE TRASH AREA </s>
+<s> IF IT'S IN THE HOME AREA </s>
+<s> IF IT'S IN THE TRASH AREA AND IF </s>
+<s> IF IT'S IN THE HOME AREA AND IF </s>
+<s> IF IT'S A BLOCK </s>
+<s> IF IT'S A MUG </s>
+<s> IF IT'S A PEN </s>
+<s> IF IT'S A LAPTOP </s>
+<s> IF IT'S A WALLET </s>
+<s> IF IT'S A CHARGER </s>
+<s> IF IT'S A WRAPPER </s>
+<s> IF IT ISN'T MINE </s>
+<s> IF IT'S A BLOCK AND IF </s>
+<s> IF IT'S A MUG AND IF </s>
+<s> IF IT'S A PEN AND IF </s>
+<s> IF IT'S A LAPTOP AND IF </s>
+<s> IF IT'S A WALLET AND IF </s>
+<s> IF IT'S A CHARGER AND IF </s>
+<s> IF IT'S A WRAPPER AND IF </s>
+<s> IF IT ISN'T MINE </s>
+<s> IF IT DOESN'T BELONG TO ME </s>
+<s> IF IT DOSEN'T BELONG TO SOMEONE </s>
+<s> IF IT DOESN'T BELONG TO AGENT </s>
+<s> IF IT ISN'T OWNED </s>
+<s> IF IT ISN'T OWNED BY </s>
+<s> IF IT ISN'T OWNED BY ME </s>
+<s> IF IT ISN'T OWNED BY SOMEONE </s>
+<s> IF IT ISN'T OWNED BY AGENT </s>
+<s> IF IT ISN'T MINE AND IF </s>
+<s> IF IT DOESN'T BELONG TO ME AND IF </s>
+<s> IF IT DOSEN'T BELONG TO SOMEONE AND IF </s>
+<s> IF IT ISN'T OWNED AND IF </s>
+<s> IF IT ISN'T OWNED BY ME AND IF </s>
+<s> IF IT ISN'T OWNED BY SOMEONE AND IF </s>
+<s> IF IT ISN'T RED </s>
+<s> IF IT ISN'T BLUE </s>
+<s> IF IT ISN'T GREEN </s>
+<s> IF IT ISN'T RED AND IF </s>
+<s> IF IT ISN'T BLUE AND IF </s>
+<s> IF IT ISN'T GREEN AND IF </s>
+<s> IF IT ISN'T IN THE TRASH AREA </s>
+<s> IF IT ISN'T IN THE HOME AREA </s>
+<s> IF IT ISN'T IN THE TRASH AREA AND IF </s>
+<s> IF IT ISN'T IN THE HOME AREA AND IF </s>
+<s> IF IT ISN'T A BLOCK </s>
+<s> IF IT ISN'T A MUG </s>
+<s> IF IT ISN'T A PEN </s>
+<s> IF IT ISN'T A LAPTOP </s>
+<s> IF IT ISN'T A WALLET </s>
+<s> IF IT ISN'T A CHARGER </s>
+<s> IF IT ISN'T A WRAPPER </s>
+<s> IF IT ISN'T A BLOCK AND IF </s>
+<s> IF IT ISN'T A MUG AND IF </s>
+<s> IF IT ISN'T A PEN AND IF </s>
+<s> IF IT ISN'T A LAPTOP AND IF </s>
+<s> IF IT ISN'T A WALLET AND IF </s>
+<s> IF IT ISN'T A CHARGER AND IF </s>
+<s> IF IT ISN'T A WRAPPER AND IF </s>
+<s> WHY DID YOU </s>
+<s> WHY DID YOU DO THAT </s>
+<s> WHY DID YOU DO THAT TO </s>
+<s> WHY DID YOU DO THAT TO THIS OBJECT </s>
+<s> WHY DID YOU DO THAT ACTION </s>
+<s> WHY DID YOU DO THAT ACTION TO THIS OBJECT </s>
+<s> WHY DID YOU PICK THAT UP </s>
+<s> WHY DID YOU PUT THAT DOWN </s>
+<s> WHY DID YOU COLLECT THAT </s>
+<s> WHY DID YOU TRASH THAT </s>
+<s> WHY DID YOU THROW THAT AWAY </s>
+<s> WHY DIDN'T YOU </s>
+<s> WHY DIDN'T YOU DO THAT </s>
+<s> WHY DIDN'T YOU DO THAT TO </s>
+<s> WHY DIDN'T YOU DO THAT TO THIS OBJECT </s>
+<s> WHY DIDN'T YOU DO THAT ACTION </s>
+<s> WHY DIDN'T YOU DO THAT ACTION TO THIS OBJECT </s>
+<s> WHY DIDN'T YOU PICK THAT UP </s>
+<s> WHY DIDN'T YOU PUT THAT DOWN </s>
+<s> WHY DIDN'T YOU COLLECT THAT </s>
+<s> WHY DIDN'T YOU TRASH THAT </s>
+<s> WHY DIDN'T YOU THROW THAT AWAY </s>
+<s> RESET OBJECTS </s>
+<s> RESET AGENTS </s>
+<s> RESET PERMISSIONS </s>
+<s> RESET RULES </s>
+<s> RESET CLAIMS </s>
+<s> RESET EVERYTHING </s>
