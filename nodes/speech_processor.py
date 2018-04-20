@@ -8,19 +8,23 @@ from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
 
+MODEL_DIR = "/usr/local/lib/python2.7/dist-packages/pocketsphinx/model/"
 
 class SpeechProcessor(object):
     """Processes natural speech to/from the syntax in DialogManager."""
 
-    def __init__(self, model, lexicon, kwlist, pub):
+    def __init__(self):
 
         self.speech_cmd_pub = rospy.Publisher(, String, queue_size=10)
+        self.hmm_path = rospy.get_param("~hmm_path", MODEL_DIR + "en-us")
+        self.lm_path = rospy.get_param("~lm_path", "../params/speech.lm")
+        self.dict_path = rospy.get_param("~dict_path", "../params/speech.dic")
 
         # initialize pocketsphinx
         config = Decoder.default_config()
-        config.set_string('-hmm', model)
-        config.set_string('-dict', lexicon)
-        config.set_string('-kws', kwlist)
+        config.set_string('-hmm', self.hmm_path)
+        config.set_string('-lm', self.lm_path)
+        config.set_string('-dict', self.dict_path)
 
         stream = pyaudio.PyAudio().open(format=pyaudio.paInt16, channels=1,
                                         rate=16000, input=True,
