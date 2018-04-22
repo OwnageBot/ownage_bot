@@ -19,7 +19,7 @@ BaxterArmCtrl::BaxterArmCtrl(string _name, string _limb,
 
     std::string topic = "/"+getName()+"/service_"+_limb;
     service = nh.advertiseService(topic, &BaxterArmCtrl::serviceCb, this);
-    ROS_INFO("[%s] Created service server with name  : %s", 
+    ROS_INFO("[%s] Created service server with name  : %s",
              getLimb().c_str(), topic.c_str());
     string cancel = "/"+getName()+"/cancel_"+_limb;
     cancel_srv = nh.advertiseService(cancel, &BaxterArmCtrl::cancelCb, this);
@@ -88,7 +88,7 @@ void BaxterArmCtrl::InternalThreadEntry()
         ROS_ERROR("[%s] Action %s not successful! State %s %s",
                   getLimb().c_str(), a.c_str(), string(getState()).c_str(),
                   getSubState().c_str());
-        
+
         if (internal_recovery)
         {
             recoverFromError();
@@ -103,7 +103,7 @@ bool BaxterArmCtrl::serviceCb(CallAction::Request &req,
 {
     // Let's read the requested action and object to act upon
     setSubState("");
-  
+
     string action = req.action;
 
     ROS_INFO("[%s] Service request received. Action: %s",
@@ -126,7 +126,7 @@ bool BaxterArmCtrl::serviceCb(CallAction::Request &req,
         res.response = ACT_NOT_IN_DB;
         return true;
     }
-  
+
     string target = action_db[action].target;
 
     if (target == TARGET_OBJECT)
@@ -187,7 +187,7 @@ bool BaxterArmCtrl::cancelCb(std_srvs::Trigger::Request  &req,
 {
   setState(KILLED);
   res.success = true;
-  return true;  
+  return true;
 }
 
 /** ACTION DB MAINTENANCE **/
@@ -212,7 +212,7 @@ bool BaxterArmCtrl::insertAction(const std::string &a,
     s_action row;
     row.call = f;
     row.target = target;
-  
+
     action_db.insert( std::make_pair( a, row ));
     return true;
 }
@@ -338,7 +338,7 @@ bool BaxterArmCtrl::goToPose(double px, double py, double pz,
     bool res = RobotInterface::goToPose(px, py, pz,
                                         ox, oy, oz, ow, mode, disable_coll_av);
 
-    if (res == false && getSubState() != ACT_FAILED)
+    if (res == false && getSubState() != ACT_KILLED)
     {
         setSubState(INV_KIN_FAILED);
     }
@@ -583,7 +583,7 @@ bool BaxterArmCtrl::setState(int _state)
     }
     else if (_state == ERROR && getSubState() == "")
     {
-        setSubState(ACT_FAILED);
+        setSubState(ACT_KILLED);
     }
 
     return RobotInterface::setState(_state);
