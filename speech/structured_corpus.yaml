@@ -1,0 +1,255 @@
+# Color names (add more needed)
+colors: |
+    red
+    blue
+    green
+# Category names (add more needed)
+categories: |
+    block
+    mug
+    pen
+    laptop
+    wallet
+    charger
+    wrapper
+# Agent names (add more needed)
+agents: |
+    baxter
+    xuan
+    jake
+    scaz
+    sarah
+    aditi
+    olivier
+    alessandro
+    nicole
+    meiying
+    corina
+# Introduction sentence headers that get combined with agent names
+introductions: |
+    i'm
+    i am
+# Ownership claims, made by the current agent for themself or for others
+claims:
+    current:
+        positive: |
+            this is mine
+            that is mine
+            that's mine
+            this belongs to me
+            that belongs to me
+        negative: |
+            this isn't mine
+            that isn't mine
+            that's not mine
+            this doesn't belong to me
+            that doesn't belong to me
+    others:
+        positive: |
+            this belongs to 
+            that belongs to 
+            this belongs to agent
+            that belongs to agent
+        negative: |
+            this doesn't belong to
+            that doesn't belong to
+            this doesn't belong to agent
+            that doesn't belong to agent
+# Ownership questions, made about the current object or others
+whose:
+    current: |
+        whose is this
+        whose object is this
+        who does this belong to
+        who owns this
+        who is the owner of this
+    others: |
+        whose is object
+        who owns object
+        who is the owner of object
+# Reprimands that combine cancellation with permissions (or ownership claims)
+reprimands: |
+    no baxter
+    no baxter stop
+    no baxter that's mine
+# Action phrases
+actions: |
+    cancel: |
+        stop
+        stop it
+        stop that
+        stop what you're doing
+        cancel
+        cancel that
+        cancel what you're doing
+    home: |
+        go to the home position
+        go home
+        reset your arm
+        reset your position
+    scan: |
+        scan the workspace
+        scan for objects
+        look around
+    pickUp: |
+        pick this up
+        pick that up
+        pick it up
+        pick up object
+        get this
+        get that
+        get it
+        get object
+    putDown: |
+        put this down
+        put that down
+        put it down
+        put down what you're holding
+    release: |
+        release this
+        release that
+        release it
+        release what you're holding
+    find: |
+        find object
+        look for object
+    trash: |
+        trash this
+        trash that
+        trash it
+        trash object
+        throw this away
+        throw that away
+        throw it away
+        throw away object
+    collect: |
+        collect this
+        collect that
+        collect it
+        collect object
+    replace: |
+        replace this
+        replace that
+        replace it
+        replace object
+# Task phrases
+tasks:
+    trashAll: |
+        trash everything
+        trash all objects
+        clean up the workspace
+        clear the workspace
+    collectAll: |
+        collect everything
+        collect all objects
+# Permission sentences and sentence headers
+permissions:
+    forbid:
+        current: |
+            you can't do that
+            you cannot do that
+            you may not do that
+            you're not allowed to do that
+            you're forbidden to do that
+            don't do that
+        others: |
+            you can't
+            you cannot
+            you may not
+            you're not allowed to
+            you're forbidden to
+            don't
+    allow:
+        current: |
+            you can do that
+            you may do that
+            it's okay to do that
+            you're allowed to do that
+            you're not forbidden to do that
+        others: |
+            you can
+            you may
+            you're allowed to
+            you're not forbidden to
+            it's okay to
+# Predicate phrases
+predicates:
+    ownedBy:
+        positive: |
+            it's mine
+            it belongs to me
+            it belongs to
+            it belongs to agent
+            it belongs to someone
+            it's owned
+            it's owned by
+            it's owned by me
+            it's owned by someone
+            it's owned by agent
+        negative: |
+            it isn't mine
+            it doesn't belong to me
+            it dosen't belong to someone
+            it doesn't belong to agent
+            it isn't owned
+            it isn't owned by
+            it isn't owned by me
+            it isn't owned by someone
+            it isn't owned by agent
+    isColored:
+        positive: |
+            it's red
+            it's blue
+            it's green
+        negative: |
+            it isn't red
+            it isn't blue
+            it isn't green
+    inArea:
+        positive: |
+            it's in the trash area
+            it's in the home area
+        negative: |
+            it isn't in the trash area
+            it isn't in the home area
+    inCategory:
+        positive: |
+            it's a block
+            it's a mug
+            it's a pen
+            it's a laptop
+            it's a wallet
+            it's a charger
+            it's a wrapper
+        negative: |
+            it isn't a block
+            it isn't a mug
+            it isn't a pen
+            it isn't a laptop
+            it isn't a wallet
+            it isn't a charger
+            it isn't a wrapper
+# Requests for explanations
+why:
+    positive: |
+        why did you
+        why did you do that
+        why did you do that to
+        why did you do that to this object
+        why did you do that action
+        why did you do that action to this object
+    negative: |
+        why didn't you
+        why didn't you do that
+        why didn't you do that to
+        why didn't you do that to this object
+        why didn't you do that action
+        why didn't you do that action to this object
+# Reset databases
+reset: |
+    reset objects
+    reset agents
+    reset permissions
+    reset rules
+    reset claims
+    reset everything
