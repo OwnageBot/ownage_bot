@@ -1,9 +1,9 @@
-# Color names (add more needed)
+# Color names (add more if needed)
 colors: |
     red
     blue
     green
-# Category names (add more needed)
+# Category names (add more if needed)
 categories: |
     block
     mug
@@ -12,7 +12,7 @@ categories: |
     wallet
     charger
     wrapper
-# Agent names (add more needed)
+# Agent names (add more if needed)
 agents: |
     baxter
     xuan
@@ -46,8 +46,8 @@ claims:
             that doesn't belong to me
     others:
         positive: |
-            this belongs to 
-            that belongs to 
+            this belongs to
+            that belongs to
             this belongs to agent
             that belongs to agent
         negative: |
@@ -73,7 +73,7 @@ reprimands: |
     no baxter stop
     no baxter that's mine
 # Action phrases
-actions: |
+actions:
     cancel: |
         stop
         stop it
@@ -144,29 +144,29 @@ tasks:
         collect all objects
 # Permission sentences and sentence headers
 permissions:
-    forbid:
-        current: |
+    current:
+        forbid: |
             you can't do that
             you cannot do that
             you may not do that
             you're not allowed to do that
             you're forbidden to do that
             don't do that
-        others: |
+        allow: |
+            you can do that
+            you may do that
+            it's okay to do that
+            you're allowed to do that
+            you're not forbidden to do that
+    others:
+        forbid: |
             you can't
             you cannot
             you may not
             you're not allowed to
             you're forbidden to
             don't
-    allow:
-        current: |
-            you can do that
-            you may do that
-            it's okay to do that
-            you're allowed to do that
-            you're not forbidden to do that
-        others: |
+        allow: |
             you can
             you may
             you're allowed to
@@ -189,7 +189,7 @@ predicates:
         negative: |
             it isn't mine
             it doesn't belong to me
-            it dosen't belong to someone
+            it doesn't belong to someone
             it doesn't belong to agent
             it isn't owned
             it isn't owned by
@@ -232,16 +232,12 @@ predicates:
 # Requests for explanations
 why:
     positive: |
-        why did you
         why did you do that
-        why did you do that to
         why did you do that to this object
         why did you do that action
         why did you do that action to this object
     negative: |
-        why didn't you
         why didn't you do that
-        why didn't you do that to
         why didn't you do that to this object
         why didn't you do that action
         why didn't you do that action to this object
