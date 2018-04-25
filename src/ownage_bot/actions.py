@@ -118,7 +118,7 @@ def _collect(target):
     return ret
 Collect._call = _collect
 
-Replace = Action("replace", None, [PutDown])
+Replace = Action("replace", type(None), [PutDown])
 def _replace(target):
     return _service_left("replace", ObjectMsg(), Point())
 Replace._call = _replace

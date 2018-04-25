@@ -2,6 +2,7 @@
 import rospy
 import rospkg
 import pyaudio
+import re
 from pocketsphinx.pocketsphinx import *
 from sphinxbase.sphinxbase import *
 from std_msgs.msg import String
@@ -13,6 +14,9 @@ class SpeechProcessor(object):
     """Processes natural speech to/from the syntax in DialogManager."""
 
     def __init__(self):
+        # Load structured corpus for parsing decoded strings
+        self.corpus = rospy.get_param("~corpus")
+
         # Pocketsphinx parameters
         pkg_path = rospkg.RosPack().get_path('ownage_bot')
         self.hmm_path = rospy.get_param("~hmm_path",
@@ -89,13 +93,43 @@ class SpeechProcessor(object):
 
         for parse_f in [self.parse_as_action]:
             msg = parse_f(utt)
+            print msg
             if msg is not None:
                 self.speech_cmd_pub.publish(msg)
 
     def parse_as_action(self, utt):
-        if utt in ["stop", "cancel"]:
-            return "cancel"
-        else return None
+        """Parse utterance as action command."""
+        # Try splitting utterance into header and target
+        match = re.match("^(.+?) object ?(.*)", utt)
+        if match is None:
+            header = utt
+            target = None
+        else:
+            header = match.group(1)
+            target = match.group(2)
+
+        # Iterate through list of synonyms for each action command
+        syn_db = self.corpus.get("actions", dict())
+        for name, syn_list in syn_db.iteritems():
+            syn_list = syn_list.splitlines()
+            # Assume target is current object if object target is required
+            tgt_req = actions.db[name].tgtype == Object
+            for syn in syn_list:
+                if syn.split()[-1] == "object":
+                    syn_header = " ".join(syn.split()[:-1])
+                else:
+                    syn_header = syn
+                if syn_header != header:
+                    continue
+                if not tgt_req:
+                    return name
+                elif target is None:
+                    return name + " " + "current"
+                else:
+                    return name + " " + target
+        else:
+            # Return none if no synonyms match
+            return None
 
 if __name__ == '__main__':
     rospy.init_node('speech_processor')

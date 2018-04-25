@@ -82,7 +82,7 @@ actions:
         cancel
         cancel that
         cancel what you're doing
-    home: |
+    goHome: |
         go to the home position
         go home
         reset your arm
