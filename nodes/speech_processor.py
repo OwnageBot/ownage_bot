@@ -34,6 +34,9 @@ class SpeechProcessor(object):
         self.audio_buffer_size = rospy.get_param("~audio_buffer_size",
                                                  1024)
 
+        # RegEx expressions for parsing
+        self.pre = "\S* ?\S* ?" # Allow <= 2 spurious words at utterance start
+
         # Initialize Pocketsphinx decoder
         config = Decoder.default_config()
         config.set_string('-hmm', self.hmm_path)
@@ -92,7 +95,8 @@ class SpeechProcessor(object):
         print utt
 
         for parse_f in [self.parse_as_introduction, self.parse_as_claim,
-                        self.parse_as_action]:
+                        self.parse_as_permission,
+                        self.parse_as_action, self.parse_as_task]:
             msg = parse_f(utt)
             if msg is None:
                 continue
@@ -118,7 +122,7 @@ class SpeechProcessor(object):
         syn_list = self.corpus.get("introductions", "").splitlines()
         agt_list = self.corpus.get("agents", "").splitlines()
         for syn in syn_list:
-            match = re.match(syn + " (.+)", utt)
+            match = re.match(self.pre + syn + " (.+)", utt)
             if match is None:
                 continue
             agent = match.group(1)
@@ -135,25 +139,27 @@ class SpeechProcessor(object):
         agt_list = self.corpus.get("agents", "").splitlines()
 
         # Parse claims made on behalf of current agent
+        # e.g. 'that's not mine' -> 'not ownedBy current current'
         for val, syn_list in current_db.iteritems():
             if val not in ["positive", "negative"]:
                 continue
             prefix = "not " if val == "negative" else ""
             syn_list = syn_list.splitlines()
             for syn in syn_list:
-                match = re.match(syn + " ?(.*)", utt)
+                match = re.match(self.pre + syn + " ?(.*)", utt)
                 if match is None:
                     continue
                 return prefix + "ownedBy current current"
 
         # Parse claims made on behalf of other agents
+        # e.g. 'this belongs to jake' -> 'ownedBy current jake'
         for val, syn_list in others_db.iteritems():
             if val not in ["positive", "negative"]:
                 continue
             prefix = "not " if val == "negative" else ""
             syn_list = syn_list.splitlines()
             for syn in syn_list:
-                match = re.match(syn + " ?(?:agent)? ?(.*)", utt)
+                match = re.match(self.pre + syn + " ?(?:agent)? ?(.*)", utt)
                 if match is None:
                     continue
                 agent = None
@@ -177,12 +183,15 @@ class SpeechProcessor(object):
             syn_list = syn_list.splitlines()
             tgt_required = (actions.db[name].tgtype == Object)
             for syn in syn_list:
-                match = re.match(syn + " ?(.*)", utt)
+                if syn.split()[-1] == "object":
+                    match = re.match(self.pre + syn + " ?(.*)", utt)
+                else:
+                    match = re.match(self.pre + syn + " ?\S*$", utt)
                 if match is None:
                     continue
                 if not tgt_required:
                     return name
-                if syn.split()[-1] != "object":
+                if len(match.groups()) < 1:
                     return name + " " + "current"
                 target = self.parse_as_number(match.group(1))
                 if target is None:
@@ -190,6 +199,59 @@ class SpeechProcessor(object):
                 else:
                     return name + " " + str(target)
         # Return none if no synonyms match
+        return None
+
+    def parse_as_task(self, utt):
+        """Parse utterance as a high-level task."""
+        # Iterate through list of synonyms for each task
+        syn_db = self.corpus.get("tasks", dict())
+        for name, syn_list in syn_db.iteritems():
+            syn_list = syn_list.splitlines()
+            for syn in syn_list:
+                match = re.match(self.pre + syn + " ?(.*)", utt)
+                if match is None:
+                    continue
+                return name
+        # Return none if no synonyms match
+        return None
+
+    def parse_as_permission(self, utt):
+        """Parses utterance as object specific permission."""
+        syn_db = self.corpus.get("permissions", dict())
+        current_db = syn_db.get("current", dict())
+        others_db = syn_db.get("others", dict())
+
+        # Parse claims made about current action
+        # e.g. 'you can't do that' -> 'forbid current on current'
+        for val, syn_list in current_db.iteritems():
+            if val not in ["forbid", "allow"]:
+                continue
+            syn_list = syn_list.splitlines()
+            for syn in syn_list:
+                match = re.match(self.pre + syn + " ?\S*$", utt)
+                if match is None:
+                    continue
+                return val + " current on current"
+
+        # Parse claims made on specific action
+        # e.g. 'you can't pick this up' -> 'forbid pickUp on current'
+        for val, syn_list in others_db.iteritems():
+            if val not in ["forbid", "allow"]:
+                continue
+            syn_list = syn_list.splitlines()
+            for syn in syn_list:
+                match = re.match(self.pre + syn + " ?(.*)", utt)
+                if match is None:
+                    continue
+                # Parse remaining segment as action command
+                act_s = self.parse_as_action(match.group(1))
+                if act_s is None:
+                    continue
+                act_w = act_s.split()
+                act = act_w[0]
+                tgt = "current" if (len(act_w) < 2) else act_w[1]
+                return "{} {} on {}".format(val, act, tgt)
+
         return None
 
 if __name__ == '__main__':

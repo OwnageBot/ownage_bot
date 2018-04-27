@@ -1,6 +1,7 @@
 <launch>
   <arg name="simulation" default="false"/>
   <arg name="manual" default="false"/>
+  <arg name="use_speech" default="false"/>
   <arg name="scenario" default="blocks_world"/>
 
   <arg name="avatar_ids" default="[]"/>
@@ -97,6 +98,14 @@
           name="command_prompt" output="screen" unless="$(arg manual)"
 	  launch-prefix="gnome-terminal --geometry=80x43 --command">
     </node>
+
+    <!-- Speech processor node -->
+    <node pkg="ownage_bot" type="speech_processor.py"
+	  name="speech_processor" if="$(arg use_speech)">
+      <rosparam command="load" param="corpus"
+      		file="$(find ownage_bot)/speech/structured_corpus.yaml" />
+  </node>
+
   </group>
 
   <!-- Use real-world action and perception if not in simulation -->

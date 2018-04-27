@@ -1,6 +1,6 @@
 <launch>
   <!-- Speech processor node -->
-  <node pkg="ownage_bot" type="speech_processor.py"
+  <node pkg="ownage_bot" ns="ownage_bot" type="speech_processor.py"
 	output="screen" name="speech_processor">
     <rosparam command="load" param="corpus"
       	      file="$(find ownage_bot)/speech/structured_corpus.yaml" />

@@ -12,7 +12,9 @@ class DialogManager(object):
 
     def __init__(self):
         # Handle input and output to/from users
-        self.input_sub = rospy.Subscriber("dialog_in", String,
+        self.text_sub = rospy.Subscriber("dialog_in", String,
+                                          self.inputCb)
+        self.speech_sub = rospy.Subscriber("speech_cmd", String,
                                           self.inputCb)
         self.output_pub = rospy.Publisher("dialog_out", String,
                                           queue_size=10)

@@ -6,6 +6,7 @@ import rules
 import tasks
 import rospy
 from ownage_bot.msg import *
+from ownage_bot.srv import *
 from std_srvs.srv import *
 
 error = ""
@@ -17,10 +18,12 @@ NO_PREDICATE = "Predicate not recognized"
 NO_ARGS_MATCH = "Number of arguments does not match"
 NO_CURRENT_ACT = "Could not look up current action"
 NO_CURRENT_TGT = "Could not look up current target"
-NO_TGT_MATCH = "Argument type cannot serve as target"
+NO_CURRENT_AGT = "Could not look up current agent"
+NO_CURRENT_MATCH = "Could not match current keyword to target or agent"
 
 _getCurrentAction = rospy.ServiceProxy("cur_action", Trigger)
 _getCurrentTarget = rospy.ServiceProxy("cur_target", Trigger)
+_getCurrentAgent = rospy.ServiceProxy("lookup_agent", LookupAgent)
 
 def asAction(s):
     """Parse a one-shot task (i.e. action) to be performed.
@@ -42,6 +45,12 @@ def asAction(s):
         error = NO_ARGS_MATCH
         return None
     tgt = "" if n_args == 0 else args[0]
+    if tgt == "current":
+        try:
+            tgt = _getCurrentTarget().message
+        except rospy.ServiceException:
+            error = NO_CURRENT_TGT
+            return None
     msg = TaskMsg(name=name, oneshot=True, interrupt=True, target=tgt)
     return msg
 
@@ -85,13 +94,20 @@ def asPredicate(s, n_unbound=0):
         if args[i] == "any":
             args[i] = "_any_"
         elif args[i] == "current":
-            if pred.argtypes[i+n_unbound] not in actions.tgtypes:
-                error = NO_TGT_MATCH
-                return None
-            try:
-                args[i] = _getCurrentTarget().message
-            except rospy.ServiceException:
-                error = NO_CURRENT_TGT
+            if pred.argtypes[i+n_unbound] in actions.tgtypes:
+                try:
+                    args[i] = _getCurrentTarget().message
+                except rospy.ServiceException:
+                    error = NO_CURRENT_TGT
+                    return None
+            elif pred.argtypes[i+n_unbound] == objects.Agent:
+                try:
+                    args[i] = str(_getCurrentAgent(-1).agent.id)
+                except rospy.ServiceException:
+                    error = NO_CURRENT_AGT
+                    return None
+            else:
+                error = NO_CUR_MATCH
                 return None
     args = [objects.Nil.toStr()] * n_unbound + args
     msg = PredicateMsg(predicate=name, bindings=args,
