@@ -91,45 +91,106 @@ class SpeechProcessor(object):
         utt = self.decoder.hyp().hypstr.lower()
         print utt
 
-        for parse_f in [self.parse_as_action]:
+        for parse_f in [self.parse_as_introduction, self.parse_as_claim,
+                        self.parse_as_action]:
             msg = parse_f(utt)
+            if msg is None:
+                continue
             print msg
-            if msg is not None:
-                self.speech_cmd_pub.publish(msg)
+            self.speech_cmd_pub.publish(msg)
+
+    def parse_as_number(self, utt):
+        """Parse utterance as number, e.g. 'zero one one' -> 11"""
+        digits = ["zero", "one", "two", "three", "four",
+                  "five", "six", "seven", "eight", "nine"]
+        if len(utt) == 0:
+            return None
+        num = 0
+        for w in utt.split():
+            if w not in digits:
+                # Fail to parse if not all words are digits
+                return None
+            num = num*10 + digits.index(w)
+        return num
+
+    def parse_as_introduction(self, utt):
+        """Parse utterance as agent introduction."""
+        syn_list = self.corpus.get("introductions", "").splitlines()
+        agt_list = self.corpus.get("agents", "").splitlines()
+        for syn in syn_list:
+            match = re.match(syn + " (.+)", utt)
+            if match is None:
+                continue
+            agent = match.group(1)
+            if agent not in agt_list:
+                continue
+            return "i am " + agent
+        return None
+
+    def parse_as_claim(self, utt):
+        """Parses utterance as ownership claim."""
+        syn_db = self.corpus.get("claims", dict())
+        current_db = syn_db.get("current", dict())
+        others_db = syn_db.get("others", dict())
+        agt_list = self.corpus.get("agents", "").splitlines()
+
+        # Parse claims made on behalf of current agent
+        for val, syn_list in current_db.iteritems():
+            if val not in ["positive", "negative"]:
+                continue
+            prefix = "not " if val == "negative" else ""
+            syn_list = syn_list.splitlines()
+            for syn in syn_list:
+                match = re.match(syn + " ?(.*)", utt)
+                if match is None:
+                    continue
+                return prefix + "ownedBy current current"
+
+        # Parse claims made on behalf of other agents
+        for val, syn_list in others_db.iteritems():
+            if val not in ["positive", "negative"]:
+                continue
+            prefix = "not " if val == "negative" else ""
+            syn_list = syn_list.splitlines()
+            for syn in syn_list:
+                match = re.match(syn + " ?(?:agent)? ?(.*)", utt)
+                if match is None:
+                    continue
+                agent = None
+                if syn.split()[-1] == "agent":
+                    # Parse agent by ID
+                    agent = self.parse_as_number(match.group(1))
+                elif match.group(1) in agt_list:
+                    # Parse agent by name
+                    agent = match.group(1)
+                if agent is None:
+                    continue
+                return prefix + "ownedBy current " + str(agent)
+        
+        return None
 
     def parse_as_action(self, utt):
         """Parse utterance as action command."""
-        # Try splitting utterance into header and target
-        match = re.match("^(.+?) object ?(.*)", utt)
-        if match is None:
-            header = utt
-            target = None
-        else:
-            header = match.group(1)
-            target = match.group(2)
-
         # Iterate through list of synonyms for each action command
         syn_db = self.corpus.get("actions", dict())
         for name, syn_list in syn_db.iteritems():
             syn_list = syn_list.splitlines()
-            # Assume target is current object if object target is required
-            tgt_req = actions.db[name].tgtype == Object
+            tgt_required = (actions.db[name].tgtype == Object)
             for syn in syn_list:
-                if syn.split()[-1] == "object":
-                    syn_header = " ".join(syn.split()[:-1])
-                else:
-                    syn_header = syn
-                if syn_header != header:
+                match = re.match(syn + " ?(.*)", utt)
+                if match is None:
                     continue
-                if not tgt_req:
+                if not tgt_required:
                     return name
-                elif target is None:
+                if syn.split()[-1] != "object":
                     return name + " " + "current"
+                target = self.parse_as_number(match.group(1))
+                if target is None:
+                    continue
                 else:
-                    return name + " " + target
-        else:
-            # Return none if no synonyms match
-            return None
+                    return name + " " + str(target)
+        # Return none if no synonyms match
+        return None
 
 if __name__ == '__main__':
     rospy.init_node('speech_processor')

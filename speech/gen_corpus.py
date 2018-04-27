@@ -81,20 +81,21 @@ def write_rules(corpus, f):
                     f.write(s + " if " + pred +"\n")
                 for pred in pred_d["negative"].splitlines():
                     f.write(s + " if " + pred +"\n")
-    for l in corpus["permissions"]["others"].values():
-        for s in l.splitlines():
-            for act_n, act_l in corpus["actions"].items():
-                if act_n not in ["pickUp", "putDown", "find",
-                                 "release", "trash", "collect"]:
-                    continue
-                for act in act_l.splitlines():
-                    if act.split()[-1] == "object":
-                        continue
-                    for pred_d in corpus["predicates"].values():
-                        for pred in pred_d["positive"].splitlines():
-                            f.write(s + " " + act + " if " + pred +"\n")
-                        for pred in pred_d["negative"].splitlines():
-                            f.write(s + " " + act + " if " + pred +"\n")
+    # Adding below to corpus reduces recognition accuracy
+    # for l in corpus["permissions"]["others"].values():
+    #     for s in l.splitlines():
+    #         for act_n, act_l in corpus["actions"].items():
+    #             if act_n not in ["pickUp", "putDown", "find",
+    #                              "release", "trash", "collect"]:
+    #                 continue
+    #             for act in act_l.splitlines():
+    #                 if act.split()[-1] == "object":
+    #                     continue
+    #                 for pred_d in corpus["predicates"].values():
+    #                     for pred in pred_d["positive"].splitlines():
+    #                         f.write(s + " " + act + " if " + pred +"\n")
+    #                     for pred in pred_d["negative"].splitlines():
+    #                         f.write(s + " " + act + " if " + pred +"\n")
     f.write("\n")
 
 def write_why(corpus, f):
