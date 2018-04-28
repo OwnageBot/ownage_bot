@@ -34,9 +34,16 @@ class SpeechProcessor(object):
         self.audio_buffer_size = rospy.get_param("~audio_buffer_size",
                                                  1024)
 
-        # RegEx expressions for parsing
-        self.pre = "\S* ?\S* ?" # Allow <= 2 spurious words at utterance start
+        # Parsing related variables
+        self.pre_parse_re = "\S* ?\S* ?" # Match spurious words at utt. start
+        self.post_parse_re = " ?\S*$" # Match spurious word at utt. end
+        self.arg_parse_re = " (.+)" # Match argument at utt. end
 
+
+        # Parse error message and string constants
+        self.err_parse = ""
+        self.NO_MATCH = "Could not match utterance to any command."
+        
         # Initialize Pocketsphinx decoder
         config = Decoder.default_config()
         config.set_string('-hmm', self.hmm_path)
@@ -108,11 +115,13 @@ class SpeechProcessor(object):
         digits = ["zero", "one", "two", "three", "four",
                   "five", "six", "seven", "eight", "nine"]
         if len(utt) == 0:
+            self.err_parse = "Cannot parse empty string as number."
             return None
         num = 0
         for w in utt.split():
             if w not in digits:
                 # Fail to parse if not all words are digits
+                self.err_parse = "Word does not correspond to digit."
                 return None
             num = num*10 + digits.index(w)
         return num
@@ -122,13 +131,16 @@ class SpeechProcessor(object):
         syn_list = self.corpus.get("introductions", "").splitlines()
         agt_list = self.corpus.get("agents", "").splitlines()
         for syn in syn_list:
-            match = re.match(self.pre + syn + " (.+)", utt)
+            pattern = self.pre_parse_re + syn + self.arg_parse_re
+            match = re.match(pattern, utt)
             if match is None:
                 continue
             agent = match.group(1)
             if agent not in agt_list:
-                continue
+                self.err_parse = "Agent name not recognized."
+                return None
             return "i am " + agent
+        self.err_parse = self.NO_MATCH
         return None
 
     def parse_as_claim(self, utt):
@@ -146,7 +158,8 @@ class SpeechProcessor(object):
             prefix = "not " if val == "negative" else ""
             syn_list = syn_list.splitlines()
             for syn in syn_list:
-                match = re.match(self.pre + syn + " ?(.*)", utt)
+                pattern = self.pre_parse_re + syn + self.post_parse_re
+                match = re.match(pattern, utt)
                 if match is None:
                     continue
                 return prefix + "ownedBy current current"
@@ -159,7 +172,9 @@ class SpeechProcessor(object):
             prefix = "not " if val == "negative" else ""
             syn_list = syn_list.splitlines()
             for syn in syn_list:
-                match = re.match(self.pre + syn + " ?(?:agent)? ?(.*)", utt)
+                pattern = (self.pre_parse_re + syn +
+                           " ?(?:agent)?" + self.arg_parse_re) 
+                match = re.match(pattern, utt)
                 if match is None:
                     continue
                 agent = None
@@ -170,9 +185,11 @@ class SpeechProcessor(object):
                     # Parse agent by name
                     agent = match.group(1)
                 if agent is None:
-                    continue
+                    self.err_parse = "Agent not recognized."
+                    return None
                 return prefix + "ownedBy current " + str(agent)
-        
+
+        self.err_parse = self.NO_MATCH
         return None
 
     def parse_as_action(self, utt):
@@ -184,9 +201,10 @@ class SpeechProcessor(object):
             tgt_required = (actions.db[name].tgtype == Object)
             for syn in syn_list:
                 if syn.split()[-1] == "object":
-                    match = re.match(self.pre + syn + " ?(.*)", utt)
+                    pattern = self.pre_parse_re + syn + self.arg_parse_re
                 else:
-                    match = re.match(self.pre + syn + " ?\S*$", utt)
+                    pattern = self.pre_parse_re + syn + self.post_parse_re
+                match = re.match(pattern, utt)
                 if match is None:
                     continue
                 if not tgt_required:
@@ -195,10 +213,12 @@ class SpeechProcessor(object):
                     return name + " " + "current"
                 target = self.parse_as_number(match.group(1))
                 if target is None:
-                    continue
+                    self.err_parse = "Action target not recognized."
+                    return None
                 else:
                     return name + " " + str(target)
-        # Return none if no synonyms match
+
+        self.err_parse = self.NO_MATCH
         return None
 
     def parse_as_task(self, utt):
@@ -208,11 +228,12 @@ class SpeechProcessor(object):
         for name, syn_list in syn_db.iteritems():
             syn_list = syn_list.splitlines()
             for syn in syn_list:
-                match = re.match(self.pre + syn + " ?(.*)", utt)
+                pattern = self.pre_parse_re + syn + self.post_parse_re
+                match = re.match(pattern, utt)
                 if match is None:
                     continue
                 return name
-        # Return none if no synonyms match
+        self.err_parse = self.NO_MATCH
         return None
 
     def parse_as_permission(self, utt):
@@ -228,7 +249,8 @@ class SpeechProcessor(object):
                 continue
             syn_list = syn_list.splitlines()
             for syn in syn_list:
-                match = re.match(self.pre + syn + " ?\S*$", utt)
+                pattern = self.pre_parse_re + syn + self.post_parse_re
+                match = re.match(pattern, utt)
                 if match is None:
                     continue
                 return val + " current on current"
@@ -240,18 +262,21 @@ class SpeechProcessor(object):
                 continue
             syn_list = syn_list.splitlines()
             for syn in syn_list:
-                match = re.match(self.pre + syn + " ?(.*)", utt)
+                pattern = self.pre_parse_re + syn + self.arg_parse_re
+                match = re.match(pattern, utt)
                 if match is None:
                     continue
                 # Parse remaining segment as action command
                 act_s = self.parse_as_action(match.group(1))
                 if act_s is None:
-                    continue
+                    self.err_parse = "Action not recognized."
+                    return None
                 act_w = act_s.split()
                 act = act_w[0]
                 tgt = "current" if (len(act_w) < 2) else act_w[1]
                 return "{} {} on {}".format(val, act, tgt)
 
+        self.err_parse = self.NO_MATCH
         return None
 
 if __name__ == '__main__':
