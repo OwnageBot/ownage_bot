@@ -278,7 +278,20 @@ class SpeechProcessor(object):
 
         self.err_parse = self.NO_MATCH
         return None
+        
+    def parse_as_reset(self, utt):
+        """Parse utterance as database reset instruction."""
+        syn_list = self.corpus.get("reset", "").splitlines()
+        for syn in syn_list:
+            pattern = self.pre_parse_re + syn + self.arg_parse_re
+            match = re.match(pattern, utt)
+            if match is None:
+                continue
+            return syn
+        self.err_parse = self.NO_MATCH
+        return None
 
+    
 if __name__ == '__main__':
     rospy.init_node('speech_processor')
     speech_processor = SpeechProcessor()
