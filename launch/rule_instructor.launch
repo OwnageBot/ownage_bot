@@ -21,7 +21,7 @@
 	output="screen" name="rule_instructor">
     <!-- Whether to teach by example, rules, or script -->
     <param name="mode" type="string" value="$(arg mode)" />
-    <!-- Test learning for 'rules', owner 'inference' or 'prediction -->
+    <!-- Test learning for 'rules', owner 'inference' or 'prediction' -->
     <param name="test_mode" type="string" value="$(arg test_mode)" />
     <!-- Evaluate 'all' objects, 'train' set or 'test' set -->
     <param name="eval_set" type="string" value="$(arg eval_set)" />

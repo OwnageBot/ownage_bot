@@ -68,10 +68,17 @@ whose:
         who owns object
         who is the owner of object
 # Reprimands that combine cancellation with permissions (or ownership claims)
-reprimands: |
-    no baxter
-    no baxter stop
-    no baxter that's mine
+reprimands:
+    no baxter:
+      - cancel
+      - forbid current on current 
+    no baxter stop:
+      - cancel
+      - forbid current on current
+    no baxter that's mine:
+      - cancel
+      - forbid current if ownedBy current
+      - forbid current on current
 # Action phrases
 actions:
     cancel: |
@@ -175,60 +182,61 @@ permissions:
 # Predicate phrases
 predicates:
     ownedBy:
-        positive: |
-            it's mine
-            it belongs to me
-            it belongs to
-            it belongs to agent
-            it belongs to someone
-            it's owned
-            it's owned by
-            it's owned by me
-            it's owned by someone
-            it's owned by agent
-        negative: |
-            it isn't mine
-            it doesn't belong to me
-            it doesn't belong to someone
-            it doesn't belong to agent
-            it isn't owned
-            it isn't owned by
-            it isn't owned by me
-            it isn't owned by someone
-            it isn't owned by agent
+        positive:
+            it's mine: current
+            it belongs to me: current
+            it belongs to: ?s
+            it belongs to agent: ?i
+            it belongs to someone: any
+            it's owned: any
+            it's owned by: ?s
+            it's owned by agent: ?i
+            it's owned by me: current
+            it's owned by someone: any
+        negative:
+            it isn't mine: current
+            it doesn't belong to me: current
+            it doesn't belong to: ?s
+            it doesn't belong to agent: ?i
+            it doesn't belong to someone: any
+            it isn't owned: any
+            it isn't owned by: ?s
+            it isn't owned by agent: ?i
+            it isn't owned by me: current
+            it isn't owned by someone: any
     isColored:
-        positive: |
-            it's red
-            it's blue
-            it's green
-        negative: |
-            it isn't red
-            it isn't blue
-            it isn't green
+        positive:
+            it's red: red
+            it's blue: blue
+            it's green: green
+        negative:
+            it isn't red: red 
+            it isn't blue: blue
+            it isn't green: green
     inArea:
-        positive: |
-            it's in the trash area
-            it's in the home area
-        negative: |
-            it isn't in the trash area
-            it isn't in the home area
+        positive:
+            it's in the trash area: trash
+            it's in the home area: home
+        negative:
+            it isn't in the trash area: trash
+            it isn't in the home area: home
     inCategory:
-        positive: |
-            it's a block
-            it's a mug
-            it's a pen
-            it's a laptop
-            it's a wallet
-            it's a charger
-            it's a wrapper
-        negative: |
-            it isn't a block
-            it isn't a mug
-            it isn't a pen
-            it isn't a laptop
-            it isn't a wallet
-            it isn't a charger
-            it isn't a wrapper
+        positive:
+            it's a block: block
+            it's a mug: mug
+            it's a pen: pen
+            it's a laptop: laptop
+            it's a wallet: wallet
+            it's a charger: charger
+            it's a wrapper: wrapper
+        negative:
+            it isn't a block: block
+            it isn't a mug: mug
+            it isn't a pen: pen
+            it isn't a laptop: laptop
+            it isn't a wallet: wallet
+            it isn't a charger: charger
+            it isn't a wrapper: wrapper
 # Requests for explanations
 why:
     positive: |

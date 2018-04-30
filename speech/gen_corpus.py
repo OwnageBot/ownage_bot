@@ -26,6 +26,11 @@ def write_introductions(corpus, f):
             f.write(s + " " + a + "\n")
     f.write("\n")
 
+def write_reprimands(corpus, f):
+    for s in corpus["reprimands"].keys():
+        f.write(s + "\n")
+    f.write("\n")
+
 def write_claims(corpus, f):
     for l in corpus["claims"]["current"].values():
         f.write(l)
@@ -77,9 +82,9 @@ def write_rules(corpus, f):
     for l in corpus["permissions"]["current"].values():
         for s in l.splitlines():
             for pred_d in corpus["predicates"].values():
-                for pred in pred_d["positive"].splitlines():
+                for pred in pred_d["positive"].keys():
                     f.write(s + " if " + pred +"\n")
-                for pred in pred_d["negative"].splitlines():
+                for pred in pred_d["negative"].keys():
                     f.write(s + " if " + pred +"\n")
     # Adding below to corpus reduces recognition accuracy
     # for l in corpus["permissions"]["others"].values():
@@ -92,9 +97,9 @@ def write_rules(corpus, f):
     #                 if act.split()[-1] == "object":
     #                     continue
     #                 for pred_d in corpus["predicates"].values():
-    #                     for pred in pred_d["positive"].splitlines():
+    #                     for pred in pred_d["positive"].keys():
     #                         f.write(s + " " + act + " if " + pred +"\n")
-    #                     for pred in pred_d["negative"].splitlines():
+    #                     for pred in pred_d["negative"].keys():
     #                         f.write(s + " " + act + " if " + pred +"\n")
     f.write("\n")
 
@@ -116,10 +121,7 @@ if __name__ == '__main__':
         write_introductions(corpus, f)
         write_claims(corpus, f)
         write_whose(corpus, f)
-
-        f.write(corpus["reprimands"])
-        f.write("\n")
-
+        write_reprimands(corpus, f)
         write_actions(corpus, f)
         write_tasks(corpus, f)
         write_permissions(corpus, f)
