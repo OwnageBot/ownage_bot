@@ -167,6 +167,39 @@ i am alessandro
 i am nicole
 i am meiying
 i am corina
+hi i'm baxter
+hi i'm xuan
+hi i'm jake
+hi i'm scaz
+hi i'm sarah
+hi i'm aditi
+hi i'm olivier
+hi i'm alessandro
+hi i'm nicole
+hi i'm meiying
+hi i'm corina
+hello i'm baxter
+hello i'm xuan
+hello i'm jake
+hello i'm scaz
+hello i'm sarah
+hello i'm aditi
+hello i'm olivier
+hello i'm alessandro
+hello i'm nicole
+hello i'm meiying
+hello i'm corina
+hi baxter i'm baxter
+hi baxter i'm xuan
+hi baxter i'm jake
+hi baxter i'm scaz
+hi baxter i'm sarah
+hi baxter i'm aditi
+hi baxter i'm olivier
+hi baxter i'm alessandro
+hi baxter i'm nicole
+hi baxter i'm meiying
+hi baxter i'm corina
 
 this is mine
 that is mine
@@ -299,8 +332,8 @@ who is the owner of object seven
 who is the owner of object eight
 who is the owner of object nine
 
-no baxter
 no baxter stop
+no baxter
 no baxter that's mine
 
 scan the workspace
@@ -978,42 +1011,43 @@ you can't do that if it isn't in the home area
 you can't do that if it's red
 you can't do that if it's blue
 you can't do that if it's green
+you can't do that if it isn't green
 you can't do that if it isn't red
 you can't do that if it isn't blue
-you can't do that if it isn't green
-you can't do that if it's mine
 you can't do that if it belongs to me
+you can't do that if it's mine
 you can't do that if it belongs to
-you can't do that if it belongs to agent
-you can't do that if it belongs to someone
-you can't do that if it's owned
-you can't do that if it's owned by
-you can't do that if it's owned by me
 you can't do that if it's owned by someone
+you can't do that if it belongs to someone
+you can't do that if it's owned by
+you can't do that if it's owned
 you can't do that if it's owned by agent
-you can't do that if it isn't mine
-you can't do that if it doesn't belong to me
-you can't do that if it doesn't belong to someone
+you can't do that if it belongs to agent
+you can't do that if it's owned by me
 you can't do that if it doesn't belong to agent
+you can't do that if it doesn't belong to
+you can't do that if it doesn't belong to me
+you can't do that if it isn't owned by agent
 you can't do that if it isn't owned
 you can't do that if it isn't owned by
+you can't do that if it doesn't belong to someone
 you can't do that if it isn't owned by me
 you can't do that if it isn't owned by someone
-you can't do that if it isn't owned by agent
+you can't do that if it isn't mine
 you can't do that if it's a block
-you can't do that if it's a mug
-you can't do that if it's a pen
-you can't do that if it's a laptop
 you can't do that if it's a wallet
-you can't do that if it's a charger
+you can't do that if it's a mug
 you can't do that if it's a wrapper
-you can't do that if it isn't a block
-you can't do that if it isn't a mug
-you can't do that if it isn't a pen
-you can't do that if it isn't a laptop
-you can't do that if it isn't a wallet
+you can't do that if it's a charger
+you can't do that if it's a laptop
+you can't do that if it's a pen
 you can't do that if it isn't a charger
+you can't do that if it isn't a laptop
 you can't do that if it isn't a wrapper
+you can't do that if it isn't a block
+you can't do that if it isn't a pen
+you can't do that if it isn't a mug
+you can't do that if it isn't a wallet
 you cannot do that if it's in the trash area
 you cannot do that if it's in the home area
 you cannot do that if it isn't in the trash area
@@ -1021,42 +1055,43 @@ you cannot do that if it isn't in the home area
 you cannot do that if it's red
 you cannot do that if it's blue
 you cannot do that if it's green
+you cannot do that if it isn't green
 you cannot do that if it isn't red
 you cannot do that if it isn't blue
-you cannot do that if it isn't green
-you cannot do that if it's mine
 you cannot do that if it belongs to me
+you cannot do that if it's mine
 you cannot do that if it belongs to
-you cannot do that if it belongs to agent
-you cannot do that if it belongs to someone
-you cannot do that if it's owned
-you cannot do that if it's owned by
-you cannot do that if it's owned by me
 you cannot do that if it's owned by someone
+you cannot do that if it belongs to someone
+you cannot do that if it's owned by
+you cannot do that if it's owned
 you cannot do that if it's owned by agent
-you cannot do that if it isn't mine
-you cannot do that if it doesn't belong to me
-you cannot do that if it doesn't belong to someone
+you cannot do that if it belongs to agent
+you cannot do that if it's owned by me
 you cannot do that if it doesn't belong to agent
+you cannot do that if it doesn't belong to
+you cannot do that if it doesn't belong to me
+you cannot do that if it isn't owned by agent
 you cannot do that if it isn't owned
 you cannot do that if it isn't owned by
+you cannot do that if it doesn't belong to someone
 you cannot do that if it isn't owned by me
 you cannot do that if it isn't owned by someone
-you cannot do that if it isn't owned by agent
+you cannot do that if it isn't mine
 you cannot do that if it's a block
-you cannot do that if it's a mug
-you cannot do that if it's a pen
-you cannot do that if it's a laptop
 you cannot do that if it's a wallet
-you cannot do that if it's a charger
+you cannot do that if it's a mug
 you cannot do that if it's a wrapper
-you cannot do that if it isn't a block
-you cannot do that if it isn't a mug
-you cannot do that if it isn't a pen
-you cannot do that if it isn't a laptop
-you cannot do that if it isn't a wallet
+you cannot do that if it's a charger
+you cannot do that if it's a laptop
+you cannot do that if it's a pen
 you cannot do that if it isn't a charger
+you cannot do that if it isn't a laptop
 you cannot do that if it isn't a wrapper
+you cannot do that if it isn't a block
+you cannot do that if it isn't a pen
+you cannot do that if it isn't a mug
+you cannot do that if it isn't a wallet
 you may not do that if it's in the trash area
 you may not do that if it's in the home area
 you may not do that if it isn't in the trash area
@@ -1064,42 +1099,43 @@ you may not do that if it isn't in the home area
 you may not do that if it's red
 you may not do that if it's blue
 you may not do that if it's green
+you may not do that if it isn't green
 you may not do that if it isn't red
 you may not do that if it isn't blue
-you may not do that if it isn't green
-you may not do that if it's mine
 you may not do that if it belongs to me
+you may not do that if it's mine
 you may not do that if it belongs to
-you may not do that if it belongs to agent
-you may not do that if it belongs to someone
-you may not do that if it's owned
-you may not do that if it's owned by
-you may not do that if it's owned by me
 you may not do that if it's owned by someone
+you may not do that if it belongs to someone
+you may not do that if it's owned by
+you may not do that if it's owned
 you may not do that if it's owned by agent
-you may not do that if it isn't mine
-you may not do that if it doesn't belong to me
-you may not do that if it doesn't belong to someone
+you may not do that if it belongs to agent
+you may not do that if it's owned by me
 you may not do that if it doesn't belong to agent
+you may not do that if it doesn't belong to
+you may not do that if it doesn't belong to me
+you may not do that if it isn't owned by agent
 you may not do that if it isn't owned
 you may not do that if it isn't owned by
+you may not do that if it doesn't belong to someone
 you may not do that if it isn't owned by me
 you may not do that if it isn't owned by someone
-you may not do that if it isn't owned by agent
+you may not do that if it isn't mine
 you may not do that if it's a block
-you may not do that if it's a mug
-you may not do that if it's a pen
-you may not do that if it's a laptop
 you may not do that if it's a wallet
-you may not do that if it's a charger
+you may not do that if it's a mug
 you may not do that if it's a wrapper
-you may not do that if it isn't a block
-you may not do that if it isn't a mug
-you may not do that if it isn't a pen
-you may not do that if it isn't a laptop
-you may not do that if it isn't a wallet
+you may not do that if it's a charger
+you may not do that if it's a laptop
+you may not do that if it's a pen
 you may not do that if it isn't a charger
+you may not do that if it isn't a laptop
 you may not do that if it isn't a wrapper
+you may not do that if it isn't a block
+you may not do that if it isn't a pen
+you may not do that if it isn't a mug
+you may not do that if it isn't a wallet
 you're not allowed to do that if it's in the trash area
 you're not allowed to do that if it's in the home area
 you're not allowed to do that if it isn't in the trash area
@@ -1107,42 +1143,43 @@ you're not allowed to do that if it isn't in the home area
 you're not allowed to do that if it's red
 you're not allowed to do that if it's blue
 you're not allowed to do that if it's green
+you're not allowed to do that if it isn't green
 you're not allowed to do that if it isn't red
 you're not allowed to do that if it isn't blue
-you're not allowed to do that if it isn't green
-you're not allowed to do that if it's mine
 you're not allowed to do that if it belongs to me
+you're not allowed to do that if it's mine
 you're not allowed to do that if it belongs to
-you're not allowed to do that if it belongs to agent
-you're not allowed to do that if it belongs to someone
-you're not allowed to do that if it's owned
-you're not allowed to do that if it's owned by
-you're not allowed to do that if it's owned by me
 you're not allowed to do that if it's owned by someone
+you're not allowed to do that if it belongs to someone
+you're not allowed to do that if it's owned by
+you're not allowed to do that if it's owned
 you're not allowed to do that if it's owned by agent
-you're not allowed to do that if it isn't mine
-you're not allowed to do that if it doesn't belong to me
-you're not allowed to do that if it doesn't belong to someone
+you're not allowed to do that if it belongs to agent
+you're not allowed to do that if it's owned by me
 you're not allowed to do that if it doesn't belong to agent
+you're not allowed to do that if it doesn't belong to
+you're not allowed to do that if it doesn't belong to me
+you're not allowed to do that if it isn't owned by agent
 you're not allowed to do that if it isn't owned
 you're not allowed to do that if it isn't owned by
+you're not allowed to do that if it doesn't belong to someone
 you're not allowed to do that if it isn't owned by me
 you're not allowed to do that if it isn't owned by someone
-you're not allowed to do that if it isn't owned by agent
+you're not allowed to do that if it isn't mine
 you're not allowed to do that if it's a block
-you're not allowed to do that if it's a mug
-you're not allowed to do that if it's a pen
-you're not allowed to do that if it's a laptop
 you're not allowed to do that if it's a wallet
-you're not allowed to do that if it's a charger
+you're not allowed to do that if it's a mug
 you're not allowed to do that if it's a wrapper
-you're not allowed to do that if it isn't a block
-you're not allowed to do that if it isn't a mug
-you're not allowed to do that if it isn't a pen
-you're not allowed to do that if it isn't a laptop
-you're not allowed to do that if it isn't a wallet
+you're not allowed to do that if it's a charger
+you're not allowed to do that if it's a laptop
+you're not allowed to do that if it's a pen
 you're not allowed to do that if it isn't a charger
+you're not allowed to do that if it isn't a laptop
 you're not allowed to do that if it isn't a wrapper
+you're not allowed to do that if it isn't a block
+you're not allowed to do that if it isn't a pen
+you're not allowed to do that if it isn't a mug
+you're not allowed to do that if it isn't a wallet
 you're forbidden to do that if it's in the trash area
 you're forbidden to do that if it's in the home area
 you're forbidden to do that if it isn't in the trash area
@@ -1150,42 +1187,43 @@ you're forbidden to do that if it isn't in the home area
 you're forbidden to do that if it's red
 you're forbidden to do that if it's blue
 you're forbidden to do that if it's green
+you're forbidden to do that if it isn't green
 you're forbidden to do that if it isn't red
 you're forbidden to do that if it isn't blue
-you're forbidden to do that if it isn't green
-you're forbidden to do that if it's mine
 you're forbidden to do that if it belongs to me
+you're forbidden to do that if it's mine
 you're forbidden to do that if it belongs to
-you're forbidden to do that if it belongs to agent
-you're forbidden to do that if it belongs to someone
-you're forbidden to do that if it's owned
-you're forbidden to do that if it's owned by
-you're forbidden to do that if it's owned by me
 you're forbidden to do that if it's owned by someone
+you're forbidden to do that if it belongs to someone
+you're forbidden to do that if it's owned by
+you're forbidden to do that if it's owned
 you're forbidden to do that if it's owned by agent
-you're forbidden to do that if it isn't mine
-you're forbidden to do that if it doesn't belong to me
-you're forbidden to do that if it doesn't belong to someone
+you're forbidden to do that if it belongs to agent
+you're forbidden to do that if it's owned by me
 you're forbidden to do that if it doesn't belong to agent
+you're forbidden to do that if it doesn't belong to
+you're forbidden to do that if it doesn't belong to me
+you're forbidden to do that if it isn't owned by agent
 you're forbidden to do that if it isn't owned
 you're forbidden to do that if it isn't owned by
+you're forbidden to do that if it doesn't belong to someone
 you're forbidden to do that if it isn't owned by me
 you're forbidden to do that if it isn't owned by someone
-you're forbidden to do that if it isn't owned by agent
+you're forbidden to do that if it isn't mine
 you're forbidden to do that if it's a block
-you're forbidden to do that if it's a mug
-you're forbidden to do that if it's a pen
-you're forbidden to do that if it's a laptop
 you're forbidden to do that if it's a wallet
-you're forbidden to do that if it's a charger
+you're forbidden to do that if it's a mug
 you're forbidden to do that if it's a wrapper
-you're forbidden to do that if it isn't a block
-you're forbidden to do that if it isn't a mug
-you're forbidden to do that if it isn't a pen
-you're forbidden to do that if it isn't a laptop
-you're forbidden to do that if it isn't a wallet
+you're forbidden to do that if it's a charger
+you're forbidden to do that if it's a laptop
+you're forbidden to do that if it's a pen
 you're forbidden to do that if it isn't a charger
+you're forbidden to do that if it isn't a laptop
 you're forbidden to do that if it isn't a wrapper
+you're forbidden to do that if it isn't a block
+you're forbidden to do that if it isn't a pen
+you're forbidden to do that if it isn't a mug
+you're forbidden to do that if it isn't a wallet
 don't do that if it's in the trash area
 don't do that if it's in the home area
 don't do that if it isn't in the trash area
@@ -1193,42 +1231,43 @@ don't do that if it isn't in the home area
 don't do that if it's red
 don't do that if it's blue
 don't do that if it's green
+don't do that if it isn't green
 don't do that if it isn't red
 don't do that if it isn't blue
-don't do that if it isn't green
-don't do that if it's mine
 don't do that if it belongs to me
+don't do that if it's mine
 don't do that if it belongs to
-don't do that if it belongs to agent
-don't do that if it belongs to someone
-don't do that if it's owned
-don't do that if it's owned by
-don't do that if it's owned by me
 don't do that if it's owned by someone
+don't do that if it belongs to someone
+don't do that if it's owned by
+don't do that if it's owned
 don't do that if it's owned by agent
-don't do that if it isn't mine
-don't do that if it doesn't belong to me
-don't do that if it doesn't belong to someone
+don't do that if it belongs to agent
+don't do that if it's owned by me
 don't do that if it doesn't belong to agent
+don't do that if it doesn't belong to
+don't do that if it doesn't belong to me
+don't do that if it isn't owned by agent
 don't do that if it isn't owned
 don't do that if it isn't owned by
+don't do that if it doesn't belong to someone
 don't do that if it isn't owned by me
 don't do that if it isn't owned by someone
-don't do that if it isn't owned by agent
+don't do that if it isn't mine
 don't do that if it's a block
-don't do that if it's a mug
-don't do that if it's a pen
-don't do that if it's a laptop
 don't do that if it's a wallet
-don't do that if it's a charger
+don't do that if it's a mug
 don't do that if it's a wrapper
-don't do that if it isn't a block
-don't do that if it isn't a mug
-don't do that if it isn't a pen
-don't do that if it isn't a laptop
-don't do that if it isn't a wallet
+don't do that if it's a charger
+don't do that if it's a laptop
+don't do that if it's a pen
 don't do that if it isn't a charger
+don't do that if it isn't a laptop
 don't do that if it isn't a wrapper
+don't do that if it isn't a block
+don't do that if it isn't a pen
+don't do that if it isn't a mug
+don't do that if it isn't a wallet
 you can do that if it's in the trash area
 you can do that if it's in the home area
 you can do that if it isn't in the trash area
@@ -1236,42 +1275,43 @@ you can do that if it isn't in the home area
 you can do that if it's red
 you can do that if it's blue
 you can do that if it's green
+you can do that if it isn't green
 you can do that if it isn't red
 you can do that if it isn't blue
-you can do that if it isn't green
-you can do that if it's mine
 you can do that if it belongs to me
+you can do that if it's mine
 you can do that if it belongs to
-you can do that if it belongs to agent
-you can do that if it belongs to someone
-you can do that if it's owned
-you can do that if it's owned by
-you can do that if it's owned by me
 you can do that if it's owned by someone
+you can do that if it belongs to someone
+you can do that if it's owned by
+you can do that if it's owned
 you can do that if it's owned by agent
-you can do that if it isn't mine
-you can do that if it doesn't belong to me
-you can do that if it doesn't belong to someone
+you can do that if it belongs to agent
+you can do that if it's owned by me
 you can do that if it doesn't belong to agent
+you can do that if it doesn't belong to
+you can do that if it doesn't belong to me
+you can do that if it isn't owned by agent
 you can do that if it isn't owned
 you can do that if it isn't owned by
+you can do that if it doesn't belong to someone
 you can do that if it isn't owned by me
 you can do that if it isn't owned by someone
-you can do that if it isn't owned by agent
+you can do that if it isn't mine
 you can do that if it's a block
-you can do that if it's a mug
-you can do that if it's a pen
-you can do that if it's a laptop
 you can do that if it's a wallet
-you can do that if it's a charger
+you can do that if it's a mug
 you can do that if it's a wrapper
-you can do that if it isn't a block
-you can do that if it isn't a mug
-you can do that if it isn't a pen
-you can do that if it isn't a laptop
-you can do that if it isn't a wallet
+you can do that if it's a charger
+you can do that if it's a laptop
+you can do that if it's a pen
 you can do that if it isn't a charger
+you can do that if it isn't a laptop
 you can do that if it isn't a wrapper
+you can do that if it isn't a block
+you can do that if it isn't a pen
+you can do that if it isn't a mug
+you can do that if it isn't a wallet
 you may do that if it's in the trash area
 you may do that if it's in the home area
 you may do that if it isn't in the trash area
@@ -1279,42 +1319,43 @@ you may do that if it isn't in the home area
 you may do that if it's red
 you may do that if it's blue
 you may do that if it's green
+you may do that if it isn't green
 you may do that if it isn't red
 you may do that if it isn't blue
-you may do that if it isn't green
-you may do that if it's mine
 you may do that if it belongs to me
+you may do that if it's mine
 you may do that if it belongs to
-you may do that if it belongs to agent
-you may do that if it belongs to someone
-you may do that if it's owned
-you may do that if it's owned by
-you may do that if it's owned by me
 you may do that if it's owned by someone
+you may do that if it belongs to someone
+you may do that if it's owned by
+you may do that if it's owned
 you may do that if it's owned by agent
-you may do that if it isn't mine
-you may do that if it doesn't belong to me
-you may do that if it doesn't belong to someone
+you may do that if it belongs to agent
+you may do that if it's owned by me
 you may do that if it doesn't belong to agent
+you may do that if it doesn't belong to
+you may do that if it doesn't belong to me
+you may do that if it isn't owned by agent
 you may do that if it isn't owned
 you may do that if it isn't owned by
+you may do that if it doesn't belong to someone
 you may do that if it isn't owned by me
 you may do that if it isn't owned by someone
-you may do that if it isn't owned by agent
+you may do that if it isn't mine
 you may do that if it's a block
-you may do that if it's a mug
-you may do that if it's a pen
-you may do that if it's a laptop
 you may do that if it's a wallet
-you may do that if it's a charger
+you may do that if it's a mug
 you may do that if it's a wrapper
-you may do that if it isn't a block
-you may do that if it isn't a mug
-you may do that if it isn't a pen
-you may do that if it isn't a laptop
-you may do that if it isn't a wallet
+you may do that if it's a charger
+you may do that if it's a laptop
+you may do that if it's a pen
 you may do that if it isn't a charger
+you may do that if it isn't a laptop
 you may do that if it isn't a wrapper
+you may do that if it isn't a block
+you may do that if it isn't a pen
+you may do that if it isn't a mug
+you may do that if it isn't a wallet
 it's okay to do that if it's in the trash area
 it's okay to do that if it's in the home area
 it's okay to do that if it isn't in the trash area
@@ -1322,42 +1363,43 @@ it's okay to do that if it isn't in the home area
 it's okay to do that if it's red
 it's okay to do that if it's blue
 it's okay to do that if it's green
+it's okay to do that if it isn't green
 it's okay to do that if it isn't red
 it's okay to do that if it isn't blue
-it's okay to do that if it isn't green
-it's okay to do that if it's mine
 it's okay to do that if it belongs to me
+it's okay to do that if it's mine
 it's okay to do that if it belongs to
-it's okay to do that if it belongs to agent
-it's okay to do that if it belongs to someone
-it's okay to do that if it's owned
-it's okay to do that if it's owned by
-it's okay to do that if it's owned by me
 it's okay to do that if it's owned by someone
+it's okay to do that if it belongs to someone
+it's okay to do that if it's owned by
+it's okay to do that if it's owned
 it's okay to do that if it's owned by agent
-it's okay to do that if it isn't mine
-it's okay to do that if it doesn't belong to me
-it's okay to do that if it doesn't belong to someone
+it's okay to do that if it belongs to agent
+it's okay to do that if it's owned by me
 it's okay to do that if it doesn't belong to agent
+it's okay to do that if it doesn't belong to
+it's okay to do that if it doesn't belong to me
+it's okay to do that if it isn't owned by agent
 it's okay to do that if it isn't owned
 it's okay to do that if it isn't owned by
+it's okay to do that if it doesn't belong to someone
 it's okay to do that if it isn't owned by me
 it's okay to do that if it isn't owned by someone
-it's okay to do that if it isn't owned by agent
+it's okay to do that if it isn't mine
 it's okay to do that if it's a block
-it's okay to do that if it's a mug
-it's okay to do that if it's a pen
-it's okay to do that if it's a laptop
 it's okay to do that if it's a wallet
-it's okay to do that if it's a charger
+it's okay to do that if it's a mug
 it's okay to do that if it's a wrapper
-it's okay to do that if it isn't a block
-it's okay to do that if it isn't a mug
-it's okay to do that if it isn't a pen
-it's okay to do that if it isn't a laptop
-it's okay to do that if it isn't a wallet
+it's okay to do that if it's a charger
+it's okay to do that if it's a laptop
+it's okay to do that if it's a pen
 it's okay to do that if it isn't a charger
+it's okay to do that if it isn't a laptop
 it's okay to do that if it isn't a wrapper
+it's okay to do that if it isn't a block
+it's okay to do that if it isn't a pen
+it's okay to do that if it isn't a mug
+it's okay to do that if it isn't a wallet
 you're allowed to do that if it's in the trash area
 you're allowed to do that if it's in the home area
 you're allowed to do that if it isn't in the trash area
@@ -1365,42 +1407,43 @@ you're allowed to do that if it isn't in the home area
 you're allowed to do that if it's red
 you're allowed to do that if it's blue
 you're allowed to do that if it's green
+you're allowed to do that if it isn't green
 you're allowed to do that if it isn't red
 you're allowed to do that if it isn't blue
-you're allowed to do that if it isn't green
-you're allowed to do that if it's mine
 you're allowed to do that if it belongs to me
+you're allowed to do that if it's mine
 you're allowed to do that if it belongs to
-you're allowed to do that if it belongs to agent
-you're allowed to do that if it belongs to someone
-you're allowed to do that if it's owned
-you're allowed to do that if it's owned by
-you're allowed to do that if it's owned by me
 you're allowed to do that if it's owned by someone
+you're allowed to do that if it belongs to someone
+you're allowed to do that if it's owned by
+you're allowed to do that if it's owned
 you're allowed to do that if it's owned by agent
-you're allowed to do that if it isn't mine
-you're allowed to do that if it doesn't belong to me
-you're allowed to do that if it doesn't belong to someone
+you're allowed to do that if it belongs to agent
+you're allowed to do that if it's owned by me
 you're allowed to do that if it doesn't belong to agent
+you're allowed to do that if it doesn't belong to
+you're allowed to do that if it doesn't belong to me
+you're allowed to do that if it isn't owned by agent
 you're allowed to do that if it isn't owned
 you're allowed to do that if it isn't owned by
+you're allowed to do that if it doesn't belong to someone
 you're allowed to do that if it isn't owned by me
 you're allowed to do that if it isn't owned by someone
-you're allowed to do that if it isn't owned by agent
+you're allowed to do that if it isn't mine
 you're allowed to do that if it's a block
-you're allowed to do that if it's a mug
-you're allowed to do that if it's a pen
-you're allowed to do that if it's a laptop
 you're allowed to do that if it's a wallet
-you're allowed to do that if it's a charger
+you're allowed to do that if it's a mug
 you're allowed to do that if it's a wrapper
-you're allowed to do that if it isn't a block
-you're allowed to do that if it isn't a mug
-you're allowed to do that if it isn't a pen
-you're allowed to do that if it isn't a laptop
-you're allowed to do that if it isn't a wallet
+you're allowed to do that if it's a charger
+you're allowed to do that if it's a laptop
+you're allowed to do that if it's a pen
 you're allowed to do that if it isn't a charger
+you're allowed to do that if it isn't a laptop
 you're allowed to do that if it isn't a wrapper
+you're allowed to do that if it isn't a block
+you're allowed to do that if it isn't a pen
+you're allowed to do that if it isn't a mug
+you're allowed to do that if it isn't a wallet
 you're not forbidden to do that if it's in the trash area
 you're not forbidden to do that if it's in the home area
 you're not forbidden to do that if it isn't in the trash area
@@ -1408,42 +1451,43 @@ you're not forbidden to do that if it isn't in the home area
 you're not forbidden to do that if it's red
 you're not forbidden to do that if it's blue
 you're not forbidden to do that if it's green
+you're not forbidden to do that if it isn't green
 you're not forbidden to do that if it isn't red
 you're not forbidden to do that if it isn't blue
-you're not forbidden to do that if it isn't green
-you're not forbidden to do that if it's mine
 you're not forbidden to do that if it belongs to me
+you're not forbidden to do that if it's mine
 you're not forbidden to do that if it belongs to
-you're not forbidden to do that if it belongs to agent
-you're not forbidden to do that if it belongs to someone
-you're not forbidden to do that if it's owned
-you're not forbidden to do that if it's owned by
-you're not forbidden to do that if it's owned by me
 you're not forbidden to do that if it's owned by someone
+you're not forbidden to do that if it belongs to someone
+you're not forbidden to do that if it's owned by
+you're not forbidden to do that if it's owned
 you're not forbidden to do that if it's owned by agent
-you're not forbidden to do that if it isn't mine
-you're not forbidden to do that if it doesn't belong to me
-you're not forbidden to do that if it doesn't belong to someone
+you're not forbidden to do that if it belongs to agent
+you're not forbidden to do that if it's owned by me
 you're not forbidden to do that if it doesn't belong to agent
+you're not forbidden to do that if it doesn't belong to
+you're not forbidden to do that if it doesn't belong to me
+you're not forbidden to do that if it isn't owned by agent
 you're not forbidden to do that if it isn't owned
 you're not forbidden to do that if it isn't owned by
+you're not forbidden to do that if it doesn't belong to someone
 you're not forbidden to do that if it isn't owned by me
 you're not forbidden to do that if it isn't owned by someone
-you're not forbidden to do that if it isn't owned by agent
+you're not forbidden to do that if it isn't mine
 you're not forbidden to do that if it's a block
-you're not forbidden to do that if it's a mug
-you're not forbidden to do that if it's a pen
-you're not forbidden to do that if it's a laptop
 you're not forbidden to do that if it's a wallet
-you're not forbidden to do that if it's a charger
+you're not forbidden to do that if it's a mug
 you're not forbidden to do that if it's a wrapper
-you're not forbidden to do that if it isn't a block
-you're not forbidden to do that if it isn't a mug
-you're not forbidden to do that if it isn't a pen
-you're not forbidden to do that if it isn't a laptop
-you're not forbidden to do that if it isn't a wallet
+you're not forbidden to do that if it's a charger
+you're not forbidden to do that if it's a laptop
+you're not forbidden to do that if it's a pen
 you're not forbidden to do that if it isn't a charger
+you're not forbidden to do that if it isn't a laptop
 you're not forbidden to do that if it isn't a wrapper
+you're not forbidden to do that if it isn't a block
+you're not forbidden to do that if it isn't a pen
+you're not forbidden to do that if it isn't a mug
+you're not forbidden to do that if it isn't a wallet
 
 why did you do that
 why did you do that to this object
@@ -1459,5 +1503,5 @@ reset agents
 reset permissions
 reset rules
 reset claims
-reset everything
+reset all
 

@@ -14,8 +14,11 @@ class SpeechProcessor(object):
     """Processes natural speech to/from the syntax in DialogManager."""
 
     def __init__(self):
+        # Whether or not to print decoded utterances and parses
+        self.verbose = rospy.get_param("~verbose", True)
+        
         # Load structured corpus for parsing decoded strings
-        self.corpus = rospy.get_param("~corpus")
+        self.corpus = rospy.get_param("~corpus", dict())
 
         # Pocketsphinx parameters
         pkg_path = rospkg.RosPack().get_path('ownage_bot')
@@ -99,21 +102,27 @@ class SpeechProcessor(object):
         if self.decoder.hyp() is None:
             return
         utt = self.decoder.hyp().hypstr.lower()
-        print utt
+        if self.verbose:
+            print "Utterance: {}".format(utt)
 
-        for parse_f in [self.parse_as_introduction, self.parse_as_claim,
-                        self.parse_as_permission,
-                        self.parse_as_action, self.parse_as_task]:
+        for parse_f in [self.parse_as_introduction, self.parse_as_reprimand,
+                        self.parse_as_claim, self.parse_as_permission,
+                        self.parse_as_action, self.parse_as_task,
+                        self.parse_as_reset]:
             msg = parse_f(utt)
             if msg is None:
                 continue
-            print msg
             if type(msg) is list:
                 for m in msg:
+                    if self.verbose:
+                        print "Parse: {}".format(m)
                     self.speech_cmd_pub.publish(m)
                     rospy.sleep(0.01)
             else:
+                if self.verbose:
+                    print "Parse: {}".format(msg)
                 self.speech_cmd_pub.publish(msg)
+            return
 
     def parse_as_number(self, utt):
         """Parse utterance as number, e.g. 'zero one one' -> 11"""

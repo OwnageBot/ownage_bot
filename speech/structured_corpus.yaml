@@ -29,6 +29,9 @@ agents: |
 introductions: |
     i'm
     i am
+    hi i'm
+    hello i'm
+    hi baxter i'm
 # Ownership claims, made by the current agent for themself or for others
 claims:
     current:
@@ -77,6 +80,7 @@ reprimands:
       - forbid current on current
     no baxter that's mine:
       - cancel
+      - ownedBy current current
       - forbid current if ownedBy current
       - forbid current on current
 # Action phrases
@@ -256,4 +260,4 @@ reset: |
     reset permissions
     reset rules
     reset claims
-    reset everything
+    reset all
