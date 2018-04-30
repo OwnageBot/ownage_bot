@@ -108,7 +108,12 @@ class SpeechProcessor(object):
             if msg is None:
                 continue
             print msg
-            self.speech_cmd_pub.publish(msg)
+            if type(msg) is list:
+                for m in msg:
+                    self.speech_cmd_pub.publish(m)
+                    rospy.sleep(0.01)
+            else:
+                self.speech_cmd_pub.publish(msg)
 
     def parse_as_number(self, utt):
         """Parse utterance as number, e.g. 'zero one one' -> 11"""
@@ -192,6 +197,18 @@ class SpeechProcessor(object):
         self.err_parse = self.NO_MATCH
         return None
 
+    def parse_as_reprimand(self, utt):
+        """Parse utterance as reprimand."""
+        reprimand_db = self.corpus.get("reprimands", dict())
+        for rep, msgs in reprimand_db.iteritems():
+            pattern = self.pre_parse_re + rep + self.post_parse_re
+            match = re.match(pattern, utt)
+            if match is None:
+                continue
+            return msgs
+        self.err_parse = self.NO_MATCH
+        return None        
+        
     def parse_as_action(self, utt):
         """Parse utterance as action command."""
         # Iterate through list of synonyms for each action command
@@ -217,7 +234,6 @@ class SpeechProcessor(object):
                     return None
                 else:
                     return name + " " + str(target)
-
         self.err_parse = self.NO_MATCH
         return None
 

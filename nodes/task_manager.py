@@ -141,8 +141,9 @@ class TaskManager(object):
                 self.task_out_pub.publish(out)
                 continue
             # Call action if all checks pass
-            self.cur_action = action
-            self.cur_target = tgt
+            if action != actions.Cancel:
+                self.cur_action = action
+                self.cur_target = tgt
             resp = action.call(tgt)
             if not resp.success:
                 self.task_out_pub.publish(resp.response)
