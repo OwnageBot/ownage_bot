@@ -12,11 +12,13 @@ class DialogManager(object):
 
     def __init__(self):
         # Handle input and output to/from users
-        self.text_sub = rospy.Subscriber("dialog_in", String,
+        self.text_sub = rospy.Subscriber("text_in", String,
                                           self.inputCb)
-        self.speech_sub = rospy.Subscriber("speech_cmd", String,
+        self.text_pub = rospy.Publisher("text_out", String,
+                                          queue_size=10)
+        self.speech_sub = rospy.Subscriber("speech_in", String,
                                           self.inputCb)
-        self.output_pub = rospy.Publisher("dialog_out", String,
+        self.speech_pub = rospy.Publisher("speech_out", String,
                                           queue_size=10)
 
         # Handle input and output from task manager node
@@ -95,6 +97,7 @@ class DialogManager(object):
         agent = parse.asAgent(msg.data)
         if agent:
             self.agent_pub.publish(agent)
+            
             return
         # Try parsing a one-shot task (i.e. an action)
         task = parse.asAction(msg.data)
@@ -110,32 +113,32 @@ class DialogManager(object):
         pred = parse.asPredicate(msg.data)
         if pred:
             if pred.predicate != predicates.OwnedBy.name:
-                self.output_pub.publish("Only ownedBy predicate is handled.")
+                self.text_pub.publish("Only ownedBy predicate is handled.")
                 return
-            self.output_pub.publish(str(pred))
+            self.text_pub.publish(str(pred))
             self.owner_pub.publish(pred)
             return
         # Try to parse object-specific permissions
         perm = parse.asPerm(msg.data)
         if perm:
-            self.output_pub.publish(str(perm))
+            self.text_pub.publish(str(perm))
             self.perm_pub.publish(perm)
             return
         # Try to parse rules that govern actions
         rule = parse.asRule(msg.data)
         if rule:
-            self.output_pub.publish(str(rule))
+            self.text_pub.publish(str(rule))
             self.rule_pub.publish(rule)
             return
 
         # Error out if nothing works
         out = "Could not parse input: {}".format(parse.error)
-        self.output_pub.publish(out)
+        self.text_pub.publish(out)
 
     def taskOutCb(self, msg):
         """Handles output from TaskManager node."""
         # Just print response for now
-        self.output_pub.publish(msg)
+        self.text_pub.publish(msg)
 
     def handleList(self, args):
         """Handles list command."""
@@ -186,14 +189,14 @@ class DialogManager(object):
             out = "\n".join(["Available tasks:"] + tasks.db.keys())
         else:
             out = "Keyword not recognized."
-        self.output_pub.publish(out)
+        self.text_pub.publish(out)
 
     def handleReset(self, args):
         """Handles reset command."""
         if len(args) < 2:
             out = "\n".join(["Reset one of the following:"] +
                             self.reset.keys() + ["all"])
-            self.output_pub.publish(out)
+            self.text_pub.publish(out)
         elif args[1] in self.reset:
             key = args[1]
             try:
@@ -202,7 +205,7 @@ class DialogManager(object):
                 return
             except rospy.ROSException:
                 out = "Reset service for {} is unavailable.".format(key)
-                self.output_pub.publish(out)
+                self.text_pub.publish(out)
                 return
         elif args[1] == "all":
             # Try to reset all databases
@@ -216,7 +219,7 @@ class DialogManager(object):
             return
         else:
             out = "Keyword not recognized."
-            self.output_pub.publish(out)
+            self.text_pub.publish(out)
 
     def handleFreeze(self, args):
         """Handles freeze command."""
@@ -224,7 +227,7 @@ class DialogManager(object):
         if len(args) < 2:
             out = "\n".join(["(Un)Freeze one of the following databases:"] +
                             self.freeze.keys() + ["all"])
-            self.output_pub.publish(out)
+            self.text_pub.publish(out)
         elif args[1] in self.freeze:
             key = args[1]
             try:
@@ -233,7 +236,7 @@ class DialogManager(object):
                 return
             except rospy.ROSException:
                 out = "Freeze service for {} is unavailable.".format(key)
-                self.output_pub.publish(out)
+                self.text_pub.publish(out)
                 return
         elif args[1] == "all":
             # Try to freeze all databases
@@ -247,7 +250,7 @@ class DialogManager(object):
             return
         else:
             out = "Keyword not recognized."
-            self.output_pub.publish(out)
+            self.text_pub.publish(out)
 
     def handleDisable(self, args):
         """Handles disable command."""
@@ -255,7 +258,7 @@ class DialogManager(object):
         if len(args) < 2:
             out = "\n".join(["Enable/disable one of the following:"] +
                             self.disable.keys() + ["all"])
-            self.output_pub.publish(out)
+            self.text_pub.publish(out)
         elif args[1] in self.disable:
             key = args[1]
             try:
@@ -264,7 +267,7 @@ class DialogManager(object):
                 return
             except rospy.ROSException:
                 out = "Disable service for {} is unavailable.".format(key)
-                self.output_pub.publish(out)
+                self.text_pub.publish(out)
                 return
         elif args[1] == "all":
             # Try to disable all functions
@@ -278,7 +281,7 @@ class DialogManager(object):
             return
         else:
             out = "Keyword not recognized."
-            self.output_pub.publish(out)
+            self.text_pub.publish(out)
             
 if __name__ == '__main__':
     rospy.init_node('dialog_manager')

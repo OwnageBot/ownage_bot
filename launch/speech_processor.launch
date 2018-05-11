@@ -1,8 +1,21 @@
 <launch>
+  <!-- Speech synthesis arguments -->
+  <arg name="synth_pitch"    default="55"   />
+  <arg name="synth_speed"    default="110"  />
+  <arg name="synth_lang"     default="en-US"/>
+
+  <param name="svox_tts/pitch"    value="$(arg synth_pitch)" />
+  <param name="svox_tts/speed"    value="$(arg synth_speed)" />
+  <param name="svox_tts/language" value="$(arg synth_lang)" />
+
   <!-- Speech processor node -->
   <node pkg="ownage_bot" ns="ownage_bot" type="speech_processor.py"
 	output="screen" name="speech_processor">
     <rosparam command="load" param="corpus"
       	      file="$(find ownage_bot)/speech/structured_corpus.yaml" />
   </node>
+
+  <!-- Speech synthesis through SVOX -->
+  <node pkg="svox_tts" type="svox_tts" name="svox_tts"/>
+
 </launch>

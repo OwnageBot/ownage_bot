@@ -42,8 +42,8 @@ def main(stdscr):
         in_win.refresh() # Switches focus back to input
 
     # Publish inputs and subscribe to outputs
-    input_pub = rospy.Publisher("dialog_in", String, queue_size = 10)
-    output_sub = rospy.Subscriber("dialog_out", String, outputCb)
+    input_pub = rospy.Publisher("text_in", String, queue_size = 10)
+    output_sub = rospy.Subscriber("text_out", String, outputCb)
 
     # Handle inputs until EOL is received
     in_win.keypad(True)

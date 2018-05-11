@@ -19,6 +19,7 @@ else()
     rospy
     message_generation
     aruco_ros
+    svox_tts
     human_robot_collaboration_lib
     geometry_msgs
     std_msgs

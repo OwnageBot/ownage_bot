@@ -47,6 +47,7 @@
   <build_depend>aruco_msgs</build_depend>
   <build_depend>aruco_ros</build_depend>
   <build_depend>cv_bridge</build_depend>
+  <build_depend>svox_tts</build_depend>
   <build_depend>human_robot_collaboration_lib</build_depend>
   <run_depend>rospy</run_depend>
   <run_depend>message_runtime</run_depend>
@@ -55,6 +56,7 @@
   <run_depend>aruco_msgs</run_depend>
   <run_depend>aruco_ros</run_depend>
   <run_depend>cv_bridge</run_depend>
+  <run_depend>svox_tts</run_depend>
   <run_depend>human_robot_collaboration_lib</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->

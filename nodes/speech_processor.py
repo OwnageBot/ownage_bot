@@ -9,6 +9,7 @@ from std_msgs.msg import String
 from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
+from svox_tts.srv import Speech
 
 class SpeechProcessor(object):
     """Processes natural speech to/from the syntax in DialogManager."""
@@ -72,9 +73,21 @@ class SpeechProcessor(object):
                               frames_per_buffer=self.audio_buffer_size,
                               input_device_index=dev_id)
 
-        # Publisher for commands recognized by DialogManager
-        self.speech_cmd_pub = rospy.Publisher("speech_cmd", 
-                                              String, queue_size=10)
+        # Publish speech commands to dialog manager
+        self.speech_pub = rospy.Publisher("speech_in", 
+                                          String, queue_size=10)
+        # Subscribes to text for voice synthesis
+        self.speech_sub = rospy.Subscriber("speech_out", String,
+                                           self.outputCb)
+
+        # Service for speech synthesis through SVOX
+        self.svox_tts = rospy.ServiceProxy("/svox_tts/speech", Speech)
+
+    
+    def outputCb(self, msg):
+        """Send speech to synthesizer."""
+        out = msg.data
+        self.svox_tts(mode=5, string=out)
 
     def process_stream(self):
         """Continuously process audio stream until shutdown."""
