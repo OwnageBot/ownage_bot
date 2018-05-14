@@ -1,8 +1,8 @@
 import rospy
-import objects
-import predicates
-import actions
 from ownage_bot.msg import *
+from . import objects
+from . import predicates
+from . import actions
 
 class Rule(object):
     """Condition-action pairs that the robot should follow."""    

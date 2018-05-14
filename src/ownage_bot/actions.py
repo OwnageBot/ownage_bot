@@ -2,9 +2,9 @@ import os
 import rospy
 from std_srvs.srv import Trigger
 from geometry_msgs.msg import Point
-from objects import Object, Location
 from ownage_bot.msg import ObjectMsg
 from ownage_bot.srv import CallAction, CallActionResponse
+from .objects import Object, Location
 
 _service_left = rospy.ServiceProxy(
     "/action_provider/service_left", CallAction)

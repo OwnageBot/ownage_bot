@@ -1,10 +1,10 @@
 import os
 import rospy
-import objects
-import actions
-from objects import Object, Area, Location
 from Queue import Queue
 from geometry_msgs.msg import Point
+from . import objects
+from . import actions
+from .objects import Object, Area, Location
 
 class Task(object):
     "Higher-level tasks that construct actions based on the world state."

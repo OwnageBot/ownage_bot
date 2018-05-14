@@ -1,8 +1,8 @@
 import os
 import rospy
 import copy
-from objects import *
 from ownage_bot.msg import *
+from .objects import *
 
 class Predicate(object):
     """Functional representation of object properties and relations."""

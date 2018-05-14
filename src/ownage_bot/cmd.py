@@ -1,3 +1,5 @@
+"""Parses text commands as structured ROS messages."""
+
 import re
 import objects
 import predicates
@@ -25,7 +27,7 @@ _getCurrentAction = rospy.ServiceProxy("cur_action", Trigger)
 _getCurrentTarget = rospy.ServiceProxy("cur_target", Trigger)
 _getCurrentAgent = rospy.ServiceProxy("lookup_agent", LookupAgent)
 
-def asAction(s):
+def parseAsAction(s):
     """Parse a one-shot task (i.e. action) to be performed.
     Syntax: 'ACTION [TARGET]' 
     Example: 'pickUp 5', 'scan'
@@ -54,7 +56,7 @@ def asAction(s):
     msg = TaskMsg(name=name, oneshot=True, interrupt=True, target=tgt)
     return msg
 
-def asTask(s):
+def parseAsTask(s):
     """Parse a higher-level task to be performed.
     Syntax: 'TASK' 
     Example: 'collectAll', 'trashAll'
@@ -71,7 +73,7 @@ def asTask(s):
     msg = TaskMsg(name=name, oneshot=False, interrupt=True, target="")
     return msg
 
-def asPredicate(s, n_unbound=0):
+def parseAsPredicate(s, n_unbound=0):
     """Parse predicate bound to some arguments.
     Syntax: '[not] PREDICATE [ARGS]' 
     Example: 'isColored 2 red' (0 unbound), 'not isColored red' (1 unbound)
@@ -114,7 +116,7 @@ def asPredicate(s, n_unbound=0):
                        negated=negated, truth=1.0)
     return msg
 
-def asPerm(s):
+def parseAsPerm(s):
     """Parse target-specific action permissions.
     Syntax: 'forbid|allow ACTION on ID|POSITION' 
     Example: 'allow pickUp on 5'
@@ -146,7 +148,7 @@ def asPerm(s):
                        negated=False, truth=truth)
     return msg
 
-def asRule(s):
+def parseAsRule(s):
     """Parse deontic rules about actions.
     Syntax: 'forbid|allow ACTION if PREDICATE [ARGS] [and PREDICATE ...]'
     Example: 'forbid trash if isColored red and ownedBy 1'
@@ -175,7 +177,7 @@ def asRule(s):
     msg = RuleMsg(name, conditions, "forbid", truth)
     return msg
     
-def asAgent(s):
+def parseAsAgent(s):
     """Parse agent introductions.
     Syntax: 'i am NAME'
     Example: 'i am jake

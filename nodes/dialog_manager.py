@@ -13,11 +13,11 @@ class DialogManager(object):
     def __init__(self):
         # Handle input and output to/from users
         self.text_sub = rospy.Subscriber("text_in", String,
-                                          self.inputCb)
+                                          self.cmdInputCb)
         self.text_pub = rospy.Publisher("text_out", String,
                                           queue_size=10)
         self.speech_sub = rospy.Subscriber("speech_in", String,
-                                          self.inputCb)
+                                          self.cmdInputCb)
         self.speech_pub = rospy.Publisher("speech_out", String,
                                           queue_size=10)
 
@@ -71,7 +71,7 @@ class DialogManager(object):
         self.simuAgents = rospy.ServiceProxy("simulation/all_agents",
                                              ListAgents)
         
-    def inputCb(self, msg):
+    def cmdInputCb(self, msg):
         """Handles dialog input and publishes commands."""
         args = msg.data.split()
         
@@ -94,23 +94,23 @@ class DialogManager(object):
             self.handleDisable(args)
             return
         # Try parsing as agent introduction
-        agent = parse.asAgent(msg.data)
+        agent = cmd.parseAsAgent(msg.data)
         if agent:
             self.agent_pub.publish(agent)
             
             return
         # Try parsing a one-shot task (i.e. an action)
-        task = parse.asAction(msg.data)
+        task = cmd.parseAsAction(msg.data)
         if task:
             self.task_pub.publish(task)
             return
         # Try parsing a higher level task
-        task = parse.asTask(msg.data)
+        task = cmd.parseAsTask(msg.data)
         if task:
             self.task_pub.publish(task)
             return
         # Try to parse as ownership claim
-        pred = parse.asPredicate(msg.data)
+        pred = cmd.parseAsPredicate(msg.data)
         if pred:
             if pred.predicate != predicates.OwnedBy.name:
                 self.text_pub.publish("Only ownedBy predicate is handled.")
@@ -119,20 +119,20 @@ class DialogManager(object):
             self.owner_pub.publish(pred)
             return
         # Try to parse object-specific permissions
-        perm = parse.asPerm(msg.data)
+        perm = cmd.parseAsPerm(msg.data)
         if perm:
             self.text_pub.publish(str(perm))
             self.perm_pub.publish(perm)
             return
         # Try to parse rules that govern actions
-        rule = parse.asRule(msg.data)
+        rule = cmd.parseAsRule(msg.data)
         if rule:
             self.text_pub.publish(str(rule))
             self.rule_pub.publish(rule)
             return
 
         # Error out if nothing works
-        out = "Could not parse input: {}".format(parse.error)
+        out = "Could not parse input: {}".format(cmd.error)
         self.text_pub.publish(out)
 
     def taskOutCb(self, msg):
