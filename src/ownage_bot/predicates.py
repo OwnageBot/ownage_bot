@@ -51,7 +51,7 @@ class Predicate(object):
         return cp
     
     def bind(self, args):
-        """Bind arguments to copy of predicate, None leavs arg unbound."""
+        """Bind arguments to copy of predicate, None leaves arg unbound."""
         if len(args) != self.n_args:
             raise ValueError("Wrong number of arguments.")
 

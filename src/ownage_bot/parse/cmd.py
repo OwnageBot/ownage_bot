@@ -1,15 +1,11 @@
 """Parses text commands as structured ROS messages."""
-
 import re
-import objects
-import predicates
-import actions
-import rules
-import tasks
-import rospy
-from ownage_bot.msg import *
-from ownage_bot.srv import *
-from std_srvs.srv import *
+from .. import objects
+from .. import predicates
+from .. import actions
+from .. import rules
+from .. import tasks
+from .. import context
 
 error = ""
 
@@ -23,11 +19,7 @@ NO_CURRENT_TGT = "Could not look up current target"
 NO_CURRENT_AGT = "Could not look up current agent"
 NO_CURRENT_MATCH = "Could not match current keyword to target or agent"
 
-_getCurrentAction = rospy.ServiceProxy("cur_action", Trigger)
-_getCurrentTarget = rospy.ServiceProxy("cur_target", Trigger)
-_getCurrentAgent = rospy.ServiceProxy("lookup_agent", LookupAgent)
-
-def parseAsAction(s):
+def asAction(s):
     """Parse a one-shot task (i.e. action) to be performed.
     Syntax: 'ACTION [TARGET]' 
     Example: 'pickUp 5', 'scan'
@@ -48,15 +40,14 @@ def parseAsAction(s):
         return None
     tgt = "" if n_args == 0 else args[0]
     if tgt == "current":
-        try:
-            tgt = _getCurrentTarget().message
-        except rospy.ServiceException:
+        tgt = context.getCurrentTarget()
+        if tgt is None:
             error = NO_CURRENT_TGT
             return None
     msg = TaskMsg(name=name, oneshot=True, interrupt=True, target=tgt)
     return msg
 
-def parseAsTask(s):
+def asTask(s):
     """Parse a higher-level task to be performed.
     Syntax: 'TASK' 
     Example: 'collectAll', 'trashAll'
@@ -73,7 +64,7 @@ def parseAsTask(s):
     msg = TaskMsg(name=name, oneshot=False, interrupt=True, target="")
     return msg
 
-def parseAsPredicate(s, n_unbound=0):
+def asPredicate(s, n_unbound=0):
     """Parse predicate bound to some arguments.
     Syntax: '[not] PREDICATE [ARGS]' 
     Example: 'isColored 2 red' (0 unbound), 'not isColored red' (1 unbound)
@@ -97,17 +88,17 @@ def parseAsPredicate(s, n_unbound=0):
             args[i] = "_any_"
         elif args[i] == "current":
             if pred.argtypes[i+n_unbound] in actions.tgtypes:
-                try:
-                    args[i] = _getCurrentTarget().message
-                except rospy.ServiceException:
+                cur_tgt = context.getCurrentTarget()
+                if cur_tgt is None:
                     error = NO_CURRENT_TGT
                     return None
+                args[i] = cur_tgt
             elif pred.argtypes[i+n_unbound] == objects.Agent:
-                try:
-                    args[i] = str(_getCurrentAgent(-1).agent.id)
-                except rospy.ServiceException:
+                cur_agt = context.getCurrentAgent()
+                if cur_agt is None:
                     error = NO_CURRENT_AGT
                     return None
+                args[i] = cur_agt.toStr()
             else:
                 error = NO_CUR_MATCH
                 return None
@@ -116,7 +107,7 @@ def parseAsPredicate(s, n_unbound=0):
                        negated=negated, truth=1.0)
     return msg
 
-def parseAsPerm(s):
+def asPerm(s):
     """Parse target-specific action permissions.
     Syntax: 'forbid|allow ACTION on ID|POSITION' 
     Example: 'allow pickUp on 5'
@@ -128,9 +119,8 @@ def parseAsPerm(s):
         return None
     name = match.group(2)
     if name == "current":
-        try:
-            name = _getCurrentAction().message
-        except rospy.ServiceException:
+        name = context.getCurrentAction()
+        if name is None:
             error = NO_CURRENT_ACT
             return None
     if name not in actions.db:
@@ -138,9 +128,8 @@ def parseAsPerm(s):
         return None
     tgt = match.group(3)
     if tgt == "current":
-        try:
-            tgt = _getCurrentTarget().message
-        except rospy.ServiceException:
+        tgt = context.getCurrentTarget()
+        if tgt is None:
             error = NO_CURRENT_TGT
             return None
     truth = float(match.group(1) == "forbid")
@@ -148,7 +137,7 @@ def parseAsPerm(s):
                        negated=False, truth=truth)
     return msg
 
-def parseAsRule(s):
+def asRule(s):
     """Parse deontic rules about actions.
     Syntax: 'forbid|allow ACTION if PREDICATE [ARGS] [and PREDICATE ...]'
     Example: 'forbid trash if isColored red and ownedBy 1'
@@ -160,9 +149,8 @@ def parseAsRule(s):
         return None
     name = match.group(2)
     if name == "current":
-        try:
-            name = _getCurrentAction().message
-        except rospy.ServiceException:
+        name = context.getCurrentAction()
+        if name is None:
             error = NO_CURRENT_ACT
             return None
     if name not in actions.db:
@@ -177,7 +165,7 @@ def parseAsRule(s):
     msg = RuleMsg(name, conditions, "forbid", truth)
     return msg
     
-def parseAsAgent(s):
+def asAgent(s):
     """Parse agent introductions.
     Syntax: 'i am NAME'
     Example: 'i am jake
