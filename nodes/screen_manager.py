@@ -26,6 +26,7 @@ class ScreenManager(object):
         # Image buffers
         self.screen_buf = np.zeros((self.height, self.width, 3), np.uint8)
         self.status_buf = np.zeros((self.height/4, self.width, 3), np.uint8)
+        self.obj_buf = np.zeros((self.height*3/4, self.width/8, 3), np.uint8)
         self.camera_buf = None
 
         # Text buffers
@@ -71,13 +72,14 @@ class ScreenManager(object):
         """Sets camera buffer to received image."""
         self.camera_buf = self.cv_bridge.imgmsg_to_cv2(msg, "bgr8")
 
-    def drawStatus(self):
+    def drawStatusBar(self):
         font = cv2.FONT_HERSHEY_SIMPLEX
         scale = 0.8
         color = (255, 255, 255)
         thickness = 3
         line_type = cv2.CV_AA
 
+        # Clear buffer
         self.status_buf.fill(0)
         # Draw last text command
         cv2.putText(self.status_buf, "CMD: {}".format(self.cmd_buf), 
@@ -92,14 +94,41 @@ class ScreenManager(object):
         cv2.putText(self.status_buf, "TARGET: {}".format(self.tgt_buf), 
                     (20, 120), font, scale, color, thickness, line_type)
 
+    def drawObjectBar(self):
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        scale = 0.5
+        thickness = 2
+        line_type = cv2.CV_AA
+        color_db = {"red": (0,0,255), "green": (0,255,0), "blue": (255,0,0)}
+
+        # Clear buffer
+        self.obj_buf.fill(0)
+        # Draw list header
+        cv2.putText(self.obj_buf, "OBJECTS:", (20, 20), font, scale,
+                    (255, 255, 255), thickness, line_type)
+
+        # Draw object IDs in colored text
+        objs = sorted(list(Object.universe()), key=lambda o : o.id)
+        for i, o in enumerate(objs):
+            color = color_db.get(o.color, (255, 255, 255))
+            position = (20, 40 + i*20)
+            cv2.putText(self.obj_buf, str(o.id), position,
+                        font, scale, color, thickness, line_type)
+
     def drawScreen(self):
         self.screen_buf.fill(0)
 
         # Draw status bar and copy to screen buffer
-        self.drawStatus()
+        self.drawStatusBar()
         status_w = self.status_buf.shape[1]
         status_h = self.status_buf.shape[0]
         self.screen_buf[0:status_h, 0:status_w] = self.status_buf
+
+        # Draw object bar and copy to screen buffer
+        self.drawObjectBar()
+        obj_w = self.obj_buf.shape[1]
+        obj_h = self.obj_buf.shape[0]
+        self.screen_buf[status_h:status_h+obj_h, 0:obj_w] = self.obj_buf
 
         # Copy camera image (if present) to screen buffer
         if self.camera_buf is None:

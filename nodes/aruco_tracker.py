@@ -123,7 +123,7 @@ class ArUcoTracker(OwnershipTracker):
         rospy.logdebug(" Determining Object Color\n")
 
         # Convert to OpenCV image (stored as Numpy array)
-        cv_image = self.cv_bridge.imgmsg_to_cv2(msg, "rgb8")
+        cv_image = self.cv_bridge.imgmsg_to_cv2(msg, "bgr8")
         
         # Draw mask on outer border of ARuco marker
         mask = np.zeros(cv_image.shape[:2], dtype="uint8")
@@ -133,7 +133,7 @@ class ArUcoTracker(OwnershipTracker):
         cv.drawContours(mask, [contour], -1, 0, -1)
 
         # Compute mean color in LAB color space
-        lab_image = cv.cvtColor(cv_image, cv.COLOR_RGB2LAB)
+        lab_image = cv.cvtColor(cv_image, cv.COLOR_BGR2LAB)
         mean = cv.mean(lab_image, mask=mask)[:3]
 
         # Find distance to basic colors, return index of closest color
