@@ -13,6 +13,10 @@
     <!-- Avatars are specific objects which represent owners -->
     <rosparam param="avatar_ids" subst_value="true">
     $(arg avatar_ids)</rosparam>
+
+    <!-- Load structured speech corpus -->
+    <rosparam command="load" param="speech_corpus"
+      	      file="$(find ownage_bot)/speech/structured_corpus.yaml" />
     
     <!-- Load area parameters -->
     <rosparam command="load" param="areas"

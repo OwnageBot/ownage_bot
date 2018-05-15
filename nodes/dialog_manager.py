@@ -11,16 +11,6 @@ class DialogManager(object):
     """Manages dialog with users, generates replies and parses instructions."""
 
     def __init__(self):
-        # Handle input and output to/from users
-        self.text_sub = rospy.Subscriber("text_in", String,
-                                          self.cmdInputCb)
-        self.text_pub = rospy.Publisher("text_out", String,
-                                          queue_size=10)
-        self.speech_sub = rospy.Subscriber("speech_in", String,
-                                          self.speechInputCb)
-        self.speech_pub = rospy.Publisher("speech_out", String,
-                                          queue_size=10)
-
         # Handle input and output from task manager node
         self.task_sub = rospy.Subscriber("task_out", String,
                                          self.taskOutCb)
@@ -71,6 +61,16 @@ class DialogManager(object):
         self.simuAgents = rospy.ServiceProxy("simulation/all_agents",
                                              ListAgents)
 
+        # Handle input and output to/from users
+        self.text_sub = rospy.Subscriber("text_in", String,
+                                          self.cmdInputCb)
+        self.text_pub = rospy.Publisher("text_out", String,
+                                          queue_size=10)
+        self.speech_sub = rospy.Subscriber("speech_in", String,
+                                          self.speechInputCb)
+        self.speech_pub = rospy.Publisher("speech_out", String,
+                                          queue_size=10)
+
     def cmdInputCb(self, msg):
         """Callback wrapper for text command input."""
         self.handleCmd(msg.data)
@@ -82,16 +82,17 @@ class DialogManager(object):
                         parse.speech.asReprimand,
                         parse.speech.asClaim,
                         parse.speech.asPermission,
-                        parse.speech.asAction
+                        parse.speech.asAction,
                         parse.speech.asTask,
                         parse.speech.asReset]:
-            cmd = parse_f(utt)
+            cmd, reply = parse_f(utt)
             if cmd is not None:
                 if type(cmd) is list:
                     for c in cmd:
                         self.handleCmd(c)
                 else:
                     self.handleCmd(cmd)
+                self.speech_pub.publish(reply)
                 return
         
     def taskOutCb(self, msg):
@@ -122,22 +123,22 @@ class DialogManager(object):
             self.handleDisable(args)
             return
         # Try parsing as agent introduction
-        agent = parse.cmd.asAgent(msg.data)
+        agent = parse.cmd.asAgent(cmd)
         if agent:
             self.agent_pub.publish(agent)            
             return
         # Try parsing a one-shot task (i.e. an action)
-        task = parse.cmd.asAction(msg.data)
+        task = parse.cmd.asAction(cmd)
         if task:
             self.task_pub.publish(task)
             return
         # Try parsing a higher level task
-        task = parse.cmd.asTask(msg.data)
+        task = parse.cmd.asTask(cmd)
         if task:
             self.task_pub.publish(task)
             return
         # Try to parse as ownership claim
-        pred = parse.cmd.asPredicate(msg.data)
+        pred = parse.cmd.asPredicate(cmd)
         if pred:
             if pred.predicate != predicates.OwnedBy.name:
                 self.text_pub.publish("Only ownedBy predicate is handled.")
@@ -146,13 +147,13 @@ class DialogManager(object):
             self.owner_pub.publish(pred)
             return
         # Try to parse object-specific permissions
-        perm = parse.cmd.asPerm(msg.data)
+        perm = parse.cmd.asPerm(cmd)
         if perm:
             self.text_pub.publish(str(perm))
             self.perm_pub.publish(perm)
             return
         # Try to parse rules that govern actions
-        rule = parse.cmd.asRule(msg.data)
+        rule = parse.cmd.asRule(cmd)
         if rule:
             self.text_pub.publish(str(rule))
             self.rule_pub.publish(rule)

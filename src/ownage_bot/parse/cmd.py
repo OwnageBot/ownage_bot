@@ -6,6 +6,7 @@ from .. import actions
 from .. import rules
 from .. import tasks
 from .. import context
+from ownage_bot.msg import *
 
 error = ""
 
@@ -98,7 +99,7 @@ def asPredicate(s, n_unbound=0):
                 if cur_agt is None:
                     error = NO_CURRENT_AGT
                     return None
-                args[i] = cur_agt.toStr()
+                args[i] = cur_agt.name
             else:
                 error = NO_CUR_MATCH
                 return None
