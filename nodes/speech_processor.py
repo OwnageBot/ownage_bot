@@ -59,21 +59,22 @@ class SpeechProcessor(object):
                               frames_per_buffer=self.audio_buffer_size,
                               input_device_index=dev_id)
 
+        # Service for speech synthesis through SVOX
+        self.svox_tts = rospy.ServiceProxy("/svox_tts/speech", Speech)
+
         # Publish speech commands to dialog manager
         self.speech_pub = rospy.Publisher("speech_in", 
                                           String, queue_size=10)
         # Subscribes to text for voice synthesis
         self.speech_sub = rospy.Subscriber("speech_out", String,
-                                           self.outputCb)
-
-        # Service for speech synthesis through SVOX
-        self.svox_tts = rospy.ServiceProxy("/svox_tts/speech", Speech)
-
+                                           self.speechOutCb)
     
-    def outputCb(self, msg):
+    def speechOutCb(self, msg):
         """Send speech to synthesizer."""
-        out = msg.data
-        self.svox_tts(mode=5, string=out)
+        try:
+            self.svox_tts(mode=5, string=msg.data)
+        except rospy.ServiceException:
+            rospy.logwarn("Could not call speech synthesis service.")
 
     def processStream(self):
         """Continuously process audio stream until shutdown."""
@@ -91,13 +92,13 @@ class SpeechProcessor(object):
                     # Terminate and process utterance upon silence
                     if not speech_detected:
                         self.decoder.end_utt()
-                        self.sendUtterance()
+                        self.processUtterance()
                         self.decoder.start_utt()
             else:
                 break
 
-    def sendUtterance(self):
-        """Sends utterance to dialog manager."""
+    def processUtterance(self):
+        """Sends utterance to dialog manager for processing."""
         if self.decoder.hyp() is None:
             return
         utt = self.decoder.hyp().hypstr.lower()
