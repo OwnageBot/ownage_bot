@@ -106,9 +106,12 @@
     <!-- Speech processor node -->
     <node pkg="ownage_bot" type="speech_processor.py"
 	  name="speech_processor" if="$(arg use_speech)">
-      <rosparam command="load" param="corpus"
-      		file="$(find ownage_bot)/speech/structured_corpus.yaml" />
-  </node>
+    </node>
+
+    <!-- Screen manager node -->
+    <node pkg="ownage_bot" type="screen_manager.py"
+	  name="screen_manager" unless="$(arg simulation)">
+    </node>
 
   </group>
 
