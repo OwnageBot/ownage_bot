@@ -71,13 +71,20 @@ class DialogManager(object):
         self.speech_pub = rospy.Publisher("speech_out", String,
                                           queue_size=10)
 
+        self.cmd_pub = rospy.Publisher("last_cmd", String,
+                                       queue_size=10)
+        self.utt_pub = rospy.Publisher("last_utt", String,
+                                       queue_size=10)
+
     def cmdInputCb(self, msg):
         """Callback wrapper for text command input."""
+        self.cmd_pub.publish(msg.data)
         self.handleCmd(msg.data)
         
     def speechInputCb(self, msg):
         """Parses natural speech utterances as text commands."""
         utt = msg.data
+        self.utt_pub.publish(utt)
         for parse_f in [parse.speech.asIntroduction,
                         parse.speech.asReprimand,
                         parse.speech.asClaim,
@@ -90,8 +97,10 @@ class DialogManager(object):
                 if type(cmd) is list:
                     for c in cmd:
                         self.handleCmd(c)
+                        self.cmd_pub.publish(c)
                 else:
                     self.handleCmd(cmd)
+                    self.cmd_pub.publish(cmd)
                 self.speech_pub.publish(reply)
                 return
         
