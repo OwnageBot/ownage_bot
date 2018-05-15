@@ -27,6 +27,8 @@ class TaskManager(object):
         # Subscribers and publishers
         self.task_in_sub = rospy.Subscriber("task_in", TaskMsg, self.taskInCb)
         self.task_out_pub = rospy.Publisher("task_out", String, queue_size=10)
+        self.cur_act_pub = rospy.Publisher("cur_action", String, queue_size=10)
+        self.cur_tgt_pub = rospy.Publisher("cur_target", String, queue_size=10)
 
         # Look up clients for object permissions, and rules
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
@@ -140,10 +142,15 @@ class TaskManager(object):
                     format(action.name, tgt.toPrint())
                 self.task_out_pub.publish(out)
                 continue
-            # Call action if all checks pass
+            # Update and publish current action and target
             if action != actions.Cancel:
                 self.cur_action = action
                 self.cur_target = tgt
+                act_str = action.name
+                tgt_str = "" if tgt is None else tgt.toStr()
+                self.cur_act_pub.publish(act_str)
+                self.cur_tgt_pub.publish(tgt_str)
+            # Call action if all checks pass
             resp = action.call(tgt)
             if not resp.success:
                 self.task_out_pub.publish(resp.response)

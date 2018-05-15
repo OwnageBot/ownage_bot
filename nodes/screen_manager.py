@@ -31,12 +31,18 @@ class ScreenManager(object):
         # Text buffers
         self.speech_buf = ""
         self.cmd_buf = ""
+        self.act_buf = ""
+        self.tgt_buf = ""
         
         # Subscribers and publishers
         self.cmd_sub = rospy.Subscriber("last_cmd", String,
-                                          self.cmdInputCb)
+                                        self.cmdInputCb)
         self.speech_sub = rospy.Subscriber("last_utt", String,
                                           self.speechInputCb)
+        self.act_sub = rospy.Subscriber("cur_action", String,
+                                        self.actInputCb)
+        self.tgt_sub = rospy.Subscriber("cur_target", String,
+                                        self.tgtInputCb)
         self.camera_sub = rospy.Subscriber("/aruco_marker_publisher/result",
                                            Image, self.cameraCb)
         self.screen_pub = rospy.Publisher("/robot/xdisplay",
@@ -53,13 +59,21 @@ class ScreenManager(object):
         """Sets speech buffer to received string."""
         self.speech_buf = msg.data
 
+    def actInputCb(self, msg):
+        """Sets action buffer to received string."""
+        self.act_buf = msg.data
+
+    def tgtInputCb(self, msg):
+        """Sets target buffer to received string."""
+        self.tgt_buf = msg.data
+
     def cameraCb(self, msg):
         """Sets camera buffer to received image."""
-        self.camera_buf = self.cv_bridge.imgmsg_to_cv2(msg, "rgb8")
+        self.camera_buf = self.cv_bridge.imgmsg_to_cv2(msg, "bgr8")
 
     def drawStatus(self):
         font = cv2.FONT_HERSHEY_SIMPLEX
-        scale = 1
+        scale = 0.8
         color = (255, 255, 255)
         thickness = 3
         line_type = cv2.CV_AA
@@ -67,10 +81,16 @@ class ScreenManager(object):
         self.status_buf.fill(0)
         # Draw last text command
         cv2.putText(self.status_buf, "CMD: {}".format(self.cmd_buf), 
-                    (20, 40), font, scale, color, thickness, line_type)
+                    (20, 30), font, scale, color, thickness, line_type)
         # Draw last speech utterance
         cv2.putText(self.status_buf, "SPEECH: {}".format(self.speech_buf), 
-                    (20, 80), font, scale, color, thickness, line_type)
+                    (20, 60), font, scale, color, thickness, line_type)
+        # Draw current/last action
+        cv2.putText(self.status_buf, "ACTION: {}".format(self.act_buf), 
+                    (20, 90), font, scale, color, thickness, line_type)
+        # Draw current/last target
+        cv2.putText(self.status_buf, "TARGET: {}".format(self.tgt_buf), 
+                    (20, 120), font, scale, color, thickness, line_type)
 
     def drawScreen(self):
         self.screen_buf.fill(0)
