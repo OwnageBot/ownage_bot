@@ -1,6 +1,6 @@
 <launch>
   <!-- Speech synthesis arguments -->
-  <arg name="synth_pitch"    default="80"   />
+  <arg name="synth_pitch"    default="65"   />
   <arg name="synth_speed"    default="80"  />
   <arg name="synth_lang"     default="en-US"/>
 

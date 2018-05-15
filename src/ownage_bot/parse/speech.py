@@ -43,7 +43,7 @@ def asIntroduction(utt):
     """Parse utterance as agent introduction, return AgentMsg."""
     syn_list = corpus.get("introductions", "").splitlines()
     agt_list = corpus.get("agents", "").splitlines()
-    reply = replies.get("introductions", "hello")
+    reply = replies.get("introductions", "hi i'm baxter")
     for syn in syn_list:
         pattern = pre_re + syn + arg_re
         match = re.match(pattern, utt)
@@ -110,7 +110,7 @@ def asClaim(utt):
 def asReprimand(utt):
     """Parse utterance as reprimand."""
     reprimand_db = corpus.get("reprimands", dict())
-    reply = replies.get("reprimands", "sorry")
+    reply = replies.get("reprimands", "sorry about that")
     for rep, msgs in reprimand_db.iteritems():
         pattern = pre_re + rep + post_re
         match = re.match(pattern, utt)
