@@ -37,6 +37,13 @@
         green : [[30, 80, 20], [100, 246, 96]]
         blue : [[80, 120, 70], [130, 216, 146]]
     </rosparam>
+
+    <!-- Load color labels for specific objects -->
+    <rosparam param="color_labels">
+      red : [2, 12, 19]
+      green : [4, 5, 9, 10]
+      blue : [1, 3, 6]
+    </rosparam>
        
     <!-- Load simulation and scenario parameters -->
     <group if="$(arg simulation)">
@@ -53,6 +60,7 @@
       <!-- How often (in seconds) objects get updated -->
       <param name="aruco_latency" type="double" value="0.1"/>
       <param name="endpoint_latency" type="double" value="0.1"/>
+      <!-- Flags for ownership inference and extrapolation-->
       <param name="disable_inference" type="bool" value="false"/>
       <param name="disable_extrapolate" type="bool" value="false"/>
     </node>
@@ -63,8 +71,10 @@
       <!-- How often (in seconds) objects get updated -->
       <param name="simulated_latency" type="double" value="0.1"/>
       <param name="default_prior" type="double" value="0.5"/>
+      <!-- Flags for ownership inference and extrapolation-->
       <param name="disable_inference" type="bool" value="false"/>
       <param name="disable_extrapolate" type="bool" value="true"/>
+      <param name="hardcode_color" type="bool" value="true"/>
     </node>
 
     <!-- Agent tracker node -->

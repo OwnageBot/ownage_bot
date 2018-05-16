@@ -26,6 +26,11 @@ class ArUcoTracker(OwnershipTracker):
         self.act_spd_thresh = rospy.get_param("~act_spd_thresh", 0.25)
         # Distance threshold above which an action is detected (in meters)
         self.act_dist_thresh = rospy.get_param("~act_dist_thresh", 0.1)
+
+        # Whether colors are hard-coded or detected
+        self.hardcode_color = rospy.get_param("~hardcode_color", True)
+        # Load hard-coded color labels
+        self.color_labels = rospy.get_param("color_labels", dict())
         
         # Margins around ARuco tag for color determination
         self.in_offset = rospy.get_param("~in_offset", 1)
@@ -38,6 +43,7 @@ class ArUcoTracker(OwnershipTracker):
         # Computer vision
         self.cv_bridge = CvBridge();
         # List of basic colors
+        self.color_strs = ["red", "blue", "green"]
         self.color_db = [(110, 45, 50), # Red
                          (40, 70, 60),  # Green
                          (35, 55, 115)] # Blue
@@ -86,15 +92,16 @@ class ArUcoTracker(OwnershipTracker):
             if k in self.object_db:
                 av = self.object_db[k]
                 obj.proximities[i] = objects.dist(obj.position, av.position)
-        # Hard-code colors for now
-        if marker.id in [2, 12, 19]:
-            obj.color = "red"
-        elif marker.id in [4, 5, 9, 10]:
-            obj.color = "green"
-        elif marker.id in [1, 3, 6]:
-           obj.color = "blue"
-        # obj.color = self.determineColor(self.last_image, marker)
-        # Update time
+        # Update color
+        if self.hardcode_color:
+            for color, o_ids in self.color_labels.iteritems():
+                if obj.id in o_ids:
+                    obj.color = color
+                    break
+            else:
+                obj.color = "none"
+        else:
+            obj.color = self.determineColor(self.last_image, marker)
         obj.t_last_update = t_update
 
     def markersCb(self, msg):
@@ -143,9 +150,8 @@ class ArUcoTracker(OwnershipTracker):
             dist = sum(np.square(c[0]-mean))
             if dist < minDist:
                 minDist = dist
-                colorId = i
- 
-        return colorId
+                colorId = i 
+        return self.color_strs[colorId]
 
 if __name__ == '__main__':
     rospy.init_node('object_tracker')
