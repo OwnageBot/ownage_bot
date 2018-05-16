@@ -48,12 +48,12 @@ Cancel._call = _cancel
 
 GoHome = Action("goHome")
 def _goHome(target):
-    return _service_left("home", ObjectMsg(), Point())
+    return _service_left("goHome", ObjectMsg(), Point())
 GoHome._call = _goHome
 
 MoveTo = Action("moveTo", Location)
 def _moveTo(target):
-    return _service_left("move", ObjectMsg(), Point(*target.position))
+    return _service_left("moveTo", ObjectMsg(), Point(*target.position))
 MoveTo._call = _moveTo
 
 Scan = Action("scan")
@@ -66,18 +66,18 @@ def _scan(target):
                                  [0.507, -0.303, 0.218]])
     ret = None
     for p in scan_path:
-        ret = _service_left("move", ObjectMsg(), Point(*p))
+        ret = _service_left("moveTo", ObjectMsg(), Point(*p))
     return ret
 Scan._call = _scan
 
 PickUp = Action("pickUp", Object)
 def _pickUp(target):
-    return _service_left("get", target.toMsg(), Point())
+    return _service_left("pickUp", target.toMsg(), Point())
 PickUp._call = _pickUp
     
 PutDown = Action("putDown")
 def _putDown(target):
-    return _service_left("put", ObjectMsg(), Point())
+    return _service_left("putDown", ObjectMsg(), Point())
 PutDown._call = _putDown
 
 Release = Action("release")

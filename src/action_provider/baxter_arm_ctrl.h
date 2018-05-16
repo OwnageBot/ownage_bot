@@ -32,23 +32,14 @@
 // Quartenion for vertical orientation
 #define VERTICAL_ORI        0.0,  1.0,  0.0,  0.0
 
-// Actions provided that are not defined in robot_utils/util.h
-#define ACTION_MOVE "move"
-#define ACTION_FIND "find"
-#define ACTION_PUT "put"
-#define ACTION_OFFER "offer"
-#define ACTION_REPLACE "replace"
-#define ACTION_WAIT "wait"
-
 // Action target types
 #define TARGET_NONE "none"
 #define TARGET_OBJECT "object"
 #define TARGET_LOCATION "location"
 
-// Additional error messages
-#define ACT_CANCELLED "Action cancelled by user"
-#define OBJECT_HELD "An object is already being held"
-#define NO_OBJECT_HELD "No object is currently being held"
+// Macro for long namespace
+#define ACT_REQ ownage_bot::CallAction::Request
+#define ACT_RESP ownage_bot::CallAction::Response
 
 // Height at which objects are released when put down
 #define Z_RELEASE (-0.1)

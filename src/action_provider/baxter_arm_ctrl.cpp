@@ -27,15 +27,24 @@ BaxterArmCtrl::BaxterArmCtrl(string _name, string _limb,
     lookup_obj_client =
         nh.serviceClient<LookupObject>("/ownage_bot/lookup_object");
 
-    insertAction(ACTION_HOME, &BaxterArmCtrl::goHome, TARGET_NONE);
-    insertAction(ACTION_RELEASE, &BaxterArmCtrl::releaseObject, TARGET_NONE);
-    insertAction(ACTION_MOVE, &BaxterArmCtrl::moveToLocation, TARGET_LOCATION);
-    insertAction(ACTION_FIND, &BaxterArmCtrl::findObject, TARGET_OBJECT);
-    insertAction(ACTION_GET, &BaxterArmCtrl::pickObject, TARGET_OBJECT);
-    insertAction(ACTION_PUT, &BaxterArmCtrl::putObject, TARGET_NONE);
-    insertAction(ACTION_OFFER, &BaxterArmCtrl::offerObject, TARGET_OBJECT);
-    insertAction(ACTION_REPLACE, &BaxterArmCtrl::replaceObject, TARGET_NONE);
-    insertAction(ACTION_WAIT, &BaxterArmCtrl::waitForFeedback, TARGET_NONE);
+    insertAction(ACT_REQ::_ACTION_GOHOME,
+		 &BaxterArmCtrl::goHome, TARGET_NONE);
+    insertAction(ACT_REQ::_ACTION_RELEASE,
+		 &BaxterArmCtrl::releaseObject, TARGET_NONE);
+    insertAction(ACT_REQ::_ACTION_MOVETO,
+		 &BaxterArmCtrl::moveToLocation, TARGET_LOCATION);
+    insertAction(ACT_REQ::_ACTION_FIND,
+		 &BaxterArmCtrl::findObject, TARGET_OBJECT);
+    insertAction(ACT_REQ::_ACTION_PICKUP,
+		 &BaxterArmCtrl::pickObject, TARGET_OBJECT);
+    insertAction(ACT_REQ::_ACTION_PUTDOWN,
+		 &BaxterArmCtrl::putObject, TARGET_NONE);
+    insertAction(ACT_REQ::_ACTION_OFFER,
+		 &BaxterArmCtrl::offerObject, TARGET_OBJECT);
+    insertAction(ACT_REQ::_ACTION_REPLACE,
+		 &BaxterArmCtrl::replaceObject, TARGET_NONE);
+    insertAction(ACT_REQ::_ACTION_WAIT,
+		 &BaxterArmCtrl::waitForFeedback, TARGET_NONE);
 }
 
 bool BaxterArmCtrl::startThread()
@@ -49,7 +58,6 @@ bool BaxterArmCtrl::startThread()
 
 void BaxterArmCtrl::InternalThreadEntry()
 {
-    nh.param<bool>("internal_recovery",  internal_recovery, true);
     ROS_INFO("[%s] Internal_recovery flag set to %s", getLimb().c_str(),
                                 internal_recovery==true?"true":"false");
 
@@ -63,7 +71,7 @@ void BaxterArmCtrl::InternalThreadEntry()
         ros::Duration(2.0).sleep();
         setState(DONE);
     }
-    else if (a == ACTION_HOME || a == ACTION_RELEASE)
+    else if (a == ACT_REQ::_ACTION_GOHOME || a == ACT_REQ::_ACTION_RELEASE)
     {
         if (callAction(a))   setState(DONE);
     }
@@ -123,7 +131,7 @@ bool BaxterArmCtrl::serviceCb(CallAction::Request &req,
         ROS_ERROR("[%s] Action %s is not in the database!",
                   getLimb().c_str(), action.c_str());
         res.success = false;
-        res.response = ACT_NOT_IN_DB;
+        res.response = ACT_RESP::_ACT_NOT_IN_DB;
         return true;
     }
 
@@ -152,29 +160,29 @@ bool BaxterArmCtrl::serviceCb(CallAction::Request &req,
                           int(getState()) != ERROR   &&
                           int(getState()) != DONE      ))
     {
-        if (ros::isShuttingDown())
+      if (ros::isShuttingDown())
         {
-            setState(KILLED);
-            return true;
+	  setState(KILLED);
+	  return true;
         }
 
-        if (getState() == KILLED)
+      if (getState() == KILLED)
         {
-            res.response = ACT_CANCELLED;
-            break;
+	  res.response = ACT_RESP::_ACT_KILLED;
+	  break;
         }
 
-        r.sleep();
+      r.sleep();
     }
 
     if (int(getState()) == START || int(getState()) == DONE)
     {
-        res.success = true;
+      res.success = true;
     }
 
     if (getState() == ERROR)
     {
-        res.response = getSubState();
+      res.response = getSubState();
     }
 
     ROS_INFO("[%s] Service reply with success: %s\n", getLimb().c_str(),
@@ -237,9 +245,9 @@ bool BaxterArmCtrl::callAction(const std::string &a)
     }
     else
     {
-        setSubState(ACT_NOT_IN_DB);
-        ROS_ERROR("[%s] Action %s is not in the database!",
-                  getLimb().c_str(), a.c_str());
+      setSubState(ACT_RESP::_ACT_NOT_IN_DB);
+      ROS_ERROR("[%s] Action %s is not in the database!",
+		getLimb().c_str(), a.c_str());
     }
 
     return false;
@@ -338,9 +346,9 @@ bool BaxterArmCtrl::goToPose(double px, double py, double pz,
     bool res = RobotInterface::goToPose(px, py, pz,
                                         ox, oy, oz, ow, mode, disable_coll_av);
 
-    if (res == false && getSubState() != ACT_KILLED)
+    if (res == false && getSubState() != ACT_RESP::_ACT_KILLED)
     {
-        setSubState(INV_KIN_FAILED);
+      setSubState(ACT_RESP::_INV_KIN_FAILED);
     }
 
     return res;
@@ -462,6 +470,7 @@ bool BaxterArmCtrl::findObject()
     return false;
   }
   if (!srv.response.success) {
+    setSubState(ACT_RESP::_OBJ_NOT_TRACKED);
     ROS_ERROR("[%s] Object %d not tracked!\n",
               getLimb().c_str(), srv.request.id);
     return false;
@@ -482,6 +491,7 @@ bool BaxterArmCtrl::offerObject()
     return false;
   }
   if (!srv.response.success) {
+    
     ROS_ERROR("[%s] Object %d not tracked!\n",
               getLimb().c_str(), srv.request.id);
     return false;
@@ -511,12 +521,16 @@ bool BaxterArmCtrl::pickObject()
 {
   // Check if object is currently held
   if (Gripper::is_gripping()) {
-    setSubState(OBJECT_HELD);
+    setSubState(ACT_RESP::_OBJ_HELD);
     return false;
   }
-  if (!reachObject())               return false;
+  if (!findObject())               return false;
+  if (!reachObject()) {
+    setSubState(ACT_RESP::_OBJ_NOT_TRACKED);
+    return false;
+  }
   if (!Gripper::close())              return false;
-  setSubState(ACTION_GET);
+  setSubState(ACT_REQ::_ACTION_PICKUP);
   // Move up from current position to Z_LOW
   geometry_msgs::Point p = getPos();
   if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI)) return false;
@@ -527,7 +541,7 @@ bool BaxterArmCtrl::putObject()
 {
   // Check if object is currently held
   if (!Gripper::is_gripping()) {
-    setSubState(NO_OBJECT_HELD);
+    setSubState(ACT_RESP::_OBJ_NOT_HELD);
     return false;
   }
   // Move down from current position to Z_RELEASE
@@ -544,7 +558,7 @@ bool BaxterArmCtrl::replaceObject()
 {
   // Check if object is currently held
   if (!Gripper::is_gripping()) {
-    setSubState(NO_OBJECT_HELD);
+    setSubState(ACT_RESP::_OBJ_NOT_HELD);
     return false;
   }
   // Move to location of last picked object and release
@@ -568,25 +582,29 @@ bool BaxterArmCtrl::waitForFeedback()
 
 bool BaxterArmCtrl::setState(int _state)
 {
-    ROS_DEBUG("[%s] Setting state to %i", getLimb().c_str(), _state);
-
-    if (_state == KILLED && getState() != WORKING)
+  ROS_DEBUG("[%s] Setting state to %i", getLimb().c_str(), _state);
+    
+  if (_state == KILLED && getState() != WORKING)
     {
-        ROS_WARN_THROTTLE(2, "[%s] Attempted to kill a non-working controller",
-                          getLimb().c_str());
-        return false;
+      ROS_WARN_THROTTLE(2, "[%s] Attempted to kill a non-working controller",
+			getLimb().c_str());
+      return false;
+    }
+  
+  if (_state == DONE)
+    {
+      setSubState(getAction());
+    }
+  else if (_state == ERROR && getSubState() == "")
+    {
+      setSubState(ACT_RESP::_ACT_FAILED);
+    }
+  else if (_state == KILLED)
+    {
+      setSubState(ACT_RESP::_ACT_KILLED);
     }
 
-    if      (_state == DONE)
-    {
-        setSubState(getAction());
-    }
-    else if (_state == ERROR && getSubState() == "")
-    {
-        setSubState(ACT_KILLED);
-    }
-
-    return RobotInterface::setState(_state);
+  return RobotInterface::setState(_state);
 }
 
 void BaxterArmCtrl::setSubState(const string& _sub_state)

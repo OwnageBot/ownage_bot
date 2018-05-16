@@ -1,6 +1,16 @@
 # Action to request to the controller. It is application-dependent,
 # but some defaults are available.
 
+string _ACTION_GOHOME    = goHome
+string _ACTION_RELEASE   = release
+string _ACTION_MOVETO    = moveTo
+string _ACTION_FIND      = find
+string _ACTION_PICKUP    = pickUp
+string _ACTION_PUTDOWN   = putDown
+string _ACTION_OFFER     = offer
+string _ACTION_REPLACE   = replace
+string _ACTION_WAIT      = wait
+
 string action
 
 # Target object
@@ -10,9 +20,21 @@ ownage_bot/ObjectMsg object
 geometry_msgs/Point location
 
 ---
+# Default error messages
+string _ACT_KILLED       = Action killed by user
+string _ACT_FAILED       = Action failed
+string _ACT_NOT_IN_DB    = Action not recognized
+string _ACT_NOT_IMPL     = Action not implemented
+string _INV_KIN_FAILED   = The requested pose could not be reached
+string _OBJ_NOT_TRACKED  = Requested object is not being tracked
+string _OBJ_NOT_REACHED  = The object could not be reached
+string _OBJ_HELD         = An object is already being held
+string _OBJ_NOT_HELD     = No object is currently being held
 
 # True false if action was successful or not
 bool   success
 
 # Additional error information
 string response
+
+
