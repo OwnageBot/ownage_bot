@@ -15,6 +15,12 @@ class TaskManager(object):
     def __init__(self):
         # Duration in seconds between action updates
         self.update_latency = rospy.get_param("task_update", 0.5)
+        # Duration in seconds to pause upon forbidden action
+        self.forbid_pause = rospy.get_param("forbid_pause", 0.5)
+        # No pauses if running in simulation
+        if rospy.get_param("simulation", False):
+            self.forbid_pause = 0.0
+
         # Current task, action, and target
         self.cur_task = tasks.Idle
         self.cur_action = actions.Empty
@@ -136,12 +142,6 @@ class TaskManager(object):
             # Check if action still needs to be done
             if self.cur_task.checkActionDone(action, tgt):
                 continue
-            # Check if action is forbidden by permissions or rules
-            if self.checkPerm(action, tgt) or self.checkRules(action, tgt):
-                out = "{} on {} is forbidden".\
-                    format(action.name, tgt.toPrint())
-                self.task_out_pub.publish(out)
-                continue
             # Update and publish current action and target
             if action != actions.Cancel:
                 self.cur_action = action
@@ -150,6 +150,13 @@ class TaskManager(object):
                 tgt_str = "" if tgt is None else tgt.toStr()
                 self.cur_act_pub.publish(act_str)
                 self.cur_tgt_pub.publish(tgt_str)
+            # Check if action is forbidden by permissions or rules
+            if self.checkPerm(action, tgt) or self.checkRules(action, tgt):
+                out = "{} on {} is forbidden".\
+                    format(action.name, tgt.toPrint())
+                self.task_out_pub.publish(out)
+                rospy.sleep(self.forbid_pause)
+                continue
             # Call action if all checks pass
             resp = action.call(tgt)
             if not resp.success:
