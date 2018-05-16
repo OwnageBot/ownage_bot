@@ -53,6 +53,20 @@
       <rosparam command="load" param="blocks_world"
 	      file="$(find ownage_bot)/params/blocks_world.yaml" />
     </group>
+
+    <!-- World display node (actual)-->
+    <node pkg="ownage_bot" type="world_display.py"
+	  name="world_display" unless="$(arg simulation)">
+      <param name="swap_xy" type="bool" value="true"/>
+      <param name="flip_xy" type="bool" value="true"/>
+    </node>
+
+    <!-- World display node (simulated)-->
+    <node pkg="ownage_bot" type="world_display.py"
+	  name="world_display" if="$(arg simulation)">
+      <param name="swap_xy" type="bool" value="false"/>
+      <param name="flip_xy" type="bool" value="false"/>
+    </node>
     
     <!-- Object tracker node (actual) -->
     <node pkg="ownage_bot" type="baxter_tracker.py"
@@ -124,6 +138,13 @@
     </node>
 
   </group>
+
+  <!-- Show the world display in a window -->
+  <node name="world_view" pkg="image_view"
+        type="image_view" respawn="false">
+    <remap from="image" to="/ownage_bot/world_display"/>
+    <param name="autosize" value="true" />
+  </node>
 
   <!-- Use real-world action and perception if not in simulation -->
   <group unless="$(arg simulation)">
