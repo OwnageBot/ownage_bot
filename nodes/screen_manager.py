@@ -107,13 +107,20 @@ class ScreenManager(object):
         cv2.putText(self.obj_buf, "OBJECTS:", (20, 20), font, scale,
                     (255, 255, 255), thickness, line_type)
 
-        # Draw object IDs in colored text
+        # Draw object IDs and probability of ownership by current agent
+        agt = context.getCurrentAgent()
         objs = sorted(list(Object.universe()), key=lambda o : o.id)
         for i, o in enumerate(objs):
+            # Draw object ID
             color = color_db.get(o.color, (255, 255, 255))
             position = (20, 40 + i*20)
             cv2.putText(self.obj_buf, str(o.id), position,
                         font, scale, color, thickness, line_type)
+            # Draw ownership probability
+            own_prob = 0.0 if agt is None else o.ownership.get(agt.id, 0.0)
+            prob_bar_len = int(own_prob * 60)
+            cv2.rectangle(self.obj_buf, (50, 28+i*20), (50+prob_bar_len, 42+i*20),
+                          (255, 255, 255), -1)
 
     def drawScreen(self):
         self.screen_buf.fill(0)
