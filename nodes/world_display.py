@@ -34,6 +34,8 @@ class WorldDisplay(object):
         self.swap_xy = rospy.get_param("~swap_xy", True)
         # Flag to flip X and Y axes (set to True to match Baxter camera output)
         self.flip_xy = rospy.get_param("~flip_xy", True)
+        # Flag to color objects by ownership probability
+        self.owner_heatmap = rospy.get_param("~owner_heatmap", -1)
         # Radius in pixels of the circular object markers
         self.obj_radius = rospy.get_param("~obj_radius", 8)
         # Mapping from color names to RGB values
@@ -48,8 +50,17 @@ class WorldDisplay(object):
 
     def drawObject(self, obj):
         """Draws object on display buffer."""
-        # Convert color name to BGR value
+        # Convert color name to RGB value
         color = self.color_db.get(obj.color, (255, 255, 255))
+        if self.owner_heatmap < 0:
+            # Color by object color
+            obj_color = color
+            txt_color = (255, 255, 255)
+        else:
+            # Color by ownership probability
+            own_prob = obj.ownership.get(self.owner_heatmap, 0.5)
+            obj_color = (int(own_prob * 255), ) * 3
+            txt_color = color
         # Transform from actual coordinates to pixels
         x = int(self.scaling * (obj.position.x - self.origin[0]))
         y = int(self.scaling * (obj.position.y - self.origin[1]))
@@ -58,10 +69,10 @@ class WorldDisplay(object):
         if self.flip_xy:
             x, y = self.width - x, self.height - y
         # Draw filled circle at pixel coordinates
-        cv2.circle(self.disp_buf, (x, y), self.obj_radius, color, -1)
+        cv2.circle(self.disp_buf, (x, y), self.obj_radius, obj_color, -1)
         # Draw object ID on top of circle
         cv2.putText(self.disp_buf, str(obj.id), (x, y),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2, cv2.CV_AA)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, txt_color, 2, cv2.CV_AA)
 
 
     def drawDisplay(self):
