@@ -197,11 +197,11 @@ def asPermission(utt):
             if match is None:
                 continue
             # Parse remaining segment as action command
-            act_s = asAction(match.group(1))
-            if act_s is None:
+            act_cmd, act_reply = asAction(match.group(1))
+            if act_cmd is None:
                 error = "Action not recognized."
                 return (None, None)
-            act_w = act_s.split()
+            act_w = act_cmd.split()
             act = act_w[0]
             tgt = "current" if (len(act_w) < 2) else act_w[1]
             return ("{} {} on {}".format(val, act, tgt), reply)

@@ -169,7 +169,7 @@ class DialogManager(object):
             return
 
         # Error out if nothing works
-        out = "Could not parse input: {}".format(cmd.error)
+        out = "Could not parse input: {}".format(parse.cmd.error)
         self.text_pub.publish(out)
         
     def handleList(self, args):
