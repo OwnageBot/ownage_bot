@@ -10,7 +10,6 @@ class Rule(object):
     # Constants defining rule types
     forbidden = "forbid"
     allowed = "allow"
-    obligatory = "ensure"
     
     def __init__(self, action=actions.Empty, conditions=[],
                  detype="forbid"):
@@ -201,6 +200,13 @@ class Rule(object):
         cond_str = " and ".join([p.toPrint() for p in self.conditions])
         return "{} {} if {}".format(self.detype, self.action.name, cond_str)
 
+    def toSpeech(self):
+        """Converts to string for speech synthesis."""
+        de_str = "forbidden to" if self.detype == "forbid" else "allowed to"
+        act_str = self.action.toSpeech()
+        cond_str = " and ".join([p.toSpeech() for p in self.conditions])
+        return "i am {} {} if {}".format(de_str, act_str, cond_str)
+    
     def toMsg(self):
         """Convert to ROS message."""
         msg = RuleMsg()

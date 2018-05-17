@@ -50,6 +50,9 @@ class Object(object):
     _universe_cache = []
     _last_cache_time = rospy.Time()
     _cache_latency = rospy.Duration(0.2)
+
+    any_str = "something"
+    nil_str = "it"
     
     def __init__(self, id=-1, name="",
                  position=Point(), orientation=Quaternion(),
@@ -149,6 +152,10 @@ class Object(object):
                 s = ""
             out.append(s)
         return " ".join(out)
+
+    def toSpeech(self):
+        """String for speech synthesis."""
+        return self.toPrint()
     
     @classmethod
     def fromMsg(cls, msg):
@@ -202,6 +209,9 @@ class Agent(object):
     _universe_cache = []
     _last_cache_time = rospy.Time()
     _cache_latency = rospy.Duration(0.5)
+
+    any_str = "somebody"
+    nil_str = "them"
     
     def __init__(self, id=-1, name="", avatar_id=-1):
         self.id = id # Unique ID
@@ -232,6 +242,10 @@ class Agent(object):
         if self.name != "":
             return self.name
         return "agent {}".format(self.id)
+
+    def toSpeech(self):
+        """String for speech synthesis."""
+        return self.toPrint()
     
     def toMsg(self):
         """Converts Agent to a ROS message."""
@@ -286,6 +300,10 @@ class Agent(object):
     
 class Area(object):
     """Defines a 2D polygonal area."""
+
+    any_str = "some"
+    nil_str = "there"
+    
     def __init__(self, points, name=""):
         """Takes an iterable of 2-tuples and stores them."""
         self.name = name
@@ -317,6 +335,10 @@ class Area(object):
         if self.name != "":
             return self.name
         return self.toStr()
+
+    def toSpeech(self):
+        """String for speech synthesis."""
+        return "the " + self.toPrint()
     
     @classmethod
     def fromStr(cls, s):
@@ -347,6 +369,10 @@ class Area(object):
     
 class Location(object):
     """Defines a location in space."""
+
+    any_str = "somewhere"
+    nil_str = "that location"
+    
     def __init__(self, point):
         """Takes a 3-tuple and stores it."""
         if len(point) != 3:
@@ -378,6 +404,10 @@ class Location(object):
         if self.name != "":
             return self.name
         return self.toStr()
+
+    def toSpeech(self):
+        """String for speech synthesis."""
+        return self.toPrint()
     
     @classmethod
     def fromStr(cls, s):
@@ -386,6 +416,10 @@ class Location(object):
 
 class Category(object):
     """Defines a category of objects."""
+
+    any_str = "in some category"
+    nil_str = "in that category"
+    
     def __init__(self, name):
         self.name = name # Human-readable name
 
@@ -407,6 +441,10 @@ class Category(object):
 
     def toPrint(self):
         return self.name
+
+    def toSpeech(self):
+        """String for speech synthesis."""
+        return "a " + self.toPrint()
     
     @classmethod
     def fromStr(cls, s):
@@ -420,6 +458,10 @@ class Category(object):
 
 class Color(Category):
     """Defines a color category."""
+
+    any_str = "some color"
+    nil_str = "that color"
+    
     def __init__(self, name, hsv_range=[[0,0,0],[0,0,0]]):
         self.name = name # Human-readable name
         self.hsv_range = (tuple(hsv_range[0]), tuple(hsv_range[1]))
@@ -437,6 +479,10 @@ class Color(Category):
     def __hash__(self):
         return hash((self.name, self.hsv_range))
 
+    def toSpeech(self):
+        """String for speech synthesis."""
+        return self.name
+    
     @classmethod
     def fromStr(cls, s):
         hsv_range = rospy.get_param("colors/" + s)

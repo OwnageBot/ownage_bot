@@ -9,6 +9,7 @@ class Predicate(object):
     
     def __init__(self, name="", argtypes=[]):
         self.name = name # Human-readable name
+        self.speech_fmt = "{0} is {n}"+name+" {1}" # Format for speech output
         self.n_args = len(argtypes) # Number of arguments
         self.argtypes = argtypes # List of argument types
         self.exc_arg = -1 # Postion of arg for which atoms are exclusive
@@ -189,6 +190,21 @@ class Predicate(object):
                         " or ".join([a.toPrint() for a in b])
                         for b in self.bindings if b != Nil])
         return " ".join([pre, self.name, pos]).strip()
+
+    def toSpeech(self):
+        """Converts to string for speech synthesis."""
+        negate_str = "not " if self.negated else ""
+        speech_bindings = []
+        for b, t in zip(self.bindings, self.argtypes):
+            if b == Nil:
+                speech_bindings.append(t.nil_str)
+            elif b == Any:
+                speech_bindings.append(t.any_str)
+            elif type(b) is list:
+                speech_bindings += [a.toSpeech() for a in b]
+            else:
+                speech_bindings.append(b.toSpeech())
+        return self.speech_fmt.format(*speech_bindings, n=negate_str)
     
     def toMsg(self):
         """Convert to PredicateMsg."""
@@ -219,21 +235,26 @@ class Predicate(object):
     
 # List of pre-defined predicates
 Near = Predicate("near", [Object, Object])
+Near.speech_fmt = "{0} is {n}near to {1}"
 Near._apply = lambda o1, o2: dist(o1.position, obj2.position) < 0.4
 
 OwnedBy = Predicate("ownedBy", [Object, Agent])
+OwnedBy.speech_fmt = "{0} is {n}owned by {1}"
 OwnedBy._apply = (lambda obj, agent:
                   0.0 if agent.id not in obj.ownership else
                   obj.ownership[agent.id])
 
 InArea = Predicate("inArea", [Object, Area])
+InArea.speech_fmt = "{0} is {n}in {1} area"
 InArea._apply = lambda obj, area: inArea(obj, area)
 
 InCategory = Predicate("inCategory", [Object, Category])
+InCategory.speech_fmt = "{0} is {n}{1}"
 InCategory._apply = lambda obj, c: (0.0 if c not in obj.categories else
                                     obj.categories[c])
 
 IsColored = Predicate("isColored", [Object, Color])
+IsColored.speech_fmt = "{0} is {n}colored {1}"
 IsColored._apply = lambda obj, col: float(obj.color == col.name)
 IsColored.exc_arg = 1 # Colors are exclusive categories
 

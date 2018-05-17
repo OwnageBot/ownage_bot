@@ -25,7 +25,10 @@ class Action(object):
         self.tgtype = tgtype # Target type
         self.dependencies = dependencies # List of action-target dependencies
         self._call = lambda obj=None : None # Implementation of call()
-
+        self.speech_fmt = name # Format for speech synthesis
+        if tgtype != type(None):
+            self.speech_fmt += " {}"
+        
     def call(self, target=None):
         """Calls action interface after some checks."""
         try:
@@ -34,6 +37,17 @@ class Action(object):
         except rospy.ROSException:
             return CallActionResponse(False, "")
 
+    def toPrint(self):
+        """Converts to human-readable string."""
+        return self.name
+        
+    def toSpeech(self):
+        """Converts to string for speech synthesis."""
+        if self.tgtype == type(None):
+            return self.speech_fmt
+        else:
+            return self.speech_fmt.format(self.tgtype.nil_str)
+        
 # Pre-defined actions
 
 Empty = Action("empty")
@@ -47,11 +61,13 @@ def _cancel(target):
 Cancel._call = _cancel
 
 GoHome = Action("goHome")
+GoHome.speech_fmt = "go home"
 def _goHome(target):
     return _service_left("goHome", ObjectMsg(), Point())
 GoHome._call = _goHome
 
 MoveTo = Action("moveTo", Location)
+MoveTo.speech_fmt = "move to {}"
 def _moveTo(target):
     return _service_left("moveTo", ObjectMsg(), Point(*target.position))
 MoveTo._call = _moveTo
@@ -71,11 +87,13 @@ def _scan(target):
 Scan._call = _scan
 
 PickUp = Action("pickUp", Object)
+PickUp.speech_fmt = "pick {} up"
 def _pickUp(target):
     return _service_left("pickUp", target.toMsg(), Point())
 PickUp._call = _pickUp
     
 PutDown = Action("putDown")
+PutDown.speech_fmt = "put it down"
 def _putDown(target):
     return _service_left("putDown", ObjectMsg(), Point())
 PutDown._call = _putDown
@@ -96,6 +114,7 @@ def _offer(target):
 Offer._call = _offer
 
 Trash = Action("trash", Object, [Find, PickUp, Release])
+Trash.speech_fmt = "throw {} away"
 def _trash(target):
     trash_loc = rospy.get_param("areas/trash/center", [-0.05, 0.85, 0.20])
     trash_loc = Location(trash_loc)
