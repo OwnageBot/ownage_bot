@@ -109,8 +109,11 @@ class DialogManager(object):
         if msg.success:
             return
         if msg.failtype == "error":
+            if msg.error == CallActionResponse._ACT_KILLED:
+                # No need to publish error if action was cancelled on purpose
+                return
             self.text_pub.publish("Action failed: " + msg.error)
-            self.speech_pub.publish("sorry, " + msg.error)
+            self.speech_pub.publish("sorry, " + msg.error.lower())
         elif msg.failtype == "perm":
             perm_txt = "{} on {} is forbidden".format(msg.action, msg.target)
             self.text_pub.publish("Action failed: " + perm_txt)

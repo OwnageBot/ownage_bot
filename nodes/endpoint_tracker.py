@@ -34,13 +34,13 @@ class EndpointTracker(ObjectTracker):
         self.cur_action = msg.action
         if self.cur_action == self.prev_action:
             return
-        if self.cur_action == "get" and int(msg.object) in self.object_db:
+        if self.cur_action == "pickUp" and int(msg.object) in self.object_db:
             # Start tracking object at endpoint
             self.gripped_id = int(msg.object)
             topic = "/robot/limb/left/endpoint_state"
             self.endpoint_sub = \
                 rospy.Subscriber(topic, EndpointState, self.endpointCb)
-        elif self.cur_action in ["put", "release"]:
+        elif self.cur_action in ["putDown", "release"]:
             # Stop tracking object at endpoint
             self.gripped_id = -1
             self.endpoint_sub.unregister()

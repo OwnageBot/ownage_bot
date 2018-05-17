@@ -88,21 +88,22 @@ class ScreenManager(object):
 
         # Clear buffer
         self.status_buf.fill(0)
+        # Draw current agent
+        cv2.putText(self.status_buf, "AGENT: {}".format(self.agt_buf), 
+                    (self.width-320, 30), font, scale,
+                    color, thickness, line_type)
         # Draw last text command
         cv2.putText(self.status_buf, "CMD: {}".format(self.cmd_buf), 
                     (20, 30), font, scale, color, thickness, line_type)
         # Draw last speech utterance
         cv2.putText(self.status_buf, "SPEECH: {}".format(self.speech_buf), 
                     (20, 60), font, scale, color, thickness, line_type)
-        # Draw current agent
-        cv2.putText(self.status_buf, "AGENT: {}".format(self.agt_buf), 
-                    (20, 90), font, scale, color, thickness, line_type)
         # Draw current/last action
         cv2.putText(self.status_buf, "ACTION: {}".format(self.act_buf), 
-                    (120, 90), font, scale, color, thickness, line_type)
+                    (20, 90), font, scale, color, thickness, line_type)
         # Draw current/last target
         cv2.putText(self.status_buf, "TARGET: {}".format(self.tgt_buf), 
-                    (220, 120), font, scale, color, thickness, line_type)
+                    (20, 120), font, scale, color, thickness, line_type)
 
     def drawObjectBar(self):
         font = cv2.FONT_HERSHEY_SIMPLEX

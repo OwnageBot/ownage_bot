@@ -16,7 +16,7 @@ class TaskManager(object):
         # Duration in seconds between action updates
         self.update_latency = rospy.get_param("task_update", 0.5)
         # Duration in seconds to pause upon forbidden action
-        self.forbid_pause = rospy.get_param("forbid_pause", 0.5)
+        self.forbid_pause = rospy.get_param("forbid_pause", 1.5)
         # No pauses if running in simulation
         if rospy.get_param("simulation", False):
             self.forbid_pause = 0.0
@@ -79,7 +79,13 @@ class TaskManager(object):
             self.q_lock.release()
         elif msg.skip:
             # Skip current action and go to next queued action
+            task = self.cur_task
+            self.cur_task = tasks.Idle
             actions.Cancel.call()
+            self.q_lock.acquire()
+            rospy.sleep(self.forbid_pause)
+            self.q_lock.release()
+            self.cur_task = task
             return
         if msg.oneshot:
             # Construct one-shot task if necessary
@@ -163,20 +169,20 @@ class TaskManager(object):
                 self.cur_act_pub.publish(act_str)
                 self.cur_tgt_pub.publish(tgt_str)
             # Fill out feedback message
-            feedback = FeedbackMsg(task=self.cur_task, action=act_str,
+            feedback = FeedbackMsg(task=self.cur_task.name, action=act_str,
                                    target=tgt_str, success=False,
                                    failtype="", error="", violations=[])
-            # Check if action is forbidden by permissions
-            if self.checkPerm(action, tgt):
-                feedback.failtype = "perm"
-                self.task_out_pub.publish(feedback)
-                rospy.sleep(self.forbid_pause)
-                continue
             # Check if action is forbidden by rules
             violations = []
             if self.checkRules(action, tgt, violations):
                 feedback.failtype = "rule"
                 feedback.violations = [r.toMsg() for r in violations]
+                self.task_out_pub.publish(feedback)
+                rospy.sleep(self.forbid_pause)
+                continue
+            # Check if action is forbidden by permissions
+            if self.checkPerm(action, tgt):
+                feedback.failtype = "perm"
                 self.task_out_pub.publish(feedback)
                 rospy.sleep(self.forbid_pause)
                 continue
