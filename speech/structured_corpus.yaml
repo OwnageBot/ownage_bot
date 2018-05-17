@@ -73,13 +73,13 @@ whose:
 # Reprimands that combine cancellation with permissions (or ownership claims)
 reprimands:
     no baxter:
-      - cancel
+      - skip
       - forbid current on current 
     no baxter stop:
       - cancel
       - forbid current on current
     no baxter that's mine:
-      - cancel
+      - skip
       - ownedBy current current
       - forbid current if ownedBy current
       - forbid current on current

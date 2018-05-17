@@ -65,17 +65,20 @@ class TaskManager(object):
 
     def taskInCb(self, msg):
         """Handles incoming tasks."""
-        task = tasks.Idle
-        # Cancel current action and clear action queue on interrupt
         if msg.interrupt:
-            self.cur_task = task
+            # Cancel current action and clear action queue on interrupt
+            self.cur_task = tasks.Idle
             actions.Cancel.call()
             self.q_lock.acquire()
             while not self.action_queue.empty():
                 self.action_queue.get(False)
             self.q_lock.release()
-        # Construct one-shot task if necessary
+        elif msg.skip:
+            # Skip current action and go to next queued action
+            actions.Cancel.call()
+            return
         if msg.oneshot:
+            # Construct one-shot task if necessary
             action = actions.db[msg.name]
             if action.tgtype is type(None):
                 task = Task.oneShot(action, None)
@@ -84,6 +87,8 @@ class TaskManager(object):
                 task = Task.oneShot(action, tgt)
         elif msg.name in tasks.db:
             task = tasks.db[msg.name]
+        else:
+            task = tasks.Idle
         self.cur_task = task
 
     def updateActions(self):
