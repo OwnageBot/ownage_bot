@@ -32,6 +32,7 @@ class ScreenManager(object):
         # Text buffers
         self.speech_buf = ""
         self.cmd_buf = ""
+        self.agt_buf = ""
         self.act_buf = ""
         self.tgt_buf = ""
         
@@ -40,6 +41,8 @@ class ScreenManager(object):
                                         self.cmdInputCb)
         self.speech_sub = rospy.Subscriber("last_utt", String,
                                           self.speechInputCb)
+        self.agt_sub = rospy.Subscriber("cur_agent", AgentMsg,
+                                        self.agtInputCb)
         self.act_sub = rospy.Subscriber("cur_action", String,
                                         self.actInputCb)
         self.tgt_sub = rospy.Subscriber("cur_target", String,
@@ -60,6 +63,10 @@ class ScreenManager(object):
         """Sets speech buffer to received string."""
         self.speech_buf = msg.data
 
+    def agtInputCb(self, msg):
+        """Sets action buffer to received string."""
+        self.agt_buf = msg.name
+        
     def actInputCb(self, msg):
         """Sets action buffer to received string."""
         self.act_buf = msg.data
@@ -87,12 +94,15 @@ class ScreenManager(object):
         # Draw last speech utterance
         cv2.putText(self.status_buf, "SPEECH: {}".format(self.speech_buf), 
                     (20, 60), font, scale, color, thickness, line_type)
+        # Draw current agent
+        cv2.putText(self.status_buf, "AGENT: {}".format(self.agt_buf), 
+                    (20, 90), font, scale, color, thickness, line_type)
         # Draw current/last action
         cv2.putText(self.status_buf, "ACTION: {}".format(self.act_buf), 
-                    (20, 90), font, scale, color, thickness, line_type)
+                    (120, 90), font, scale, color, thickness, line_type)
         # Draw current/last target
         cv2.putText(self.status_buf, "TARGET: {}".format(self.tgt_buf), 
-                    (20, 120), font, scale, color, thickness, line_type)
+                    (220, 120), font, scale, color, thickness, line_type)
 
     def drawObjectBar(self):
         font = cv2.FONT_HERSHEY_SIMPLEX

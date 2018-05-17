@@ -21,6 +21,9 @@ class AgentTracker(object):
         # Publisher to notify other nodes about new agent
         self.new_agt_pub = rospy.Publisher("new_agent",
                                            AgentMsg, queue_size = 10)
+        # Publisher to notify other nodes about change in current agent
+        self.cur_agt_pub = rospy.Publisher("cur_agent",
+                                           AgentMsg, queue_size = 10)
         
         # Services for looking up and resetting agent database
         self.lkp_agt_srv = rospy.Service("lookup_agent", LookupAgent,
@@ -40,6 +43,7 @@ class AgentTracker(object):
         # Check if agent ID is already known
         if new_agent.id in self.agent_db.keys():
             self.cur_agent = self.agent_db[new_agent.id]
+            self.cur_agt_pub.publish(self.cur_agent.toMsg())
             return
 
         # Check if agent name is already known
@@ -47,6 +51,7 @@ class AgentTracker(object):
             for a in self.agent_db.values():
                 if new_agent.name == a.name:
                     self.cur_agent = a
+                    self.cur_agt_pub.publish(self.cur_agent.toMsg())
                     return
 
         # Insert new agent into database if name is unrecognized
@@ -55,7 +60,8 @@ class AgentTracker(object):
 
         self.agent_db[new_agent.id] = new_agent
         self.cur_agent = new_agent
-        self.new_agt_pub.publish(new_agent.toMsg())
+        self.new_agt_pub.publish(self.cur_agent.toMsg())
+        self.cur_agt_pub.publish(self.cur_agent.toMsg())
         
     def lookupAgentCb(self, req):
         """ Returns properties of requested agent."""
