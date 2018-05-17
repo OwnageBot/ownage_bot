@@ -100,6 +100,7 @@ class TaskManager(object):
         else:
             task = tasks.Idle
         self.cur_task = task
+        self.updateActions()
 
     def updateActions(self):
         "Updates actions based on world state."
@@ -142,10 +143,6 @@ class TaskManager(object):
         # Wait for other nodes to start, then go home
         rospy.wait_for_service("/action_provider/service_left")
         actions.GoHome.call()
-
-        # Periodically update actions based on world state
-        rospy.Timer(rospy.Duration(self.update_latency),
-                    lambda evt : self.updateActions())
         
         # Keep performing requested tasks/actions
         while not rospy.is_shutdown():

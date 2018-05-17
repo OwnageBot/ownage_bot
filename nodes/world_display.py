@@ -27,9 +27,9 @@ class WorldDisplay(object):
         self.disp_buf = np.zeros((self.height, self.width, 3), np.uint8)
 
         # 2D physical location that top-left of display maps to
-        self.origin = rospy.get_param("~origin", (0.2, -0.4))
+        self.origin = rospy.get_param("~origin", (-0.1, -0.8))
         # Pixel-to-meter scaling ratio
-        self.scaling = rospy.get_param("~scaling", 480)
+        self.scaling = rospy.get_param("~scaling", 320)
         # Flag to swap X and Y axes (set to True to match Baxter camera output)
         self.swap_xy = rospy.get_param("~swap_xy", True)
         # Flag to flip X and Y axes (set to True to match Baxter camera output)

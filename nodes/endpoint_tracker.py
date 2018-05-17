@@ -14,8 +14,7 @@ class EndpointTracker(ObjectTracker):
         super(EndpointTracker, self).__init__()
 
         # How frequently position is updated
-        self.endpoint_latency =\
-            rospy.Duration(rospy.get_param("~endpoint_latency", 0.1))
+        self.endpoint_latency = rospy.get_param("~endpoint_latency", 0.1)
         self.endpoint_update_t = rospy.get_rostime()
         
         # State variables to track gripped objects
@@ -26,7 +25,8 @@ class EndpointTracker(ObjectTracker):
         # Subscribe to action state
         self.action_sub = rospy.Subscriber("/action_provider/left/state",
                                            ArmState, self.actionCb)
-        self.endpoint_sub = None
+        self.endpoint_sub = rospy.Subscriber("/robot/limb/left/endpoint_state",
+                                             EndpointState, self.endpointCb)
 
     def actionCb(self, msg):
         """Callback upon change in current action."""
@@ -37,33 +37,31 @@ class EndpointTracker(ObjectTracker):
         if self.cur_action == "pickUp" and int(msg.object) in self.object_db:
             # Start tracking object at endpoint
             self.gripped_id = int(msg.object)
-            topic = "/robot/limb/left/endpoint_state"
-            self.endpoint_sub = \
-                rospy.Subscriber(topic, EndpointState, self.endpointCb)
         elif self.cur_action in ["putDown", "release"]:
             # Stop tracking object at endpoint
             self.gripped_id = -1
-            self.endpoint_sub.unregister()
-            self.endpoint_sub = None
 
     def endpointCb(self, msg):
         """Callback for endpoint state, used to track gripped objects."""
         # Only update if object is gripped
         if self.gripped_id < 0:
             return
+        gripped_id = self.gripped_id
 
         # Don't update too frequently
         t_now = rospy.get_rostime()
-        if (t_now - self.endpoint_update_t) < self.endpoint_latency:
+        t_diff = (t_now - self.endpoint_update_t).to_sec()
+        if t_diff <= self.endpoint_latency:
             return
         self.endpoint_update_t = t_now
-        
+       
         # Check if gripper is still gripping
-        topic = "/robot/end_effector/left_gripper"
+        topic = "/robot/end_effector/left_gripper/state"
         state = rospy.wait_for_message(topic, EndEffectorState)
         if state.gripping:
+            print msg.pose.position
             # Update gripped object's position in place
-            self.object_db[self.gripped_id].position = msg.pose.position
+            self.object_db[gripped_id].position = msg.pose.position
 
 if __name__ == '__main__':
     rospy.init_node('object_tracker')
