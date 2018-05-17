@@ -41,12 +41,14 @@ class Action(object):
         """Converts to human-readable string."""
         return self.name
         
-    def toSpeech(self):
+    def toSpeech(self, tgt_str=None):
         """Converts to string for speech synthesis."""
         if self.tgtype == type(None):
             return self.speech_fmt
         else:
-            return self.speech_fmt.format(self.tgtype.nil_str)
+            if tgt_str is None:
+                tgt_str = self.tgtype.nil_str
+            return self.speech_fmt.format(tgt_str)
         
 # Pre-defined actions
 

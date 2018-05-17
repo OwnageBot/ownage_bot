@@ -71,6 +71,7 @@ add_message_files(
   PredicateMsg.msg
   RuleMsg.msg
   TaskMsg.msg
+  FeedbackMsg.msg
 )
 
 ## Generate services in the 'srv' folder

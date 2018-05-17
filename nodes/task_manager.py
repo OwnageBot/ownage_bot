@@ -31,10 +31,14 @@ class TaskManager(object):
         self.action_queue = Queue.Queue()
 
         # Subscribers and publishers
-        self.task_in_sub = rospy.Subscriber("task_in", TaskMsg, self.taskInCb)
-        self.task_out_pub = rospy.Publisher("task_out", String, queue_size=10)
-        self.cur_act_pub = rospy.Publisher("cur_action", String, queue_size=10)
-        self.cur_tgt_pub = rospy.Publisher("cur_target", String, queue_size=10)
+        self.task_in_sub = rospy.Subscriber("task_in", TaskMsg,
+                                            self.taskInCb)
+        self.task_out_pub = rospy.Publisher("task_out", FeedbackMsg,
+                                            queue_size=10)
+        self.cur_act_pub = rospy.Publisher("cur_action", String,
+                                           queue_size=10)
+        self.cur_tgt_pub = rospy.Publisher("cur_target", String,
+                                           queue_size=10)
 
         # Look up clients for object permissions, and rules
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
@@ -114,12 +118,15 @@ class TaskManager(object):
                 return True
         return False
 
-    def checkRules(self, action, tgt):
+    def checkRules(self, action, tgt, violations=[]):
         """Returns true if rules forbid action on target."""
         for a in (action.dependencies + [action]):
             rule_set = self.lookupRules(a.name).rule_set
             rule_set = [Rule.fromMsg(r) for r in rule_set]
             if Rule.evaluateOr(rule_set, tgt) >= 0.5:
+                # Return list of rules violated through optional argument
+                violations += sorted(rule_set, reverse=True,
+                                     key=lambda r : r.evaluate(tgt))
                 return True
         return False
     
@@ -148,24 +155,43 @@ class TaskManager(object):
             if self.cur_task.checkActionDone(action, tgt):
                 continue
             # Update and publish current action and target
+            act_str = action.name
+            tgt_str = "" if tgt is None else tgt.toStr()
             if action != actions.Cancel:
                 self.cur_action = action
                 self.cur_target = tgt
-                act_str = action.name
-                tgt_str = "" if tgt is None else tgt.toStr()
                 self.cur_act_pub.publish(act_str)
                 self.cur_tgt_pub.publish(tgt_str)
-            # Check if action is forbidden by permissions or rules
-            if self.checkPerm(action, tgt) or self.checkRules(action, tgt):
-                out = "{} on {} is forbidden".\
-                    format(action.name, tgt.toPrint())
-                self.task_out_pub.publish(out)
+            # Fill out feedback message
+            feedback = FeedbackMsg(task=self.cur_task, action=act_str,
+                                   target=tgt_str, success=False,
+                                   failtype="", error="", violations=[])
+            # Check if action is forbidden by permissions
+            if self.checkPerm(action, tgt):
+                feedback.failtype = "perm"
+                self.task_out_pub.publish(feedback)
+                rospy.sleep(self.forbid_pause)
+                continue
+            # Check if action is forbidden by rules
+            violations = []
+            if self.checkRules(action, tgt, violations):
+                feedback.failtype = "rule"
+                feedback.violations = [r.toMsg() for r in violations]
+                self.task_out_pub.publish(feedback)
                 rospy.sleep(self.forbid_pause)
                 continue
             # Call action if all checks pass
             resp = action.call(tgt)
+            # Send error message as feedback if action fails
             if not resp.success:
-                self.task_out_pub.publish(resp.response)
+                feedback.failtype = "error"
+                feedback.error = resp.response
+                self.task_out_pub.publish(feedback)
+                continue
+            # Send successful feedback message on success
+            if action != actions.Cancel:
+                feedback.success = True
+                self.task_out_pub.publish(feedback)                
 
 if __name__ == '__main__':
     rospy.init_node('task_manager')

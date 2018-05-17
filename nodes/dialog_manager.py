@@ -12,7 +12,7 @@ class DialogManager(object):
 
     def __init__(self):
         # Handle input and output from task manager node
-        self.task_sub = rospy.Subscriber("task_out", String,
+        self.task_sub = rospy.Subscriber("task_out", FeedbackMsg,
                                          self.taskOutCb)
         self.task_pub = rospy.Publisher("task_in", TaskMsg,
                                            queue_size=10)
@@ -106,8 +106,24 @@ class DialogManager(object):
         
     def taskOutCb(self, msg):
         """Handles output from TaskManager node."""
-        # Just print response for now
-        self.text_pub.publish(msg)
+        if msg.success:
+            return
+        if msg.failtype == "error":
+            self.text_pub.publish("Action failed: " + msg.error)
+            self.speech_pub.publish("sorry, " + msg.error)
+        elif msg.failtype == "perm":
+            perm_txt = "{} on {} is forbidden".format(msg.action, msg.target)
+            self.text_pub.publish("Action failed: " + perm_txt)
+            act = actions.db[msg.action]
+            tgt = None
+            if act.tgtype != type(None):
+                tgt = act.tgtype.fromStr(msg.target)
+            perm_speech = "i am forbidden to " + act.toSpeech(tgt.toSpeech())
+            self.speech_pub.publish("sorry, " + perm_speech)
+        elif msg.failtype == "rule":
+            max_rule = Rule.fromMsg(msg.violations[0])
+            self.text_pub.publish("Action failed: " + max_rule.toPrint())
+            self.speech_pub.publish("sorry, " + max_rule.toSpeech())
 
     def handleCmd(self, cmd):
         """Handles text command input."""
