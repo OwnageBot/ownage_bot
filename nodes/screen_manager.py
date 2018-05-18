@@ -18,7 +18,7 @@ class ScreenManager(object):
         # Screen width and height in pixels
         self.width = rospy.get_param("~width", 1024)
         self.height = rospy.get_param("~height", 600)
-        self.fps = rospy.get_param("~fps", 25)
+        self.fps = rospy.get_param("~fps", 30)
 
         # CvBridge instance for ROS <-> OpenCV conversion
         self.cv_bridge = CvBridge()
