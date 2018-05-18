@@ -2,6 +2,8 @@
   <arg name="simulation" default="false"/>
   <arg name="manual" default="false"/>
   <arg name="use_speech" default="false"/>
+  <arg name="record_screen" default="false"/>
+  <arg name="record_world" default="false"/>
   <arg name="scenario" default="blocks_world"/>
 
   <arg name="avatar_ids" default="[]"/>
@@ -140,13 +142,6 @@
 
   </group>
 
-  <!-- Show the world display in a window -->
-  <node name="world_view" pkg="image_view"
-        type="image_view" respawn="false">
-    <remap from="image" to="/ownage_bot/world_display"/>
-    <param name="autosize" value="true" />
-  </node>
-
   <!-- Use real-world action and perception if not in simulation -->
   <group unless="$(arg simulation)">
     <!-- Provides actions on Baxter's arms -->
@@ -159,5 +154,31 @@
     <!-- Runs ARuCo and displays camera image -->
     <include file="$(find ownage_bot)/launch/aruco_marker_publisher.launch"/>
   </group>
+
+  <!-- Show the world display in a window -->
+  <node name="world_view" pkg="image_view"
+        type="image_view" respawn="false">
+    <remap from="image" to="/ownage_bot/world_display"/>
+    <param name="autosize" value="true" />
+  </node>
+
+  <!-- Records video sent to screen -->
+  <node name="screen_recorder" pkg="image_view" type="video_recorder"
+	respawn="false" output="log" if="$(arg record_screen)">
+    <remap from="image" to="/robot/xdisplay"/>
+    <param name="filename" value="$(find ownage_bot)/screen.avi" />
+    <param name="fps" value="30" />
+    <param name="encoding" value="rgb8" />
+  </node>
+
+  <!-- Records video of world display -->
+  <node name="world_recorder" pkg="image_view" type="video_recorder"
+	respawn="false" output="log" if="$(arg record_world)">
+    <remap from="image" to="/ownage_bot/world_display"/>
+    <param name="filename" value="$(find ownage_bot)/world_display.avi" />
+    <param name="fps" value="30" />
+    <param name="encoding" value="rgb8" />
+  </node>
+
 </launch>
 
