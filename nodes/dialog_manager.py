@@ -108,15 +108,30 @@ class DialogManager(object):
         """Handles output from TaskManager node."""
         if msg.success:
             return
+
+        # Print text error messages
+        if msg.failtype == "error":
+            if msg.error == CallActionResponse._ACT_KILLED:
+                # No need to publish error if action was cancelled
+                return
+            self.text_pub.publish("Action failed: " + msg.error)
+        elif msg.failtype == "perm":
+            perm_txt = "{} on {} is forbidden".format(msg.action, msg.target)
+            self.text_pub.publish("Action failed: " + perm_txt)
+        elif msg.failtype == "rule":
+            max_rule = Rule.fromMsg(msg.violations[0])
+            self.text_pub.publish("Action failed: " + max_rule.toPrint())
+
+        # Send speech responses
+        if msg.task in tasks.db:
+            # Fail silently when performing higher level tasks
+            return
         if msg.failtype == "error":
             if msg.error == CallActionResponse._ACT_KILLED:
                 # No need to publish error if action was cancelled on purpose
                 return
-            self.text_pub.publish("Action failed: " + msg.error)
             self.speech_pub.publish("sorry, " + msg.error.lower())
         elif msg.failtype == "perm":
-            perm_txt = "{} on {} is forbidden".format(msg.action, msg.target)
-            self.text_pub.publish("Action failed: " + perm_txt)
             act = actions.db[msg.action]
             tgt = None
             if act.tgtype != type(None):
@@ -125,7 +140,6 @@ class DialogManager(object):
             self.speech_pub.publish("sorry, " + perm_speech)
         elif msg.failtype == "rule":
             max_rule = Rule.fromMsg(msg.violations[0])
-            self.text_pub.publish("Action failed: " + max_rule.toPrint())
             self.speech_pub.publish("sorry, " + max_rule.toSpeech())
         elif msg.allowed:
             self.speech_pub.publish("certainly")

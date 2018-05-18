@@ -78,7 +78,7 @@ void BaxterArmCtrl::InternalThreadEntry()
     else if (s == START || s == ERROR || s == DONE  || s == KILLED )
     {
         if (callAction(a))   setState(DONE);
-        else                 setState(ERROR);
+        else if (int(getState()) != KILLED) setState(ERROR);
     }
     else
     {
@@ -169,7 +169,7 @@ bool BaxterArmCtrl::serviceCb(CallAction::Request &req,
       if (getState() == KILLED)
         {
 	  res.response = ACT_RESP::_ACT_KILLED;
-	  break;
+	  return true;
         }
 
       r.sleep();
