@@ -184,6 +184,19 @@ class Predicate(object):
                 break
         return neg_val if self.negated else 1-neg_val
 
+    def query(self):
+        """Return entities which make predicate true."""
+        # TODO: Currently this only works to query one argument
+        for b, t in zip(self.bindings, self.argtypes):
+            if b != Nil:
+                continue
+            args = t.universe()
+            vals = [self.apply(a) for a in args]
+            args_vals = zip(args, vals)
+            args_vals.sort(key=lambda x : x[1], reverse=True)
+            return args_vals
+        return []
+
     def toPrint(self):
         """Converts to human-readable string."""
         pre = "not" if self.negated else ""

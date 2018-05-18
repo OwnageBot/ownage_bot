@@ -206,12 +206,30 @@ class DialogManager(object):
         # Try to parse predicate query
         query = parse.cmd.asQuery(cmd)
         if query:
-            self.text_pub.publish(str(query))
+            self.handleQuery(query)
             return
 
         # Error out if nothing works
         out = "Could not parse input: {}".format(parse.cmd.error)
         self.text_pub.publish(out)
+
+    def handleQuery(self, query):
+        """Handles predicate queries."""
+        self.text_pub.publish(str(query))
+
+        p = Predicate.fromMsg(query)
+        answers = p.query()
+
+        for a, v in answers:
+            self.text_pub.publish("{}\t{}".format(a.toPrint(), v))
+
+        if len(answers) > 0 and answers[0][1] >= 0.9:
+            ans = answers[0][0]
+            bindings = [b if b != objects.Nil else ans for b in p.bindings]
+            p = p.bind(bindings)
+            self.speech_pub.publish(p.toSpeech())
+        else:
+            self.speech_pub.publish("i'm not sure")                
         
     def handleList(self, args):
         """Handles list command."""
