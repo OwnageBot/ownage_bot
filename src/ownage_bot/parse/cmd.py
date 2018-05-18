@@ -92,7 +92,9 @@ def asPredicate(s, n_unbound=0):
         error = NO_ARGS_MATCH
     for i in range(len(args)):
         if args[i] == "any":
-            args[i] = "_any_"
+            args[i] = objects.Any.toStr()
+        elif args[i] == "?":
+            args[i] = objects.Nil.toStr()
         elif args[i] == "current":
             if pred.argtypes[i+n_unbound] in actions.tgtypes:
                 cur_tgt = context.getCurrentTarget()
@@ -182,4 +184,16 @@ def asAgent(s):
         return None
     name = args[2]
     msg = AgentMsg(-1, name, -1)
+    return msg
+
+def asQuery(s):
+    """Parse predicate queries.
+    Syntax: '? [not] PREDICATE [ARGS]'
+    Example: '? ownedBy current ?'
+    """
+    args = s.split()
+    if args[0] != "?":
+        return None
+    s = " ".join(args[1:])
+    msg = asPredicate(s)
     return msg

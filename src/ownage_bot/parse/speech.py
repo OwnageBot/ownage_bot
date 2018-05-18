@@ -107,6 +107,20 @@ def asClaim(utt):
     error = NO_MATCH
     return (None, None)
 
+def asWhose(utt):
+    """Parse utterance as ownership query."""
+    syn_db = corpus.get("whose", dict())
+    reply = replies.get("whose", "")
+    syn_list = syn_db.get("current", "").splitlines()
+    for syn in syn_list:
+        pattern = pre_re + syn + post_re
+        match = re.match(pattern, utt)
+        if match is None:
+            continue
+        return ("? ownedBy current ?", reply)
+    error = NO_MATCH
+    return (None, None)
+
 def asReprimand(utt):
     """Parse utterance as reprimand."""
     reprimand_db = corpus.get("reprimands", dict())

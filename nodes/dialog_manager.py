@@ -86,6 +86,7 @@ class DialogManager(object):
         utt = msg.data
         self.utt_pub.publish(utt)
         for parse_f in [parse.speech.asIntroduction,
+                        parse.speech.asWhose,
                         parse.speech.asReprimand,
                         parse.speech.asClaim,
                         parse.speech.asPermission,
@@ -201,6 +202,11 @@ class DialogManager(object):
         if rule:
             self.text_pub.publish(str(rule))
             self.rule_pub.publish(rule)
+            return
+        # Try to parse predicate query
+        query = parse.cmd.asQuery(cmd)
+        if query:
+            self.text_pub.publish(str(query))
             return
 
         # Error out if nothing works
