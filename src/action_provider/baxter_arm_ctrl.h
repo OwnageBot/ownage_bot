@@ -43,7 +43,7 @@
 
 // Height at which objects are released when put down
 #define Z_RELEASE (-0.1)
-#define Z_FIND (0.07)
+#define Z_FIND (0.15)
 
 // Force threshold for releasing object
 #define RELEASE_THRESHOLD (-15)

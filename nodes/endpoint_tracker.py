@@ -59,7 +59,6 @@ class EndpointTracker(ObjectTracker):
         topic = "/robot/end_effector/left_gripper/state"
         state = rospy.wait_for_message(topic, EndEffectorState)
         if state.gripping:
-            print msg.pose.position
             # Update gripped object's position in place
             self.object_db[gripped_id].position = msg.pose.position
 

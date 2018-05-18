@@ -27,23 +27,23 @@ bool ARucoCtrl::reachObject()
   // Set marker ID to target object ID
   PerceptionClientImpl::setObjectID(getTargetObject().id);
 
+  double x = getPos().x;
+  double y = getPos().y;
+  double z = getPos().z;
+
+  // Jitter arm position to try and locate ARuCo tag
+  int jitter_cnt;
+  for (jitter_cnt=0; jitter_cnt++; jitter_cnt<5) {
+    if (PerceptionClientImpl::waitForData()) break;
+    float d = (std::rand() % 2 - 1) * 0.02;    
+    if (!goToPoseNoCheck(x, y, z+d, VERTICAL_ORI)) continue;
+  }
+  if (jitter_cnt == 5) return false;
+
   if (!PerceptionClientImpl::waitForData()) return false;
 
   // Save location of last pick up
   last_pick_loc = curr_object_pos;
-
-  geometry_msgs::Quaternion q;
-
-  double x = curr_object_pos.x + IR_OFFSET;
-  double y = curr_object_pos.y;
-  double z = getPos().z;
-
-  if (!goToPose(x, y, z, VERTICAL_ORI,"loose"))
-  {
-    return false;
-  }
-
-  if (!PerceptionClientImpl::waitForData()) return false;
 
   ros::Time t_start = ros::Time::now();
   double z_start       =       getPos().z;
@@ -75,10 +75,7 @@ bool ARucoCtrl::reachObject()
       cnt_ik_fail++;
     }
 
-    if (cnt_ik_fail == 10)
-    {
-      return false;
-    }
+    if (cnt_ik_fail == 10) return false;
   }
 
   return false;

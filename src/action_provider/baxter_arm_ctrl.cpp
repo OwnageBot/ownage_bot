@@ -477,7 +477,7 @@ bool BaxterArmCtrl::findObject()
   }
   Point p = srv.response.object.position;
   // Hover above new location
-  if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI)) return false;
+  if (!goToPose(p.x, p.y, Z_FIND, VERTICAL_ORI)) return false;
   return true;
 }
 
@@ -491,14 +491,14 @@ bool BaxterArmCtrl::offerObject()
     return false;
   }
   if (!srv.response.success) {
-    
+    setSubState(ACT_RESP::_OBJ_NOT_TRACKED);    
     ROS_ERROR("[%s] Object %d not tracked!\n",
               getLimb().c_str(), srv.request.id);
     return false;
   }
   Point p = srv.response.object.position;
   // Hover above last-remembered location and offer obj
-  if (!goToPose(p.x, p.y, Z_LOW, VERTICAL_ORI)) {
+  if (!goToPose(p.x, p.y, Z_FIND, VERTICAL_ORI)) {
     ROS_ERROR("[%s] Failed to go to object location!\n", getLimb().c_str());
     return false;
   }
@@ -526,10 +526,14 @@ bool BaxterArmCtrl::pickObject()
   }
   if (!findObject())               return false;
   if (!reachObject()) {
-    setSubState(ACT_RESP::_OBJ_NOT_TRACKED);
+    goHome();
+    setSubState(ACT_RESP::_OBJ_NOT_REACHED);
     return false;
   }
-  if (!Gripper::close())              return false;
+  if (!Gripper::close()) {
+    setSubState(ACT_RESP::_OBJ_NOT_REACHED);
+    return false;
+  }
   setSubState(ACT_REQ::_ACTION_PICKUP);
   // Move up from current position to Z_LOW
   geometry_msgs::Point p = getPos();
@@ -584,13 +588,6 @@ bool BaxterArmCtrl::setState(int _state)
 {
   ROS_DEBUG("[%s] Setting state to %i", getLimb().c_str(), _state);
     
-  if (_state == KILLED && getState() != WORKING)
-    {
-      ROS_WARN_THROTTLE(2, "[%s] Attempted to kill a non-working controller",
-			getLimb().c_str());
-      return false;
-    }
-  
   if (_state == DONE)
     {
       setSubState(getAction());
