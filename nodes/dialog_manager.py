@@ -127,7 +127,9 @@ class DialogManager(object):
             max_rule = Rule.fromMsg(msg.violations[0])
             self.text_pub.publish("Action failed: " + max_rule.toPrint())
             self.speech_pub.publish("sorry, " + max_rule.toSpeech())
-
+        elif msg.allowed:
+            self.speech_pub.publish("certainly")
+            
     def handleCmd(self, cmd):
         """Handles text command input."""
         args = cmd.split()

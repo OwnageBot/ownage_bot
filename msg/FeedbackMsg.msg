@@ -7,6 +7,9 @@ string action
 # String representation of current/last target
 string target
 
+# Whether or not the action was allowed
+bool allowed
+
 # Whether or not the last action was successful
 bool success
 

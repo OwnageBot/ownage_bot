@@ -124,7 +124,7 @@ def asAction(utt):
     """Parse utterance as action command."""
     # Iterate through list of synonyms for each action command
     syn_db = corpus.get("actions", dict())
-    reply = replies.get("actions", "certainly")
+    reply = replies.get("actions", "")
     for name, syn_list in syn_db.iteritems():
         syn_list = syn_list.splitlines()
         tgt_required = (actions.db[name].tgtype == objects.Object)

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import re
 import rospy
 import rospkg
 import pyaudio
@@ -14,8 +15,11 @@ class SpeechProcessor(object):
     """Processes natural speech to/from the syntax in DialogManager."""
 
     def __init__(self):
+        # Pronunciation replacements for names and non-standard words
+        self.pronunciations = rospy.get_param("~pronunciations", dict())
+
         # Whether or not to print decoded utterances and parses
-        self.verbose = rospy.get_param("~verbose", True)
+        self.verbose = rospy.get_param("~verbose", False)
         
         # Pocketsphinx parameters
         pkg_path = rospkg.RosPack().get_path('ownage_bot')
@@ -71,8 +75,12 @@ class SpeechProcessor(object):
     
     def speechOutCb(self, msg):
         """Send speech to synthesizer."""
+        out = msg.data
+        for word, replacement in self.pronunciations.iteritems():
+            # TODO: don't replace strings that are not words
+            out = out.replace(word, replacement)
         try:
-            self.svox_tts(mode=5, string=msg.data)
+            self.svox_tts(mode=5, string=out)
         except rospy.ServiceException:
             rospy.logwarn("Could not call speech synthesis service.")
 

@@ -11,6 +11,8 @@
   <!-- Speech processor node -->
   <node pkg="ownage_bot" ns="ownage_bot" type="speech_processor.py"
 	output="screen" name="speech_processor">
+    <rosparam command="load" param="pronunciations"
+      	      file="$(find ownage_bot)/speech/pronunciations.yaml" />
   </node>
 
   <!-- Speech synthesis through SVOX -->

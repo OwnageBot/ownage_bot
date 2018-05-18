@@ -166,9 +166,10 @@ class TaskManager(object):
                 self.cur_act_pub.publish(act_str)
                 self.cur_tgt_pub.publish(tgt_str)
             # Fill out feedback message
-            feedback = FeedbackMsg(task=self.cur_task.name, action=act_str,
-                                   target=tgt_str, success=False,
-                                   failtype="", error="", violations=[])
+            feedback =\
+                FeedbackMsg(task=self.cur_task.name, action=act_str,
+                            target=tgt_str, allowed=False, success=False,
+                            failtype="", error="", violations=[])
             # Check if action is forbidden by rules
             violations = []
             if self.checkRules(action, tgt, violations):
@@ -184,6 +185,8 @@ class TaskManager(object):
                 rospy.sleep(self.forbid_pause)
                 continue
             # Call action if all checks pass
+            feedback.allowed = True
+            self.task_out_pub.publish(feedback)                
             resp = action.call(tgt)
             # Send error message as feedback if action fails
             if not resp.success:
