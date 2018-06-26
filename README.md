@@ -4,6 +4,27 @@ A robotic system that learns the rules and relations of ownership based on inter
 
 Developed primarily at the [Yale Social Robotics Lab](https://scazlab.yale.edu/).
 
+## Table of Contents
+
+* [Prerequisites](#prerequisites)
+   * [Python prerequisites](#python-prerequisites)
+   * [ROS prerequisites](#ros-prerequisites)
+* [Compilation](#compilation)
+   * [Full compile](#full-compile)
+   * [Simulation-only compile](#simulation-only-compile)
+* [Execution](#execution)
+   * [Initial steps](#initial-steps)
+   * [Command prompt mode](#command-prompt-mode)
+      * [List of supported commands](#list-of-supported-commands)
+   * [Manual arm control](#manual-arm-control)
+      * [List of supported actions (left arm only)](#list-of-supported-actions-left-arm-only)
+* [Architecture](#architecture)
+   * [Nodes](#nodes)
+      * [Tracking and perception](#tracking-and-perception)
+      * [Rule and task management](#rule-and-task-management)
+      * [Simulation and visualization](#simulation-and-visualization)
+      * [Input/output](#inputoutput)
+
 ## Prerequisites
 
 If marked with an asterisk `*`, prerequisites are necessary even for a simulation-only compile.
@@ -12,13 +33,13 @@ If marked with an asterisk `*`, prerequisites are necessary even for a simulatio
 * [`scikit-learn`](http://scikit-learn.org/stable/index.html)*: for ownership prediction via logistic regression
 * [`numpy`](http://www.numpy.org/)*: for inference related math operations
 * [`PyAudio`](http://people.csail.mit.edu/hubert/pyaudio/): for accessing audio input
-* [`pocketsphinx'](https://github.com/cmusphinx/pocketsphinx-python): for speech-to-text transcription
+* [`pocketsphinx`](https://github.com/cmusphinx/pocketsphinx-python): for speech-to-text transcription
 
 ### ROS prerequisites
 * [`aruco_ros`](https://github.com/ScazLab/aruco_ros): for recognition and tracking of QR codes
 * [`cv_bridge`](http://wiki.ros.org/cv_bridge): for computer vision via OpenCV
 * [`svox_tts`](https://github.com/ScazLab/svox_tts): for text-to-speech synthesis through SVOX
-* [`human_robot_collaboration_lib`](https://github.com/ScazLab/human_robot_collaboration_lib): for arm control
+* [`human_robot_collaboration`](https://github.com/ScazLab/human_robot_collaboration): for arm control
 
 ## Compilation
 
@@ -42,7 +63,9 @@ simulated mode.
 
 ## Execution
 
-### Initial steps (mainly for Scazlab researchers)
+### Initial steps
+
+(Mainly for Scazlab researchers.)
 
 0. Turn on the robot. Wait for the robot to finish its start-up phase.
 1. Be sure that the system you're running the code has access to the Baxter robot. This is usually done by running the `baxter.sh` script that should be provided in your Baxter installation.
