@@ -114,28 +114,28 @@ OwnageBot is comprised of many different ROS nodes, each providing a certain fun
 
 #### Tracking and perception
 
-*`agent_tracker` tracks the properties of all agents encountered as well as the identity of the current user
-*`object_tracker` contains the abstract ObjectTracker class for tracking objects
-*`aruco_tracker` inherits from `object_tracker` to implement object tracking through ArUco tags
-*`endpoint_tracker` inherits from `object_tracker` to implement tracking of objects gripped by an endpoint manipulator
-*`ownership_tracker` tracks and updates the ownership probabilities of each object
-*`baxter_tracker` inherits from the above three nodes to combine their functionality for real-world object tracking
-*`simulated_tracker` inherits from ownership_tracker and implements zero-noise tracking in a simulated environment
+* `agent_tracker` tracks the properties of all agents encountered as well as the identity of the current user
+* `object_tracker` contains the abstract ObjectTracker class for tracking objects
+* `aruco_tracker` inherits from `object_tracker` to implement object tracking through ArUco tags
+* `endpoint_tracker` inherits from `object_tracker` to implement tracking of objects gripped by an endpoint manipulator
+* `ownership_tracker` tracks and updates the ownership probabilities of each object
+* `baxter_tracker` inherits from the above three nodes to combine their functionality for real-world object tracking
+* `simulated_tracker` inherits from ownership_tracker and implements zero-noise tracking in a simulated environment
 
 #### Rule and task management
 
-*`rule_manager` manages and updates the rules learned through interaction with the environment
-*`task_manager` carries out assigned actions and tasks, queuing them as necessary and checking if they are forbidden by the rules
-*`rule_instructor` can be used to automatically train and evaluate the rule learning and ownership prediction capabilities
+* `rule_manager` manages and updates the rules learned through interaction with the environment
+* `task_manager` carries out assigned actions and tasks, queuing them as necessary and checking if they are forbidden by the rules
+* `rule_instructor` can be used to automatically train and evaluate the rule learning and ownership prediction capabilities
 
 #### Simulation and visualization
 
-*`world_simulator` generates and stores a simulated environment, from which `simulated tracker` gets data
-*`world display` shows all currently tracked objects and their x-y locations in a 2D graphical display
+* `world_simulator` generates and stores a simulated environment, from which `simulated tracker` gets data
+* `world display` shows all currently tracked objects and their x-y locations in a 2D graphical display
 
 #### Input/output
 
-*`dialog_manager` handles both text and speech input, relaying the appropriate messages to and from other nodes and generating the responses
-*`command_prompt` provides a command prompt for text input and output via curses
-*`screen_manager` displays the camera feed and other relevant information on the Baxter screen
-*`speech_processor` handles speech recognition and synthesis for (quasi-)natural dialog
+* `dialog_manager` handles both text and speech input, relaying the appropriate messages to and from other nodes and generating the responses
+* `command_prompt` provides a command prompt for text input and output via curses
+* `screen_manager` displays the camera feed and other relevant information on the Baxter screen
+* `speech_processor` handles speech recognition and synthesis for (quasi-)natural dialog
