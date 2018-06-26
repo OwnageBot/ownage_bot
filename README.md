@@ -54,17 +54,17 @@ Running `roslaunch ownage_bot.launch` brings up a command prompt for text-based 
 
 #### List of supported commands
 
-* `list`: Lists available actions, tracked objects, learned rules, etc.
-  * `list objects [simulated] <fields>...`: Lists all objects and their fields
-    * If the `simulated` keyword is present, list all objects and their true (simulated) values, otherwise list objects as perceived by the tracker
+* `list <database>`: Lists available actions, tracked objects, learned rules, etc.
+  * `list objects [simulated] <fields>...`: Lists objects as perceived by the tracker
+    * If `simulated` is present, list all objects in the simulated environment, including those not tracked
     * Lists all specified fields, defaults to listing id, color, position and ownership
-  * `list agents [simulated]': Lists all agents and their names
-    * If the `simulated` keyword is present, list all agents in the simulated environment, including those not currently tracked
+  * `list agents [simulated]`: Lists all agents and their names
+    * If `simulated` is present, list all agents in the simulated environment, including those not tracked
   * `list predicates`: List names of all available predicates
   * `list rules`: List all currently active rules
   * `list actions`: Lists all actions that the robot can take
   * `list tasks`: List all higher-level tasks
-* `reset`: Resets the specified database
+* `reset <database>`: Resets the specified database
   * `reset perms`: Resets the permission database
   * `reset rules`: Resets the active rule database
   * `reset claims`: Resets the database of ownership claims
@@ -72,6 +72,19 @@ Running `roslaunch ownage_bot.launch` brings up a command prompt for text-based 
   * `reset agents`: Resets the database of tracked agents
   * `reset simulation`: Resets and regenerates the simulated environment
   * `reset all`: Resets all of the above
+* `(freeze|unfreeze) <database>`: Freezes changes to databases
+  * `freeze perms`: Freezes the permission database (default unfrozen)
+  * `freeze rules`: Freezes the rules database (default unfrozen) 
+* `(disable|enable) <function>`: Disables certain learning capabilities
+  * `disable inference`: Disables rule-based inference of ownership
+  * `disable extrapolate`: Disables percept-based prediction of ownership
+* `i am <agent>`: Make `<agent>` the current user and update the agent database accordingly
+* `<action>`: Calls the corresponding action
+* `<task>`: Calls the corresponding task
+* `ownedBy <oid> <aid>`: Claim that object <oid> is owned by <aid>
+* `(forbid|allow) <action> on <oid>`: Give object-specific permission for `<action>` on object `<oid>`
+* `(forbid|allow) <action> if <predicate> <args> [and] ...)`: Give rule forbidding or allowing a certain action under the specified conditions
+* `?<predicate> [pre-args] ? [post-args]`: Query for the arguments in the `?` slot and their corresponding truth values
 
 ### Manual arm control
 
@@ -92,3 +105,37 @@ For testing and debugging the arm control service provided by [`action_provider`
 * `putDown`: puts down an object gently at current x-y location
 * `replace`: replaces object in last pick-up location
 * `wait`: waits 3 seconds, can be interrupted by feedback from cuff button
+
+## Architecture
+
+### Nodes
+
+OwnageBot is comprised of many different ROS nodes, each providing a certain functionality. They are roughly organized into similar functions below
+
+#### Tracking and perception
+
+*`agent_tracker` tracks the properties of all agents encountered as well as the identity of the current user
+*`object_tracker` contains the abstract ObjectTracker class for tracking objects
+*`aruco_tracker` inherits from `object_tracker` to implement object tracking through ArUco tags
+*`endpoint_tracker` inherits from `object_tracker` to implement tracking of objects gripped by an endpoint manipulator
+*`ownership_tracker` tracks and updates the ownership probabilities of each object
+*`baxter_tracker` inherits from the above three nodes to combine their functionality for real-world object tracking
+*`simulated_tracker` inherits from ownership_tracker and implements zero-noise tracking in a simulated environment
+
+#### Rule and task management
+
+*`rule_manager` manages and updates the rules learned through interaction with the environment
+*`task_manager` carries out assigned actions and tasks, queuing them as necessary and checking if they are forbidden by the rules
+*`rule_instructor` can be used to automatically train and evaluate the rule learning and ownership prediction capabilities
+
+#### Simulation and visualization
+
+*`world_simulator` generates and stores a simulated environment, from which `simulated tracker` gets data
+*`world display` shows all currently tracked objects and their x-y locations in a 2D graphical display
+
+#### Input/output
+
+*`dialog_manager` handles both text and speech input, relaying the appropriate messages to and from other nodes and generating the responses
+*`command_prompt` provides a command prompt for text input and output via curses
+*`screen_manager` displays the camera feed and other relevant information on the Baxter screen
+*`speech_processor` handles speech recognition and synthesis for (quasi-)natural dialog
