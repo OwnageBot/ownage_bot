@@ -130,31 +130,28 @@
 	  launch-prefix="gnome-terminal --geometry=80x43 --command">
     </node>
 
-    <!-- Speech processor node -->
-    <node pkg="ownage_bot" type="speech_processor.py"
-	  name="speech_processor" if="$(arg use_speech)">
-    </node>
-
     <!-- Screen manager node -->
     <node pkg="ownage_bot" type="screen_manager.py"
 	  name="screen_manager" unless="$(arg simulation)">
     </node>
 
   </group>
-
-  <!-- Use real-world action and perception if not in simulation -->
-  <group unless="$(arg simulation)">
-    <!-- Provides actions on Baxter's arms -->
-    <node pkg="ownage_bot" type="action_provider"
-      	  name="action_provider" output="screen">
-        <remap from="/markers/left"  to="/aruco_marker_publisher/markers"/>
-        <remap from="/markers/right" to="/aruco_marker_publisher/markers"/>
-    </node>
+  
+  <!-- Provides actions on Baxter's arms -->
+  <node pkg="ownage_bot" type="action_provider" name="action_provider"
+	output="screen" unless="$(arg simulation)">
+    <remap from="/markers/left"  to="/aruco_marker_publisher/markers"/>
+    <remap from="/markers/right" to="/aruco_marker_publisher/markers"/>
+  </node>
     
-    <!-- Runs ARuCo and displays camera image -->
-    <include file="$(find ownage_bot)/launch/aruco_marker_publisher.launch"/>
-  </group>
+  <!-- Runs ARuCo and displays camera image -->
+  <include file="$(find ownage_bot)/launch/aruco_marker_publisher.launch"
+	   unless="$(arg simulation)"/>
 
+  <!-- Launch speech nodes if speech flag is set-->
+  <include file="$(find ownage_bot)/launch/speech_processor.launch"
+	   if="$(arg use_speech)"/>
+  
   <!-- Show the world display in a window -->
   <node name="world_view" pkg="image_view"
         type="image_view" respawn="false">
