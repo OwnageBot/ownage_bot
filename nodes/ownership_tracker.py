@@ -25,7 +25,9 @@ class OwnershipTracker(ObjectTracker):
             rospy.get_param("~disable_extrapolate", False)
 
         # Database of ownership claims
-        self.claim_db = defaultdict(set)
+        self.claim_db = defaultdict(dict)
+        # Database of ownership predictions
+        self.predict_db = defaultdict(dict)
 
         # Lock to ensure callbacks update ownership synchronously
         self.owner_lock = threading.Lock()
@@ -68,10 +70,9 @@ class OwnershipTracker(ObjectTracker):
         self.max_reg_iters = rospy.get_param("~max_reg_iters", 1)
         self.reg_strength = rospy.get_param("~reg_strength", 0.1)
         self.max_features = rospy.get_param("~max_features", 20)
-        self.nys = Nystroem(kernel='precomputed', random_state=0)
-        self.log_reg = LogisticRegression(C=1/self.reg_strength,
-                                          solver='newton-cg')
-
+        self.nys = dict()
+        self.log_reg = dict()
+        
     def disableInferenceCb(self, req):
         """Disables rule-based ownership inference."""
         self.disable_inference = req.data
@@ -105,22 +106,25 @@ class OwnershipTracker(ObjectTracker):
         if obj.id not in self.object_db:
             return
         
-        # Add object ID to claim database
-        if agent.id not in self.claim_db:
-            self.newAgentCb(agent.toMsg())
+        # Do nothing if agent is not recognized
+        if agent.id not in self.claim_db or agent.id not in self.predict_db:
+            rospy.logwarn("Ownership claim made for unknown agent {}...".\
+                          format(agent.id))
+            return
 
         self.owner_lock.acquire()
-        self.claim_db[agent.id].add(obj.id)
         
         # Compute ownership probability as product of trust and truth value
         p_owned = self.claim_trust * msg.truth
         if pred.negated:
             p_owned = 1 - p_owned
+        self.claim_db[agent.id][obj.id] = p_owned
         self.object_db[obj.id].ownership[agent.id] = p_owned
 
-        # Extrapolate new information to other objects
+        # Retrain predictor and update prediction probabilities
         if not self.disable_extrapolate:
-            self.extrapolateFromPercepts(agent_ids=[agent.id])
+            self.trainPredictor(agent_ids=[agent.id])
+            self.predictOwnership(agent_ids=[agent.id])
         self.owner_lock.release()
         
     def permInputCb(self, msg):
@@ -147,15 +151,11 @@ class OwnershipTracker(ObjectTracker):
         
         # Infer ownership
         self.owner_lock.acquire()
-        ownership = self.inferFromPerm(action.name, obj, msg.truth)
+        ownership = self.inferOwnership(action.name, obj, msg.truth)
         # Update ownership for agents who have not made claims
         for a_id in ownership.keys():
             if obj.id not in self.claim_db[a_id]:
                 obj.ownership[a_id] = ownership[a_id]
-
-        # Extrapolate new information to other objects
-        if not self.disable_extrapolate:
-            self.extrapolateFromPercepts(exc_ids=[obj.id])
         self.owner_lock.release()
         
     def newAgentCb(self, msg):
@@ -163,36 +163,41 @@ class OwnershipTracker(ObjectTracker):
         rospy.loginfo("Agent {} introduced, guessing ownership...".\
                       format(msg.id))
         self.owner_lock.acquire()
-        # Add list of claimed objects for each agent
-        self.claim_db[msg.id] = set()
+        # Add dictionary of ownership claims and predictions for new agent
+        self.claim_db[msg.id] = dict()
+        self.predict_db[msg.id] = dict()
+        # Construct ownership classifier for new agent
+        self.nys[msg.id] = Nystroem(kernel='precomputed', random_state=0)
+        self.log_reg[msg.id] = LogisticRegression(C=1/self.reg_strength,
+                                                  solver='newton-cg')
         # Default ownership probability to priors
-        self.guessFromNothing(agent_ids=[msg.id])
+        self.guessOwnership(agent_ids=[msg.id])
         self.owner_lock.release()
 
     def newObjectCb(self, o_id):
         """Callback upon insertion of new object."""
         self.owner_lock.acquire()
         if self.disable_extrapolate:
-            self.guessFromNothing(obj_ids=[o_id])
+            self.guessOwnership(obj_ids=[o_id])
         else:
-            self.extrapolateFromPercepts(new_ids=[o_id])    
+            self.predictOwnership(new_ids=[o_id])    
         self.owner_lock.release()
         
-    def guessFromNothing(self, obj_ids=[], agent_ids=[]):
+    def guessOwnership(self, obj_ids=None, agent_ids=None):
         """Guess probability of ownership using default prior."""
-        if len(obj_ids) == 0:
+        if obj_ids is None:
             obj_ids = self.object_db.keys()
-        if len(agent_ids) == 0:
-            agent_ids = [a.id for a in Agent.universe()]
+        if agent_ids is None:
+            agent_ids = self.predict_db.keys()
         for o_id in obj_ids:
-            obj = self.object_db[o_id]
-            if obj.is_avatar:
+            if self.object_db[o_id].is_avatar:
                 continue
             for a_id in agent_ids:
-                obj.ownership[a_id] = self.default_prior
+                self.predict_db[a_id][o_id] = self.default_prior
+                self.object_db[o_id].ownership[a_id] = self.default_prior
             
-    def inferFromPerm(self, act_name, obj, truth):
-        """Infer ownership from permission info."""
+    def inferOwnership(self, act_name, obj, truth):
+        """Infer ownership from permissions and rules."""
         rule_set = self.lookupRules(act_name).rule_set
         rule_set = [Rule.fromMsg(r) for r in rule_set]
 
@@ -233,94 +238,95 @@ class OwnershipTracker(ObjectTracker):
 
         # Return posterior probabilities
         return p_owned_post
-
-    def extrapolateFromPercepts(self, new_ids=[], exc_ids=[], agent_ids=[]):
-        """Guess ownership of objects from physical percepts."""
-        # Filter out new objects from training set
-        train = [o.copy() for o in self.object_db.values()
-                 if o.id not in new_ids]
-        # Filter out avatars
-        train = [o for o in train if not o.is_avatar]
-
-        # Set dimensions equal to number of training samples
-        self.nys.n_components = len(train)
-        # Duplicate labels in order to account fo uncertainty
-        y = [True] * len(train) + [False] * len(train)
-
-        # Default to uninformed prior if too few training points
-        if len(train) <= 1:
-            self.guessFromNothing(new_ids, agent_ids)
-            return
-
-        # Guess ownership for all agents if none are given 
-        if len(agent_ids) == 0:
-            agent_ids = [a.id for a in Agent.universe()]
+            
+    def predictOwnership(self, new_ids=None, agent_ids=None):
+        """Predict ownership of objects from physical percepts."""
+        # Predict ownership for all agents if none are specified 
+        if agent_ids is None:
+            agent_ids = self.predict_db.keys()
         if len(agent_ids) == 0:
             return
         
         # Train the classifier for each possible owner
         for a_id in agent_ids:
+            # Default to uninformed prior if too few training points
+            if len(self.claim_db[a_id]) <= 1:
+                self.guessOwnership(new_ids, [a_id])
+                continue
 
-            # Compute Gram matrix and kernel map for kernel logistic regression
-            K = self.perceptKern(train, train, a_id=a_id)
-            X = self.nys.fit_transform(K)
+            # Use claimed objects as training set
+            train = [o.copy() for o in self.object_db.values()
+                     if o.id in self.claim_db[a_id]]
+            # Predict ownership of unclaimed objects
+            test = [o.copy() for o in self.object_db.values()
+                    if o.id in self.claim_db[a_id]]
+            # Only predict ownership for new objects, if specified
+            if new_ids is not None:
+                test = [o for o in test if o.id in new_ids]
+                                      
+            # Predict new probabilities
+            K_test = self.perceptKern(test, train, agent_id=a_id)
+            X_test = self.nys[a_id].transform(K_test)
+            new_probs = self.log_reg[a_id].predict_proba(X_test)
+            new_probs = list(new_probs[:,1])
+
+            # Update probabilities of ownership
+            for i, o in enumerate(test):
+                self.predict_db[a_id][o.id] = new_probs[i]
+                self.object_db[o.id].ownership[a_id] = new_probs[i]
+
+    def trainPredictor(self, agent_ids=None):
+        # Train predictor for all agents with claims if none are given
+        if agent_ids is None:
+            agent_ids = self.claim_db.keys()
+        if len(agent_ids) == 0:
+            return
+
+        # Train the predictor for each possible owner
+        for a_id in agent_ids:
+            # Check to make sure there are enough points to train on
+            if len(self.claim_db[a_id]) <= 1:
+                continue
+
+            # Use claimed objects as training set
+            train = [o.copy() for o in self.object_db.values()
+                     if o.id in self.claim_db[a_id]]
+            
+            # Set kernel approximation dims to number of training samples
+            self.nys[a_id].n_components = len(train)
+
+            # Compute Gram matrix and kernel map
+            K = self.perceptKern(train, train, agent_id=a_id)
+            X = self.nys[a_id].fit_transform(K)
             
             # Duplicate samples to account for uncertainty in class labels
             X = np.tile(X, [2,1])
+            y = [True] * len(train) + [False] * len(train)
 
-            # Predict ownership of either new or unclaimed objects
-            if len(new_ids) == 0:
-                test = [o for o in train if o.id not in self.claim_db[a_id]]
-            else:
-                test = [self.object_db[n_id].copy() for n_id in new_ids]
-            # Filter out excluded ids
-            test = [o for o in test if o.id not in exc_ids]
+            # Weight samples according to the certainty of ownership claims
+            weights = [self.claim_db[a_id][o.id] for o in train]
+            weights = np.array(weights + [1.0-w for w in weights])
+
+            # Train the logistic regression classifier
+            self.log_reg[a_id].fit(X, y, sample_weight=weights)
+
                 
-            # Repeat until convergence or max iterations
-            for n in range(self.max_reg_iters):
-                # Weight samples according to the certainty of ownership
-                weights = [o.ownership.get(a_id, self.default_prior)
-                           for o in train]
-                weights = np.array(weights + [1.0-w for w in weights])
-                self.log_reg.fit(X, y, sample_weight=weights)
-
-                # Predict new probabilities
-                K_test = self.perceptKern(test, train, a_id=a_id)
-                X_test = self.nys.transform(K_test)
-                new_probs = self.log_reg.predict_proba(X_test)
-                new_probs = list(new_probs[:,1])
-
-                # Update probabilities of ownership
-                test_probs = [o.ownership.get(a_id, self.default_prior)
-                              for o in test]
-                for i, o in enumerate(test):
-                    o.ownership[a_id] = new_probs[i]
-
-                # Check for convergence for probabilties to be updated
-                if all([abs(p_new - p_old) < self.converge_thresh
-                        for p_new, p_old in zip(new_probs, test_probs)]):
-                    break
-            
-            # Copy ownership values back to actual database
-            for o in test:
-                self.object_db[o.id].ownership[a_id] = o.ownership[a_id]
-
-    def perceptDiff(self, o1, o2, a_id=None):
+    def perceptDiff(self, o1, o2, agent_id=None):
         """Computes raw displacement in perceptual space between objects."""
         col_diff = 1.0 if o1.color != o2.color else 0.0
         p1, p2 = o1.position, o2.position
         pos_diff = np.array([p1.x-p2.x, p1.y-p2.y, p1.z-p2.z])
-        time_diff = (0.0 if a_id is None else
-                     (o2.t_last_actions.get(a_id, self.t_init) -
-                      o1.t_last_actions.get(a_id, self.t_init)).to_sec())
+        time_diff = (0.0 if agent_id is None else
+                     (o2.t_last_actions.get(agent_id, self.t_init) -
+                      o1.t_last_actions.get(agent_id, self.t_init)).to_sec())
         col_diff *= self.col_weight
         pos_diff *= self.pos_weight
         time_diff *= self.time_weight
         return np.concatenate([[col_diff], pos_diff, [time_diff]])
 
-    def perceptKern(self, objs1, objs2, a_id=None, gamma=1.0):
+    def perceptKern(self, objs1, objs2, agent_id=None, gamma=1.0):
         """Computes RBF kernel matrix for the percept features of objects."""
-        diffs = [[self.perceptDiff(o1, o2, a_id)
+        diffs = [[self.perceptDiff(o1, o2, agent_id)
                   for o2 in objs2] for o1 in objs1]
         sq_dists = np.array([[np.dot(d, d) for d in row] for row in diffs])
         return np.exp(-gamma * sq_dists) 
