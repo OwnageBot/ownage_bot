@@ -48,12 +48,13 @@ class OwnershipTracker(ObjectTracker):
         self.dis_extra_srv = rospy.Service("disable_extrapolate", SetBool,
                                            self.disableExtrapolateCb)
 
-        # Reset service for ownership claims
-        self.rst_clm_srv = rospy.Service("reset_claims", Trigger,
-                                         self.resetClaimsCb)
+        # Reset service for ownership information
+        self.rst_own_srv = rospy.Service("reset_ownership", Trigger,
+                                         self.resetOwnershipCb)
         
-        # Client for looking up active rules
+        # Clients for looking up active rules and permissions
         self.lookupRules = rospy.ServiceProxy("lookup_rules", LookupRules)
+        self.lookupPerm = rospy.ServiceProxy("lookup_perm", LookupPerm)
         
         # How much to trust ownership claims
         self.claim_trust = rospy.get_param("~claim_trust", 1.0)
@@ -66,8 +67,6 @@ class OwnershipTracker(ObjectTracker):
         self.time_weight = rospy.get_param("~time_weight", 0.05)
         
         # Logistic regression params and objects for percept-based prediction
-        self.converge_thresh = rospy.get_param("~converge_thresh", 0.01)
-        self.max_reg_iters = rospy.get_param("~max_reg_iters", 1)
         self.reg_strength = rospy.get_param("~reg_strength", 0.1)
         self.max_features = rospy.get_param("~max_features", 20)
         self.nys = dict()
@@ -83,9 +82,15 @@ class OwnershipTracker(ObjectTracker):
         self.disable_extrapolate = req.data
         return SetBoolResponse(True, "")
 
-    def resetClaimsCb(self, req):
-        """Resets database of ownership claims."""
+    def resetOwnershipCb(self, req):
+        """Resets database of ownership claims and predictions."""
+        self.owner_lock.acquire()
+        # Clear all claims, predictions, inferences
         self.claim_db.clear()
+        self.predict_db.clear()
+        for obj in self.object_db.itervalues():
+            obj.ownership.clear()
+        self.owner_lock.release()
         return TriggerResponse(True, "")
         
     def ownerClaimCb(self, msg):
@@ -125,39 +130,11 @@ class OwnershipTracker(ObjectTracker):
         if not self.disable_extrapolate:
             self.trainPredictor(agent_ids=[agent.id])
             self.predictOwnership(agent_ids=[agent.id])
+        # Use new prior probabilities to perform inference    
+        if not self.disable_inference:
+            self.inferOwnership()
         self.owner_lock.release()
-        
-    def permInputCb(self, msg):
-        """Callback upon receiving permission information about objects."""
-        # Do nothing if inference is disabled
-        if self.disable_inference:
-            return
-        
-        # Ignore perms which are not about actions
-        if msg.predicate not in actions.db:
-            return
-        action = actions.db[msg.predicate]
-
-        # Ignore actions without objects as targets
-        if len(msg.bindings) != 1:
-            raise TypeError("Action perm should have exactly one argument.")
-        if (msg.bindings[0] == objects.Nil.toStr() or action.tgtype != Object):
-            raise TypeError("Action perm should have object as argument.")
-        try:
-            obj = Object.fromStr(msg.bindings[0])
-        except ValueError:
-            raise ValueError("Could not resolve object ID - needs to be int.")
-        obj = self.object_db[obj.id]
-        
-        # Infer ownership
-        self.owner_lock.acquire()
-        ownership = self.inferOwnership(action.name, obj, msg.truth)
-        # Update ownership for agents who have not made claims
-        for a_id in ownership.keys():
-            if obj.id not in self.claim_db[a_id]:
-                obj.ownership[a_id] = ownership[a_id]
-        self.owner_lock.release()
-        
+                
     def newAgentCb(self, msg):
         """Callback upon new agent introduction."""
         rospy.loginfo("Agent {} introduced, guessing ownership...".\
@@ -177,10 +154,14 @@ class OwnershipTracker(ObjectTracker):
     def newObjectCb(self, o_id):
         """Callback upon insertion of new object."""
         self.owner_lock.acquire()
+        # Predict ownership of new object
         if self.disable_extrapolate:
             self.guessOwnership(obj_ids=[o_id])
         else:
-            self.predictOwnership(new_ids=[o_id])    
+            self.predictOwnership(new_ids=[o_id])
+        # Use new prior probabilities to perform inference    
+        if not self.disable_inference:
+            self.inferOwnership()
         self.owner_lock.release()
         
     def guessOwnership(self, obj_ids=None, agent_ids=None):
@@ -196,50 +177,84 @@ class OwnershipTracker(ObjectTracker):
                 self.predict_db[a_id][o_id] = self.default_prior
                 self.object_db[o_id].ownership[a_id] = self.default_prior
             
-    def inferOwnership(self, act_name, obj, truth):
+    def inferOwnership(self, obj_ids=None):
         """Infer ownership from permissions and rules."""
-        rule_set = self.lookupRules(act_name).rule_set
-        rule_set = [Rule.fromMsg(r) for r in rule_set]
+        if obj_ids is None:
+            obj_ids = self.object_db.keys()
 
-        # Do Bayesian update using potential explanations
-        p_owned_prior = dict(obj.ownership)
-        p_owned_post = dict()
-        p_f_owned = dict()
-        p_a_owned = dict()
-        p_forbidden = Rule.evaluateOr(rule_set, obj)
-        p_allowed = 1 - p_forbidden
+        # Look up rule sets for every possible action
+        rule_db = dict()
+        for act in actions.db.iterkeys():
+            if action.tgtype != Object:
+                continue
+            rule_set = self.lookupRules(act.name).rule_set
+            rule_db[act.name] = [Rule.fromMsg(r) for r in rule_set]
 
-        for a in Agent.universe():
-            # Suppose that obj is owned by agent a
-            obj.ownership = dict(p_owned_prior)
-            obj.ownership[a.id] = 1.0
+        for o_id in obj_ids:
+            # Copy object properties
+            obj = self.object_db[o_id].copy()
             
-            # Find P(forbidden|owned by a) and P(allowed|owned by a)
-            p_f_cond = Rule.evaluateOr(rule_set, obj)
-            p_a_cond = 1 - p_f_cond
-            
-            # Find P(forbidden & owned by a) and P(allowed & owned by a)
-            p_f_owned[a.id] = p_f_cond *  p_owned_prior[a.id]
-            p_a_owned[a.id] = p_a_cond *  p_owned_prior[a.id]
-            
-        # Compute updated probability of ownership
-        for a in Agent.universe():
-            # P(owned by a|perm) =
-            # P(owned by a|forbidden) P(forbidden|perm) +
-            # P(owned by a|allowed) P(allowed|perm)
-            p_owned_post[a.id] = 0
-            if p_forbidden > 0:
-                p_owned_post[a.id] += p_f_owned[a.id] / p_forbidden * truth
-            if p_allowed > 0:
-                p_owned_post[a.id] += p_a_owned[a.id] / p_allowed * (1-truth)
+            # Build initial prior from claims and predictions
+            p_owned_init = dict()
+            for a_id, predict_db in self.predict_db.iteritems():
+                p_owned_init[a_id] = predict_db.get(o_id, self.default_prior)
+            for a_id, claim_db in self.claim_db.iteritems():
+                if o_id in claim_db:
+                    p_owned_init[a_id] = claim_db[o_id]
+            p_owned_prior = dict(p_owned_init)
+                    
+            # Do Bayesian inference for each rule set
+            for act_name, rule_set in rule_db.iteritems():
+                if len(rule_set) == 0:
+                    continue
 
-        # Reset ownership to original
-        obj.ownership = p_owned_prior
+                # Lookup relevant permission
+                perm = self.lookupPerm(act_name, obj.toStr()).perm
 
-        # Return posterior probabilities
-        return p_owned_post
+                # Compute prior probability of action being forbidden
+                obj.ownership = dict(p_owned_prior)
+                p_forbid = Rule.evaluateOr(rule_set, obj)
+                p_allow = 1 - p_forbid
+
+                # Intialize posterior and conditional probabilties
+                p_owned_post = dict()
+                p_f_owned = dict()
+                p_a_owned = dict()
+                
+                # Compute conditional and joint probabilities
+                for a_id in p_owned_prior.iterkeys():
+                    # Suppose that obj is owned by agent a_id
+                    obj.ownership = dict(p_owned_prior)
+                    obj.ownership[a_id] = 1.0
             
-    def predictOwnership(self, new_ids=None, agent_ids=None):
+                    # Find P(forbid|ownedBy a) and P(allow|ownedBy a)
+                    p_f_cond = Rule.evaluateOr(rule_set, obj)
+                    p_a_cond = 1 - p_f_cond
+            
+                    # Find P(forbid & ownedBy a) and P(allow & ownedBy a)
+                    p_f_owned[a_id] = p_f_cond *  p_owned_prior[a_id]
+                    p_a_owned[a_id] = p_a_cond *  p_owned_prior[a_id]
+            
+                # Compute posterior probability of ownership
+                for a in p_owned_prior.iterkeys():
+                    # P(ownedBy a|perm) =
+                    # P(ownedBy a|forbid) P(forbid|perm) +
+                    # P(ownedBy a|allow)  P(allow|perm)
+                    p_owned_post[a.id] = 0
+                    if p_forbid > 0:
+                        p_owned_post[a.id] += (p_f_owned[a.id] / p_forbid *
+                                               truth)
+                    if p_allow > 0:
+                        p_owned_post[a.id] += (p_a_owned[a.id] / p_allow *
+                                               (1-truth))
+
+                # Use posterior as prior for next rule set
+                p_owned_prior = p_owned_post
+
+            # Set ownership probabilities to final posterior
+            self.object_db[o_id].ownership = dict(p_owned_post)
+            
+    def predictOwnership(self, obj_ids=None, agent_ids=None):
         """Predict ownership of objects from physical percepts."""
         # Predict ownership for all agents if none are specified 
         if agent_ids is None:
@@ -251,7 +266,7 @@ class OwnershipTracker(ObjectTracker):
         for a_id in agent_ids:
             # Default to uninformed prior if too few training points
             if len(self.claim_db[a_id]) <= 1:
-                self.guessOwnership(new_ids, [a_id])
+                self.guessOwnership(obj_ids, [a_id])
                 continue
 
             # Use claimed objects as training set
@@ -260,9 +275,9 @@ class OwnershipTracker(ObjectTracker):
             # Predict ownership of unclaimed objects
             test = [o.copy() for o in self.object_db.values()
                     if o.id in self.claim_db[a_id]]
-            # Only predict ownership for new objects, if specified
-            if new_ids is not None:
-                test = [o for o in test if o.id in new_ids]
+            # Only predict ownership for specified objects (if unclaimed)
+            if obj_ids is not None:
+                test = [o for o in test if o.id in obj_ids]
                                       
             # Predict new probabilities
             K_test = self.perceptKern(test, train, agent_id=a_id)

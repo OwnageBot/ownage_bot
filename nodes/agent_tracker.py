@@ -35,6 +35,10 @@ class AgentTracker(object):
         self.rst_agt_srv = rospy.Service("reset_agents", Trigger,
                                          self.resetAgentsCb)
 
+        # Client to reset ownership claims and predictions
+        self.resetOwnership = rospy.ServiceProxy("reset_ownership",
+                                                 Trigger)
+
         
     def agentInputCb(self, msg):
         """Updates database and current agent with new information."""
@@ -80,8 +84,14 @@ class AgentTracker(object):
         return ListAgentsResponse(agt_msgs)
 
     def resetAgentsCb(self, req):
-        """Clears the object databases."""
+        """Clears the agent database and resets ownership values."""
         self.agent_db.clear()
+        try:
+            self.resetOwnership.wait_for_service(timeout=0.5)
+            self.resetOwnership()
+        except rospy.ROSException:
+            # Fail silently
+            pass
         return TriggerResponse(True, "")
 
     def setAgentsCb(self, req):

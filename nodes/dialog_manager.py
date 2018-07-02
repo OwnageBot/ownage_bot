@@ -37,7 +37,6 @@ class DialogManager(object):
         self.reset = dict()
         self.reset["perms"] = rospy.ServiceProxy("reset_perms", Trigger)
         self.reset["rules"] = rospy.ServiceProxy("reset_rules", Trigger)
-        self.reset["claims"] = rospy.ServiceProxy("reset_claims", Trigger)
         self.reset["objects"] = rospy.ServiceProxy("reset_objects", Trigger)
         self.reset["agents"] = rospy.ServiceProxy("reset_agents", Trigger)
         self.reset["simulation"] = rospy.ServiceProxy("simulation/reset",

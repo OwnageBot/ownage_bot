@@ -259,5 +259,4 @@ reset: |
     reset agents
     reset permissions
     reset rules
-    reset claims
     reset all
