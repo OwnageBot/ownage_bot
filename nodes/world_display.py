@@ -23,6 +23,12 @@ class WorldDisplay(object):
         # CvBridge instance for ROS <-> OpenCV conversion
         self.cv_bridge = CvBridge()
 
+        # Line type compatibility across OpenCV versions
+        if cv2.__version__.startswith('2'):
+            self.lty = cv2.CV_AA
+        else: # Assume this is OpenCV 3 and above
+            self.lty = cv2.LINE_AA
+        
         # Display buffer
         self.disp_buf = np.zeros((self.height, self.width, 3), np.uint8)
 
@@ -51,7 +57,7 @@ class WorldDisplay(object):
     def drawObject(self, obj):
         """Draws object on display buffer."""
         # Convert color name to RGB value
-        color = self.color_db.get(obj.color, (255, 255, 255))
+        color = self.color_db.get(obj.color, (0, 0, 0))
         if self.owner_heatmap < 0:
             # Color by object color
             obj_color = color
@@ -72,7 +78,7 @@ class WorldDisplay(object):
         cv2.circle(self.disp_buf, (x, y), self.obj_radius, obj_color, -1)
         # Draw object ID on top of circle
         cv2.putText(self.disp_buf, str(obj.id), (x, y),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, txt_color, 2, cv2.CV_AA)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, txt_color, 2, self.lty)
 
 
     def drawDisplay(self):
@@ -80,10 +86,10 @@ class WorldDisplay(object):
         # Clear display to grey
         self.disp_buf.fill(127)
         # Draw origin and scaling
-        cv2.putText(self.disp_buf, "ORIGIN: {}".format(self.origin), (24, 24),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2, cv2.CV_AA)
-        cv2.putText(self.disp_buf, "SCALING: {}".format(self.scaling), (24, 48),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2, cv2.CV_AA)
+        cv2.putText(self.disp_buf, "ORIGIN: {}".format(self.origin), (24,24),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2, self.lty)
+        cv2.putText(self.disp_buf, "SCALING: {}".format(self.scaling), (24,48),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2, self.lty)
         # Draw all objects
         objs = list(Object.universe())
         for obj in objs:

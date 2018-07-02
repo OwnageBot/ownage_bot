@@ -35,9 +35,6 @@ class OwnershipTracker(ObjectTracker):
         # Set up callback to handle ownership claims
         self.owner_sub = rospy.Subscriber("owner_input", PredicateMsg,
                                           self.ownerClaimCb)
-        # Set up callback to predict ownership upon new permission input
-        self.perm_sub = rospy.Subscriber("perm_input", PredicateMsg,
-                                         self.permInputCb)
         # Set up callback to predict ownership upon new object detection
         self.new_agt_sub = rospy.Subscriber("new_agent", AgentMsg,
                                             self.newAgentCb)
@@ -184,8 +181,8 @@ class OwnershipTracker(ObjectTracker):
 
         # Look up rule sets for every possible action
         rule_db = dict()
-        for act in actions.db.iterkeys():
-            if action.tgtype != Object:
+        for act in actions.db.itervalues():
+            if act.tgtype != Object:
                 continue
             rule_set = self.lookupRules(act.name).rule_set
             rule_db[act.name] = [Rule.fromMsg(r) for r in rule_set]
@@ -202,10 +199,13 @@ class OwnershipTracker(ObjectTracker):
                 if o_id in claim_db:
                     p_owned_init[a_id] = claim_db[o_id]
             p_owned_prior = dict(p_owned_init)
+            p_owned_post = dict()
                     
             # Do Bayesian inference for each rule set
             for act_name, rule_set in rule_db.iteritems():
                 if len(rule_set) == 0:
+                    # No inference needed if no rules apply
+                    p_owned_post = dict(p_owned_prior)
                     continue
 
                 # Lookup relevant permission
@@ -217,7 +217,6 @@ class OwnershipTracker(ObjectTracker):
                 p_allow = 1 - p_forbid
 
                 # Intialize posterior and conditional probabilties
-                p_owned_post = dict()
                 p_f_owned = dict()
                 p_a_owned = dict()
                 
@@ -249,7 +248,7 @@ class OwnershipTracker(ObjectTracker):
                                                (1-truth))
 
                 # Use posterior as prior for next rule set
-                p_owned_prior = p_owned_post
+                p_owned_prior = dict(p_owned_post)
 
             # Set ownership probabilities to final posterior
             self.object_db[o_id].ownership = dict(p_owned_post)

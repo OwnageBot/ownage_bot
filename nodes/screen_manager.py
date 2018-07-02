@@ -23,6 +23,12 @@ class ScreenManager(object):
         # CvBridge instance for ROS <-> OpenCV conversion
         self.cv_bridge = CvBridge()
 
+        # Line type compatibility across OpenCV versions
+        if cv2.__version__.startswith('2'):
+            self.lty = cv2.CV_AA
+        else: # Assume this is OpenCV 3 and above
+            self.lty = cv2.LINE_AA
+        
         # Image buffers
         self.screen_buf = np.zeros((self.height, self.width, 3), np.uint8)
         self.status_buf = np.zeros((self.height/4, self.width, 3), np.uint8)
@@ -84,7 +90,7 @@ class ScreenManager(object):
         scale = 0.8
         color = (255, 255, 255)
         thickness = 3
-        line_type = cv2.CV_AA
+        line_type = self.lty
 
         # Clear buffer
         self.status_buf.fill(0)
@@ -109,7 +115,7 @@ class ScreenManager(object):
         font = cv2.FONT_HERSHEY_SIMPLEX
         scale = 0.5
         thickness = 2
-        line_type = cv2.CV_AA
+        line_type = self.lty
         color_db = {"red": (0,0,255), "green": (0,255,0), "blue": (255,0,0)}
 
         # Clear buffer

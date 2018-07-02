@@ -30,6 +30,9 @@ class RuleManager(object):
         self.given_rule_db = dict()
         # Database of object specific permissions
         self.perm_db = dict()
+
+        # Prior probability that permission is 'forbid'
+        self.perm_prior = rospy.get_param("~perm_prior", 0.0)
         
         # Whether rule and permission databases are frozen
         self.freeze_perms = rospy.get_param("~freeze_perms", False)
@@ -92,8 +95,8 @@ class RuleManager(object):
             if tgt in self.perm_db[action.name]:
                 perm = self.perm_db[action.name][tgt]
                 return LookupPermResponse(perm)
-        # Reports non forbidden if not in database
-        return LookupPermResponse(0.0)
+        # Reports prior probability if not in database
+        return LookupPermResponse(self.perm_prior)
         
     def lookupRulesCb(self, req):
         """Returns rule set for requested action."""
