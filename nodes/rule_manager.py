@@ -95,8 +95,8 @@ class RuleManager(object):
             if tgt in self.perm_db[action.name]:
                 perm = self.perm_db[action.name][tgt]
                 return LookupPermResponse(perm)
-        # Reports prior probability if not in database
-        return LookupPermResponse(self.perm_prior)
+        # Return -1 if not in database
+        return LookupPermResponse(-1)
         
     def lookupRulesCb(self, req):
         """Returns rule set for requested action."""
@@ -133,7 +133,8 @@ class RuleManager(object):
         # Overwrite old value if permission already exists
         self.perm_db[action.name][tgt] = msg.truth
         # Update rules to accomodate new permission
-        self.accomPerm(action.name, tgt, msg.truth)
+        if not self.freeze_rules:
+            self.accomPerm(action.name, tgt, msg.truth)
 
     def ruleInputCb(self, msg):
         """Updates given rule database, adjusts active rule database."""

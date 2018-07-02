@@ -196,6 +196,7 @@ class Object(object):
                 resp = cls._listObjects()
                 cls._universe_cache =  [cls.fromMsg(m) for m in resp.objects]
                 cls._universe_cache.sort(key = lambda x : x.toStr())
+                cls._last_cache_time = rospy.Time.now()
             except (rospy.ROSException, rospy.ServiceException):
                 # Just return cache if service call could not be executed
                 rospy.logwarn("Service error, returning cache instead...")
@@ -293,6 +294,7 @@ class Agent(object):
                 resp = cls._listAgents()
                 cls._universe_cache =  [cls.fromMsg(m) for m in resp.agents]
                 cls._universe_cache.sort(key = lambda x : x.toStr())
+                cls._last_cache_time = rospy.Time.now()
             except (rospy.ROSException, rospy.ServiceException):
                 # Just return cache if service call could not be executed
                 rospy.logwarn("Service error, returning cache instead...")

@@ -90,7 +90,7 @@
       <param name="default_prior" type="double" value="0.5"/>
       <!-- Flags for ownership inference and extrapolation-->
       <param name="disable_inference" type="bool" value="false"/>
-      <param name="disable_extrapolate" type="bool" value="true"/>
+      <param name="disable_extrapolate" type="bool" value="false"/>
       <param name="hardcode_color" type="bool" value="true"/>
     </node>
 

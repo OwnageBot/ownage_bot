@@ -121,6 +121,8 @@ class TaskManager(object):
         for a in (action.dependencies + [action]):
             tgt_str = "" if action.tgtype is type(None) else tgt.toStr()
             perm = self.lookupPerm(a.name, tgt_str).perm
+            if perm < 0:
+                return True # Assume allowed if permission was unspecified
             if perm >= 0.5:
                 return True
         return False

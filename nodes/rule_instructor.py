@@ -17,7 +17,7 @@ class RuleInstructor(object):
 
         # Various rates
         self.pub_rate = rospy.Rate(rospy.get_param("~pub_rate", 10))
-        self.iter_wait = rospy.get_param("~iter_wait", 0.5)
+        self.iter_wait = rospy.get_param("~iter_wait", 1.0)
 
         # Which set of objects to evaluate ('all', 'train' or 'test')
         self.eval_set = rospy.get_param("~eval_set", "all")
@@ -92,7 +92,7 @@ class RuleInstructor(object):
     def loadRules(self):
         """Loads rules from parameter server."""
         rule_strs = rospy.get_param("~rules", [])
-        rule_msgs = [parse.asRule(s) for s in rule_strs]
+        rule_msgs = [parse.cmd.asRule(s) for s in rule_strs]
         if None in rule_msgs:
             raise SyntaxError("Rules were in the wrong syntax")
         rules = [Rule.fromMsg(m) for m in rule_msgs]
@@ -108,11 +108,11 @@ class RuleInstructor(object):
         script_strs = rospy.get_param("~script", [])
         script_msgs = []
         for s in script_strs:
-            msg = parse.asPerm(s)
+            msg = parse.cmd.asPerm(s)
             if msg:
                 script_msgs.append(msg)
                 continue
-            msg = parse.asRule(s)
+            msg = parse.cmd.asRule(s)
             if msg:
                 script_msgs.append(msg)
                 continue
