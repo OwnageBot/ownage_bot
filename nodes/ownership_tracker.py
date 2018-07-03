@@ -49,9 +49,6 @@ class OwnershipTracker(ObjectTracker):
                                            self.disableExtrapolateCb)
 
         # Reset service for objects and ownership information
-        self.rst_obj_srv.shutdown()
-        self.rst_obj_srv = rospy.Service("reset_objects", Trigger,
-                                          self.resetObjectsCb)
         self.rst_own_srv = rospy.Service("reset_ownership", Trigger,
                                          self.resetOwnershipCb)
         
