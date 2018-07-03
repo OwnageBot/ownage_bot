@@ -315,15 +315,16 @@ class RuleInstructor(object):
         agents = self.simuAgents().agents
 
         metrics = defaultdict(lambda : defaultdict(float))
-        headers = ["accuracy", "precision", "recall", "f1"]
+        headers = ["accuracy", "precision", "recall", "f1",
+                   "p-accuracy", "p-precision", "p-recall", "p-f1"]
 
         guard_div = lambda x, y, z: z if (y == 0) else x/y
         f1 = lambda x, y: guard_div(2*x*y, (x+y), 0.0)
         
         # Compute performance metrics
         for a in agents:
-            n_pos_true = 0
-            n_pos_pred = 0
+            n_pos_true, f_pos_true = 0, 0
+            n_pos_pred, f_pos_pred = 0, 0
             for o_id, true_obj in true_objs.iteritems():
                 pred_obj = pred_objs[o_id]
                 true_own = (0.0 if a.id not in true_obj.ownership
@@ -331,23 +332,41 @@ class RuleInstructor(object):
                 pred_own = (0.0 if a.id not in pred_obj.ownership
                             else pred_obj.ownership[a.id])
                 correct = (true_own-0.5)*(pred_own-0.5) > 0
+                # Compute deterministic metrics (with cutoff=0.5)
                 metrics[a.id]["accuracy"] += correct
-                if true_own >= 0.5:
-                    n_pos_true += 1
-                    metrics[a.id]["recall"] += correct
                 if pred_own >= 0.5:
                     n_pos_pred += 1
                     metrics[a.id]["precision"] += correct
-
+                if true_own >= 0.5:
+                    n_pos_true += 1
+                    metrics[a.id]["recall"] += correct
+                # Compute probabilistic metrics
+                f_pos_true += true_own
+                f_pos_pred += pred_own
+                true_pos = min(true_own, pred_own)
+                true_neg = min(1-true_own, 1-pred_own)
+                metrics[a.id]["p-accuracy"] += true_pos + true_neg
+                metrics[a.id]["p-precision"] += true_pos
+                metrics[a.id]["p-recall"] += true_pos
+                    
             metrics[a.id]["accuracy"] =\
                 guard_div(metrics[a.id]["accuracy"], len(true_objs), 1.0)
-            metrics[a.id]["recall"] =\
-                guard_div(metrics[a.id]["recall"], n_pos_true, 1.0)
             metrics[a.id]["precision"] =\
                 guard_div(metrics[a.id]["precision"], n_pos_pred, 1.0)
+            metrics[a.id]["recall"] =\
+                guard_div(metrics[a.id]["recall"], n_pos_true, 1.0)
             metrics[a.id]["f1"] =\
                 f1(metrics[a.id]["precision"], metrics[a.id]["recall"]) 
 
+            metrics[a.id]["p-accuracy"] =\
+                guard_div(metrics[a.id]["p-accuracy"], len(true_objs), 1.0)
+            metrics[a.id]["p-precision"] =\
+                guard_div(metrics[a.id]["p-precision"], f_pos_pred, 1.0)
+            metrics[a.id]["p-recall"] =\
+                guard_div(metrics[a.id]["p-recall"], f_pos_true, 1.0)
+            metrics[a.id]["p-f1"] =\
+                f1(metrics[a.id]["p-precision"], metrics[a.id]["p-recall"]) 
+            
         # Average across agents
         for k in headers:
             metrics["average"][k] =\
@@ -435,7 +454,8 @@ class RuleInstructor(object):
             rospy.sleep(self.iter_wait/2.0)
 
         # Compute averages
-        headers = ["accuracy", "precision", "recall", "f1"]
+        headers = ["accuracy", "precision", "recall", "f1",
+                   "p-accuracy", "p-precision", "p-recall", "p-f1"]
         for a_id in avg_metrics.keys():
             for k in avg_metrics[a_id].keys():
                 avg_metrics[a_id][k] /= n_iters
@@ -483,7 +503,8 @@ class RuleInstructor(object):
             rospy.sleep(self.iter_wait/2.0)
 
         # Compute averages
-        headers = ["accuracy", "precision", "recall", "f1"]
+        headers = ["accuracy", "precision", "recall", "f1",
+                   "p-accuracy", "p-precision", "p-recall", "p-f1"]
         for a_id in avg_metrics.keys():
             for k in avg_metrics[a_id].keys():
                 avg_metrics[a_id][k] /= n_iters
