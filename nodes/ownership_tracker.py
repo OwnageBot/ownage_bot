@@ -28,6 +28,8 @@ class OwnershipTracker(ObjectTracker):
         self.claim_db = defaultdict(dict)
         # Database of ownership predictions
         self.predict_db = defaultdict(dict)
+        # Database of action permissions
+        self.perm_db = defaultdict(dict)
 
         # Lock to ensure callbacks update ownership synchronously
         self.owner_lock = threading.Lock()
@@ -94,6 +96,7 @@ class OwnershipTracker(ObjectTracker):
         # Clear all claims, predictions, inferences
         self.claim_db.clear()
         self.predict_db.clear()
+        self.perm_db.clear()
         for obj in self.object_db.itervalues():
             obj.ownership.clear()
         self.owner_lock.release()
@@ -119,6 +122,9 @@ class OwnershipTracker(ObjectTracker):
             obj = Object.fromStr(msg.bindings[0])
         except ValueError:
             raise ValueError("Could not resolve object ID - needs to be int.")
+
+        # Store permission
+        self.perm_db[act.name][obj.id] = msg.truth
         
         # Infer ownership
         self.owner_lock.acquire()
@@ -210,13 +216,20 @@ class OwnershipTracker(ObjectTracker):
         """Infer ownership from permissions and rules."""
         if obj_ids is None:
             obj_ids = self.object_db.keys()
-
-        for o_id in self.object_db.iterkeys():
-            if o_id not in obj_ids:
+        obj_ids = [i for i in obj_ids if not self.object_db[i].is_avatar]
+        
+        # Lookup rules in advance
+        rule_db = dict()
+        for act in actions.db.itervalues():
+            if act.tgtype != Object:
                 continue
-            if self.object_db[o_id].is_avatar:
+            rule_set = self.lookupRules(act.name).rule_set
+            rule_set = [Rule.fromMsg(r) for r in rule_set]
+            if len(rule_set) == 0:
                 continue
-
+            rule_db[act.name] = rule_set
+        
+        for o_id in obj_ids:
             # Copy object properties
             obj = self.object_db[o_id].copy()
             
@@ -229,24 +242,15 @@ class OwnershipTracker(ObjectTracker):
                     p_owned_init[a_id] = claim_db[o_id]
             p_owned_prior = dict(p_owned_init)
             p_owned_post = dict()
-                    
+            
             # Do Bayesian inference for each rule set
-            for act in actions.db.itervalues():
-                if act.tgtype != Object:
-                    continue
-                rule_set = self.lookupRules(act.name).rule_set
-                rule_set = [Rule.fromMsg(r) for r in rule_set]
-                if len(rule_set) == 0:
-                    # No inference needed if no rules apply
-                    p_owned_post = dict(p_owned_prior)
-                    continue
-
-                # Lookup relevant permission
-                p_forbid_perm = self.lookupPerm(act.name, obj.toStr()).perm
+            for act_name, rule_set in rule_db.iteritems():
                 # Do not infer if no permission has been given
-                if p_forbid_perm < 0:
+                if o_id not in self.perm_db[act_name]:
                     continue
-                
+                # Lookup relevant permission
+                p_forbid_perm = self.perm_db[act_name][o_id]
+
                 # Compute prior probability of action being forbidden
                 obj.ownership = dict(p_owned_prior)
                 p_forbid = Rule.evaluateOr(rule_set, obj)
@@ -285,10 +289,10 @@ class OwnershipTracker(ObjectTracker):
 
                 # Use posterior as prior for next rule set
                 p_owned_prior = dict(p_owned_post)
-
+                
             # Set ownership probabilities to final posterior
             if o_id in self.object_db:
-                self.object_db[o_id].ownership = dict(p_owned_post)
+                self.object_db[o_id].ownership = dict(p_owned_prior)
             
     def predictOwnership(self, obj_ids=None, agent_ids=None):
         """Predict ownership of objects from physical percepts."""
