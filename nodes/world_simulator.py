@@ -192,6 +192,10 @@ class WorldSimulator(object):
         cluster_rad = rospy.get_param("blocks_world/cluster_rad", 0.3)
         object_rng = rospy.get_param("blocks_world/object_rng", [-1.0, 1.0])
 
+        # Color names
+        color_names = rospy.get_param("blocks_world/color_names",
+                                      ["none", "red", "green", "blue"])
+        
         # Last action times (how many seconds ago an action occurred)
         t_last_owned = rospy.get_param("blocks_world/t_last_owned", 0)
         t_last_owned = rospy.Duration(t_last_owned)
@@ -202,7 +206,11 @@ class WorldSimulator(object):
 
         # Update color database
         for c_id in range(n_agents + 1):
-            c_name = "color" + str(c_id)
+            if c_id < len(color_names):
+                c_name = color_names[c_id]
+            else:
+                c_name = "color" + str(c_id)
+                color_names.append(c_name)
             rospy.set_param("colors/" + c_name, [[0,0,0],[0,0,0]])
         
         # Generate agents and their avatars
@@ -265,11 +273,11 @@ class WorldSimulator(object):
             # Generate object colors
             if 'color' in cluster_vars:
                 # Associate cluster with color 
-                obj.color = "color" + str(c_id)
+                obj.color = color_names[c_id]
             else:
                 # Choose color uniformly at random
                 col_id = r.choice(range(n_agents+1))
-                obj.color = "color" + str(col_id)
+                obj.color = color_names[col_id]
 
             # Assign last interaction times
             if 'time' in cluster_vars:

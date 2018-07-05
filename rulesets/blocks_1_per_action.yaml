@@ -1,4 +1,4 @@
 - forbid trash if ownedBy any
 - forbid pickUp if ownedBy 2
-- forbid collect if isColored color1
+- forbid collect if isColored red
 

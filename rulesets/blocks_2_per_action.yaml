@@ -1,7 +1,7 @@
 - forbid trash if ownedBy any
 - forbid trash if inArea trash
 - forbid pickUp if ownedBy 2
-- forbid pickUp if isColored color2 and inArea trash
-- forbid collect if isColored color1
+- forbid pickUp if isColored green and inArea trash
+- forbid collect if isColored red
 - forbid collect if inArea trash
 

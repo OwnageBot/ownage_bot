@@ -6,16 +6,17 @@ from ownage_bot import *
 from ownage_bot.msg import *
 from ownage_bot.srv import *
 
-# Named tuple for performance metric info
-PerfMetric = namedtuple('PerfMetric',
-                        ['tp', 'tn', 'fp', 'fn',
-                         'prec', 'rec', 'acc', 'm_est'])
+# Named tuple for evaluation metrics
+RuleMetrics = namedtuple('RuleMetrics',
+                         ['tp', 'tn', 'fp', 'fn',
+                          'precision', 'recall', 'accuracy', 'm_estimate'])
 
 class RuleManager(object):
     """Manages, updates and learns (ownership) rules."""
     
     def __init__(self):
         # Learning parameters
+        self.rule_acc_thresh = rospy.get_param("~rule_acc_thresh", 0.9)
         self.add_perm_thresh = rospy.get_param("~add_perm_thresh", 0.1)
         self.sub_perm_thresh = rospy.get_param("~sub_perm_thresh", 0.1)
         self.add_rule_thresh = rospy.get_param("~add_rule_thresh", 0.1)
@@ -24,12 +25,12 @@ class RuleManager(object):
         self.max_rule_conds = rospy.get_param("~max_rule_conds", 4)
         self.m_param = rospy.get_param("~m_param", 3)
         
-        # Database of actively-followed rules
-        self.active_rule_db = dict()
-        # Database of rules given by users
-        self.given_rule_db = dict()
+        # Database of active rules
+        self.rule_db = dict()
         # Database of object specific permissions
         self.perm_db = dict()
+        # Database of unexplained permissions
+        self.unexplained_db = dict()
 
         # Prior probability that permission is 'forbid'
         self.perm_prior = rospy.get_param("~perm_prior", 0.0)
@@ -40,9 +41,9 @@ class RuleManager(object):
 
         # Initialize databases with empty dicts/sets
         for a in actions.db.iterkeys():
-            self.active_rule_db[a] = set()
-            self.given_rule_db[a] = dict()
+            self.rule_db[a] = set()
             self.perm_db[a] = dict()
+            self.unexplained_db[a] = dict()
 
         # Subscribers
         self.perm_sub = rospy.Subscriber("perm_input", PredicateMsg,
@@ -67,13 +68,13 @@ class RuleManager(object):
         """Clears the permission database."""
         for a in actions.db.iterkeys():
             self.perm_db[a].clear()
+            self.unexplained_db[a].clear()
         return TriggerResponse(True, "")
 
     def resetRulesCb(self, req):
         """Clears the given rule and active rule databases."""
         for a in actions.db.iterkeys():
-            self.active_rule_db[a].clear()
-            self.given_rule_db[a].clear()
+            self.rule_db[a].clear()
         return TriggerResponse(True, "")
 
     def freezePermsCb(self, req):
@@ -100,8 +101,8 @@ class RuleManager(object):
         
     def lookupRulesCb(self, req):
         """Returns rule set for requested action."""
-        if req.action in self.active_rule_db:
-            rule_set = [r.toMsg() for r in self.active_rule_db[req.action]]
+        if req.action in self.rule_db:
+            rule_set = [r.toMsg() for r in self.rule_db[req.action]]
         else:
             rule_set = []
             rospy.logwarn("Action %s not recognized, no rules to lookup.",
@@ -132,9 +133,22 @@ class RuleManager(object):
 
         # Overwrite old value if permission already exists
         self.perm_db[action.name][tgt] = msg.truth
-        # Update rules to accomodate new permission
-        if not self.freeze_rules:
+        # Do nothing if rule database is frozen
+        if self.freeze_rules:
+            return
+
+        # Check if accuracy is low enough to warrant a rule update
+        metrics = self.evalRuleSet(self.rule_db[action.name],
+                                   self.perm_db[action.name])
+        if metrics.accuracy < self.rule_acc_thresh:
+            # Update rules to accomodate all unexplained permissions
             self.accomPerm(action.name, tgt, msg.truth)
+            for k, v in self.unexplained_db[action.name].iteritems():
+                self.accomPerm(action.name, k, v)
+            self.unexplained_db[action.name].clear()
+        else:
+            # Add to database of unexplained permissions
+            self.unexplained_db[action.name][tgt] = msg.truth
 
     def ruleInputCb(self, msg):
         """Updates given rule database, adjusts active rule database."""
@@ -145,14 +159,12 @@ class RuleManager(object):
         action = actions.db[msg.action]
         rule = Rule.fromMsg(msg)
 
-        # Overwrites old value if given rule already exists
-        self.given_rule_db[action.name][rule] = msg.truth
         # Accomdate the given rule
         self.accomRule(rule, msg.truth)
         
     def accomPerm(self, act_name, tgt, truth):
         """Tries to accommodate the new permission by modifying rule base."""
-        rule_set = self.active_rule_db[act_name]
+        rule_set = self.rule_db[act_name]
         prediction = Rule.evaluateOr(rule_set, tgt)       
 
         if truth >= 0.5 and prediction < 0.5:
@@ -162,7 +174,7 @@ class RuleManager(object):
 
     def coverPerm(self, act_name, tgt, truth):
         """Covers positive perm via general-to-specific search for a rule."""
-        rule_set = self.active_rule_db[act_name]
+        rule_set = self.rule_db[act_name]
         perm_set = self.perm_db[act_name]
         neg_perms = {k: v for k, v in perm_set.items() if v < 0.5}
 
@@ -193,7 +205,7 @@ class RuleManager(object):
             
     def uncoverPerm(self, act_name, tgt, truth):
         """Uncover negative permission by refining overly general rules."""
-        rule_set = self.active_rule_db[act_name]
+        rule_set = self.rule_db[act_name]
         perm_set = self.perm_db[act_name]
 
         # Find set of high-certainty covering rules
@@ -240,7 +252,7 @@ class RuleManager(object):
 
     def coverRule(self, given_rule, truth, force=False):
         """Cover given positive rule if not already covered."""
-        rule_set = self.active_rule_db[given_rule.action.name]
+        rule_set = self.rule_db[given_rule.action.name]
         perm_set = self.perm_db[given_rule.action.name]
         neg_perms = {k: v for k, v in perm_set.items() if v < 0.5}
         n_neg = len(neg_perms)
@@ -268,7 +280,7 @@ class RuleManager(object):
         
     def uncoverRule(self, given_rule, truth, force=False):
         """Uncover negative rule by refining existing rules."""
-        rule_set = self.active_rule_db[given_rule.action.name]
+        rule_set = self.rule_db[given_rule.action.name]
         perm_set = self.perm_db[given_rule.action.name]
         pos_perms = {k: v for k, v in perm_set.items() if v >= 0.5} 
         n_pos = len(pos_perms)        
@@ -378,6 +390,7 @@ class RuleManager(object):
             
     def evalRuleSet(self, rule_set, perm_set):
         """Evaluates rule set and returns a performance metric tuple."""
+        guard_div = lambda x, y, z: z if (y == 0) else x/y
         n_perms = len(perm_set)
         n_true = sum(perm_set.values())
         n_false = n_perms - n_true
@@ -388,11 +401,11 @@ class RuleManager(object):
             fpi, fni = max(0, (1-truth)-tni), max(0, truth-tpi)
             tp, tn = tp + tpi, tn + tni
             fp, fn = fp + fpi, fn + fni
-        prec = tp / (tp + fp)
-        rec = tp / (tp + fn)
-        acc = (tp + tn) / n_perms
-        m_est = (tp + self.m_param * n_true/n_false) / (tp + fp)
-        return PerfMetric(tp, tn, fp, fn, prec, rec, acc, m_est)
+        prec = guard_div(tp, (tp + fp), 1)
+        rec = guard_div(tp, (tp + fn), 1)
+        acc = guard_div((tp + tn), n_perms, 1)
+        m_est = 0 # (tp + self.m_param * n_true/n_false) / (tp + fp)
+        return RuleMetrics(tp, tn, fp, fn, prec, rec, acc, m_est)
             
 if __name__ == '__main__':
     rospy.init_node('rule_manager')
