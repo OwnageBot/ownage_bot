@@ -32,6 +32,8 @@ class RuleManager(object):
         # Database of unexplained permissions
         self.unexplained_db = dict()
 
+        # Certainty threshold to consider a permission 'covered'
+        self.cover_thresh = rospy.get_param("~cover_thresh", 0.5)
         # Prior probability that permission is 'forbid'
         self.perm_prior = rospy.get_param("~perm_prior", 0.0)
         
@@ -174,24 +176,25 @@ class RuleManager(object):
         rule_set = self.rule_db[act_name]
         prediction = Rule.evaluateOr(rule_set, tgt)       
 
-        if truth >= 0.5 and prediction < 0.5:
+        if truth >= self.cover_thresh and prediction < self.cover_thresh:
             self.coverPerm(act_name, tgt, truth)
-        elif truth < 0.5 and prediction >= 0.5:
+        elif truth < self.cover_thresh and prediction >= self.cover_thresh:
             self.uncoverPerm(act_name, tgt, truth)
 
     def coverPerm(self, act_name, tgt, truth):
         """Covers positive perm via general-to-specific search for a rule."""
         rule_set = self.rule_db[act_name]
         perm_set = self.perm_db[act_name]
-        neg_perms = {k: v for k, v in perm_set.items() if v < 0.5}
+        neg_perms = {k: v for k, v in perm_set.items()
+                     if v < self.cover_thresh}
 
         # Search only for inactive rules (pointless to refine active rules) 
         inactive_f = lambda r : r not in rule_set
         # Candidate rules must cover the new permission
-        cover_f = lambda r : r.evaluate(tgt) >= 0.5
+        cover_f = lambda r : r.evaluate(tgt) >= self.cover_thresh
         # Compute score as false positive value for each candidate rule
-        score_f = lambda r : sum([float(r.evaluate(n_tgt) >= 0.5) for
-                                  n_tgt in neg_perms.keys()])
+        score_f = lambda r : sum([float(r.evaluate(n_tgt) >= self.cover_thresh)
+                                  for n_tgt in neg_perms.keys()])
 
         # Search for rule starting with empty rule
         init_rule = Rule(actions.db[act_name], conditions=[])
@@ -216,20 +219,22 @@ class RuleManager(object):
         perm_set = self.perm_db[act_name]
 
         # Find set of high-certainty covering rules
-        cover_rules = [r for r in rule_set if r.evaluate(tgt) >= 0.5]
+        cover_rules = [r for r in rule_set if
+                       r.evaluate(tgt) >= self.cover_thresh]
 
         # Candidate rules must cover negative perm
-        cover_f = lambda r : r.evaluate(tgt) >= 0.5
+        cover_f = lambda r : r.evaluate(tgt) >= self.cover_thresh
 
         # Subtract minimal rule that covers new perm from each covering rule
         for init_rule in cover_rules:
             # Find set of covered positive perms
             pos_perms = {k: v for k, v in perm_set.items()
-                         if v >= 0.5 and
-                         init_rule.evaluate(k) >= 0.5}
+                         if v >= self.cover_thresh and
+                         init_rule.evaluate(k) >= self.cover_thresh}
 
             # Compute score as true positive value for each candidate rule
-            score_f = lambda r : sum([float(r.evaluate(p_tgt) >= 0.5) for
+            score_f = lambda r : sum([float(r.evaluate(p_tgt) >=
+                                            self.cover_thresh) for
                                       p_tgt in pos_perms.keys()])
 
             # Subtracted rule should not cover more than a fraction of the
@@ -253,7 +258,7 @@ class RuleManager(object):
 
     def accomRule(self, given_rule, truth):
         """Tries to accommodate the given rule by modifying rule base."""
-        if truth >= 0.5:
+        if truth >= self.cover_thresh:
             self.coverRule(given_rule, truth)
         else:
             self.uncoverRule(given_rule, truth)
@@ -262,7 +267,8 @@ class RuleManager(object):
         """Cover given positive rule if not already covered."""
         rule_set = self.rule_db[given_rule.action.name]
         perm_set = self.perm_db[given_rule.action.name]
-        neg_perms = {k: v for k, v in perm_set.items() if v < 0.5}
+        neg_perms = {k: v for k, v in perm_set.items()
+                     if v < self.cover_thresh}
         n_neg = len(neg_perms)
         
         # Do nothing if given rule is specialization of an active rule
@@ -290,7 +296,8 @@ class RuleManager(object):
         """Uncover negative rule by refining existing rules."""
         rule_set = self.rule_db[given_rule.action.name]
         perm_set = self.perm_db[given_rule.action.name]
-        pos_perms = {k: v for k, v in perm_set.items() if v >= 0.5} 
+        pos_perms = {k: v for k, v in perm_set.items()
+                     if v >= self.cover_thresh} 
         n_pos = len(pos_perms)        
         
         # Score candidate rules according to true positive value 
@@ -371,7 +378,7 @@ class RuleManager(object):
 
         # Compute permissions covered by new rule
         new_cover = set([tgt for tgt, val in perm_set.items()
-                         if new.evaluate(tgt) >= 0.5])
+                         if new.evaluate(tgt) >= self.cover_thresh])
                     
         # Search for generalizations or specializations after merging
         for r in list(rule_set):
@@ -387,7 +394,7 @@ class RuleManager(object):
             # Remove more complex rules which are covered by new one
             if len(new.conditions) <= len(r.conditions):
                 r_cover = set([tgt for tgt, val in perm_set.items()
-                               if r.evaluate(tgt) >= 0.5])
+                               if r.evaluate(tgt) >= self.cover_thresh])
                 if r_cover < new_cover:
                     rospy.loginfo("Subsuming rule: [%s].", r.toPrint())
                     rule_set.remove(r)
