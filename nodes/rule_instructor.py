@@ -142,10 +142,11 @@ class RuleInstructor(object):
         objs = random.sample(objs, int(self.own_frac * len(objs)))
         # Load agents
         agents = self.simuAgents().agents
+        # Make sure to look up non-inferred ownership values
+        Object.use_inferred = False
         for o in objs:
             for a in agents:
-                # Default to unowned if agent not in ownership database
-                p_owned = 0 if a.id not in o.ownership else o.ownership[a.id]
+                p_owned = o.getOwnership(a.id)
                 # Make ownership labels uncertain
                 p_owned = self.own_mean if p_owned > 0.5 else (1-self.own_mean)
                 p_owned += random.uniform(-self.own_dev, +self.own_dev)
@@ -168,6 +169,8 @@ class RuleInstructor(object):
             objs = [o for o in objs if not o.is_avatar]
         # Sample random fraction of (given objects)
         objs = random.sample(objs, int(self.perm_frac * len(objs)))
+        # Make sure to look up non-inferred ownership values
+        Object.use_inferred = False
         # Feed permissions for each object and action
         for o in objs:
             for act_name, rule_set in self.rule_db.iteritems():
@@ -191,12 +194,14 @@ class RuleInstructor(object):
         # Sample random fraction of (given objects)
         objs = random.sample(objs, int(self.perm_own_frac * len(objs)))
         agents = self.simuAgents().agents
+        # Make sure to look up non-inferred ownership values
+        Object.use_inferred = False
         # Iterate through objects
         for o in objs:
             # Give ownership labels for each agent
             for a in agents:
                 # Default to unowned if agent not in ownership database
-                p_owned = 0 if a.id not in o.ownership else o.ownership[a.id]
+                p_owned = o.getOwnership(a.id)
                 # Make ownership labels uncertain
                 p_owned = self.own_mean if p_owned > 0.5 else (1-self.own_mean)
                 p_owned += random.uniform(-self.own_dev, +self.own_dev)
@@ -252,6 +257,7 @@ class RuleInstructor(object):
         f1 = lambda x, y: guard_div(2*x*y, (x+y), 0.0)
 
         # Compute performance metrics
+        Object.use_inferred = False
         for act in acts:
             actual_rules = self.rule_db[act]
             learned_rules = [Rule.fromMsg(m) for m in
@@ -320,17 +326,17 @@ class RuleInstructor(object):
 
         guard_div = lambda x, y, z: z if (y == 0) else x/y
         f1 = lambda x, y: guard_div(2*x*y, (x+y), 0.0)
-        
+
+        # Make sure to evaluate using inferred ownership values
+        Object.use_inferred = True
         # Compute performance metrics
         for a in agents:
             n_pos_true, f_pos_true = 0, 0
             n_pos_pred, f_pos_pred = 0, 0
             for o_id, true_obj in true_objs.iteritems():
                 pred_obj = pred_objs[o_id]
-                true_own = (0.0 if a.id not in true_obj.ownership
-                            else true_obj.ownership[a.id])
-                pred_own = (0.0 if a.id not in pred_obj.ownership
-                            else pred_obj.ownership[a.id])
+                true_own = true_obj.getOwnership(a.id)
+                pred_own = pred_obj.getOwnership(a.id)
                 correct = (true_own-0.5)*(pred_own-0.5) > 0
                 # Compute deterministic metrics (with cutoff=0.5)
                 metrics[a.id]["accuracy"] += correct

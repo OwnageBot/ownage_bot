@@ -45,6 +45,9 @@ class RuleManager(object):
             self.perm_db[a] = dict()
             self.unexplained_db[a] = dict()
 
+        # Do not use inferred ownership values when learning rules
+        Object.use_inferred = False
+            
         # Subscribers
         self.perm_sub = rospy.Subscriber("perm_input", PredicateMsg,
                                          self.permInputCb)
@@ -120,7 +123,7 @@ class RuleManager(object):
             return
 
         action = actions.db[msg.predicate]
-
+        
         # Handle actions without targets
         if len(msg.bindings) != 1:
             raise TypeError("Action perm should have exactly one argument.")
@@ -130,7 +133,7 @@ class RuleManager(object):
             return
         
         tgt = action.tgtype.fromStr(msg.bindings[0])
-
+        
         # Overwrite old value if permission already exists
         self.perm_db[action.name][tgt] = msg.truth
         # Do nothing if rule database is frozen
@@ -218,7 +221,8 @@ class RuleManager(object):
         for init_rule in cover_rules:
             # Find set of covered positive perms
             pos_perms = {k: v for k, v in perm_set.items()
-                         if v >= 0.5 and init_rule.evaluate(k) >= 0.5}
+                         if v >= 0.5 and
+                         init_rule.evaluate(k) >= 0.5}
 
             # Compute score as true positive value for each candidate rule
             score_f = lambda r : sum([float(r.evaluate(p_tgt) >= 0.5) for

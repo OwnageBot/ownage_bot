@@ -28,6 +28,9 @@ int32[] owners
 # List of (possibly non-exclusive) ownership probabilities
 float32[] ownership
 
+# List of inferred ownership probabilities
+float32[] inferred
+
 # List of category labels
 string[] categories
 

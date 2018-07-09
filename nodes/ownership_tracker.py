@@ -31,6 +31,9 @@ class OwnershipTracker(ObjectTracker):
         # Database of action permissions
         self.perm_db = defaultdict(dict)
 
+        # Do not use inferred ownership as input to ownership inference
+        Object.use_inferred = False
+        
         # Lock to ensure callbacks update ownership synchronously
         self.owner_lock = threading.Lock()
         
@@ -99,6 +102,7 @@ class OwnershipTracker(ObjectTracker):
         self.perm_db.clear()
         for obj in self.object_db.itervalues():
             obj.ownership.clear()
+            obj.inferred.clear()
         self.owner_lock.release()
         return TriggerResponse(True, "")
 
@@ -111,7 +115,7 @@ class OwnershipTracker(ObjectTracker):
         # Ignore perms which are not about actions
         if msg.predicate not in actions.db:
             return
-        act =actions.db[msg.predicate]
+        act = actions.db[msg.predicate]
 
         # Ignore actions without objects as targets
         if len(msg.bindings) != 1:
@@ -169,7 +173,10 @@ class OwnershipTracker(ObjectTracker):
             self.trainPredictor(agent_ids=[agent.id])
             self.predictOwnership(agent_ids=[agent.id])
         # Use new prior probabilities to perform inference    
-        if not self.disable_inference:
+        if self.disable_inference:
+            for obj in self.object_db.itervalues():
+                obj.inferred = dict(obj.ownership)
+        else:
             self.inferOwnership()
         self.owner_lock.release()
                 
@@ -187,6 +194,12 @@ class OwnershipTracker(ObjectTracker):
                                                   solver='newton-cg')
         # Default ownership probability to priors
         self.guessOwnership(agent_ids=[msg.id])
+        # Use new prior probabilities to perform inference    
+        if not self.disable_inference:
+            self.inferOwnership()
+        else:
+            for obj in self.object_db.itervalues():
+                obj.inferred = dict(obj.ownership)
         self.owner_lock.release()
 
     def newObjectCb(self, o_id):
@@ -197,6 +210,9 @@ class OwnershipTracker(ObjectTracker):
             self.guessOwnership(obj_ids=[o_id])
         else:
             self.predictOwnership(obj_ids=[o_id])
+        # Make sure inferred probabilities are in sync
+        obj = self.object_db[o_id]
+        obj.inferred = dict(obj.ownership)
         self.owner_lock.release()
         
     def guessOwnership(self, obj_ids=None, agent_ids=None):
@@ -290,9 +306,9 @@ class OwnershipTracker(ObjectTracker):
                 # Use posterior as prior for next rule set
                 p_owned_prior = dict(p_owned_post)
                 
-            # Set ownership probabilities to final posterior
+            # Set inferred ownership probabilities to final posterior
             if o_id in self.object_db:
-                self.object_db[o_id].ownership = dict(p_owned_prior)
+                self.object_db[o_id].inferred = dict(p_owned_prior)
             
     def predictOwnership(self, obj_ids=None, agent_ids=None):
         """Predict ownership of objects from physical percepts."""

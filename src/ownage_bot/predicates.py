@@ -255,9 +255,7 @@ Near = Predicate("near", [Object, Object], "{0} is {n}near to {1}")
 Near._apply = lambda o1, o2: dist(o1.position, obj2.position) < 0.4
 
 OwnedBy = Predicate("ownedBy", [Object, Agent], "{0} is {n}owned by {1}")
-OwnedBy._apply = (lambda obj, agent:
-                  0.0 if agent.id not in obj.ownership else
-                  obj.ownership[agent.id])
+OwnedBy._apply = (lambda obj, agent: obj.getOwnership(agent.id))
 
 InArea = Predicate("inArea", [Object, Area], "{0} is {n}in {1} area")
 InArea._apply = lambda obj, area: inArea(obj, area)

@@ -26,6 +26,9 @@ class Constant(object):
     def __hash__(self):
         return hash(self.name)
 
+    def refresh(self):
+        return self
+    
     def toStr(self):
         return "_" + self.name + "_"
 
@@ -51,6 +54,9 @@ class Object(object):
     _last_cache_time = rospy.Time()
     _cache_latency = rospy.Duration(0.2)
 
+    # Flag whether or not to use inferred ownership probabilities
+    use_inferred = True
+    
     any_str = "something"
     nil_str = "it"
     
@@ -67,6 +73,7 @@ class Object(object):
         self.proximities = [] # List of distances to avatars
         self.color = color # Name of color
         self.ownership = dict() # Dictionary of ownership probabilities
+        self.inferred = dict() # Dictionary of inferred ownership probs
         self.categories = dict() # Dictionary of category membership
         self.t_last_actions = dict() # Dictionary of last action times
         self.is_avatar = is_avatar # Whether object is an avatar
@@ -90,12 +97,24 @@ class Object(object):
         """Hash only the ID."""
         return hash(self.id)
 
+    def refresh(self):
+        """Returns refresh copy of the object by looking up the database."""
+        cls = self.__class__
+        return cls.fromMsg(cls._lookupObject(self.id).object)        
+    
     def copy(self):
         """Makes a copy of the Object."""
         obj = self.__class__()
         for k, v in self.__dict__.items():
             setattr(obj, k, copy.deepcopy(v))
         return obj
+
+    def getOwnership(self, agent_id):
+        """Gets ownership value for a specific agent."""
+        if self.__class__.use_inferred and len(self.inferred) > 0:
+            return self.inferred.get(agent_id, 0.0)
+        else:
+            return self.ownership.get(agent_id, 0.0)
         
     def toMsg(self):
         """Converts Object to a ROS message."""
@@ -107,6 +126,7 @@ class Object(object):
             setattr(msg, k, copy.deepcopy(v))
         msg.owners = self.ownership.keys()
         msg.ownership = self.ownership.values()
+        msg.inferred = self.inferred.values()
         msg.categories = self.categories.keys()
         msg.categoriness = self.categories.values()
         msg.actors = self.t_last_actions.keys()
@@ -137,8 +157,10 @@ class Object(object):
             elif p == "speed":
                 s = "{: 04.2f}".format(self.speed)
             elif p == "ownership":
+                ownership = (self.inferred if self.__class__.use_inferred
+                             else self.ownership)
                 s = ", ".join(["{:2d}: {: 04.2f}".format(k, v) for
-                               k, v in self.ownership.iteritems()])
+                               k, v in ownership.iteritems()])
             elif p == "categories":
                 s = ", ".join(["{:10}: {: 04.2f}".format(k, v) for
                                k, v in self.categories.iteritems()])
@@ -171,6 +193,7 @@ class Object(object):
                 val = list(val)
             obj.__dict__[attr] = copy.deepcopy(val)
         obj.ownership = dict(zip(msg.owners, msg.ownership))
+        obj.inferred = dict(zip(msg.owners, msg.inferred))
         obj.categories = dict(zip(msg.categories, msg.categoriness))
         obj.t_last_actions = dict(zip(msg.actors, msg.t_last_actions))
         return obj
@@ -327,7 +350,7 @@ class Area(object):
     def __hash__(self):
         """Hash only the vertices."""
         return hash(self.points)
-
+    
     def toStr(self):
         """Minimal string representation."""
         return str(self.points)
@@ -397,6 +420,10 @@ class Location(object):
         """Hash only the vertices."""
         return hash(self.position)
 
+    def refresh(self):
+        """Refreshes values (does nothing for now)."""
+        return self
+    
     def toStr(self):
         """Minimal string representation."""
         return str(self.position)
