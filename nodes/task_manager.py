@@ -14,13 +14,16 @@ class TaskManager(object):
 
     def __init__(self):
         # Duration in seconds between action updates
-        self.update_latency = rospy.get_param("task_update", 0.5)
+        self.update_latency = rospy.get_param("~task_update", 0.5)
         # Duration in seconds to pause upon forbidden action
-        self.forbid_pause = rospy.get_param("forbid_pause", 1.5)
+        self.forbid_pause = rospy.get_param("~forbid_pause", 1.5)
         # No pauses if running in simulation
         if rospy.get_param("simulation", False):
             self.forbid_pause = 0.0
 
+        # Decision threshold for whether an action is allowed or forbidden
+        self.decision_thresh = rospy.get_param("~decision_thresh", 0.5)
+            
         # Current task, action, and target
         self.cur_task = tasks.Idle
         self.cur_action = actions.Empty
@@ -117,22 +120,29 @@ class TaskManager(object):
         self.q_lock.release()
 
     def checkPerm(self, action, tgt):
-        """Returns true if action on specific target is forbidden."""
+        """Returns true if action on specific target is forbidden.
+        Returns None if the permission is unspecified.
+        """
+        specified = False
         for a in (action.dependencies + [action]):
             tgt_str = "" if action.tgtype is type(None) else tgt.toStr()
             perm = self.lookupPerm(a.name, tgt_str).perm
             if perm < 0:
-                return True # Assume allowed if permission was unspecified
-            if perm >= 0.5:
+                continue # Assume allowed if permission was unspecified
+            specified = True
+            if perm >= self.decision_thresh:
                 return True
-        return False
+        if specified:
+            return False
+        else:
+            return None
 
     def checkRules(self, action, tgt, violations=[]):
         """Returns true if rules forbid action on target."""
         for a in (action.dependencies + [action]):
             rule_set = self.lookupRules(a.name).rule_set
             rule_set = [Rule.fromMsg(r) for r in rule_set]
-            if Rule.evaluateOr(rule_set, tgt) >= 0.5:
+            if Rule.evaluateOr(rule_set, tgt) >= self.decision_thresh:
                 # Return list of rules violated through optional argument
                 violations += sorted(rule_set, reverse=True,
                                      key=lambda r : r.evaluate(tgt))
@@ -172,16 +182,20 @@ class TaskManager(object):
                 FeedbackMsg(task=self.cur_task.name, action=act_str,
                             target=tgt_str, allowed=False, success=False,
                             failtype="", error="", violations=[])
+            # Check if permission is forbidden, allowed, or unspecified
+            perm = self.checkPerm(action,tgt)
             # Check if action is forbidden by rules
             violations = []
             if self.checkRules(action, tgt, violations):
                 feedback.failtype = "rule"
                 feedback.violations = [r.toMsg() for r in violations]
-                self.task_out_pub.publish(feedback)
-                rospy.sleep(self.forbid_pause)
-                continue
+                if perm != False:
+                    # Make sure permission doesn't override the rule
+                    self.task_out_pub.publish(feedback)
+                    rospy.sleep(self.forbid_pause)
+                    continue
             # Check if action is forbidden by permissions
-            if self.checkPerm(action, tgt):
+            if perm == True:
                 feedback.failtype = "perm"
                 self.task_out_pub.publish(feedback)
                 rospy.sleep(self.forbid_pause)

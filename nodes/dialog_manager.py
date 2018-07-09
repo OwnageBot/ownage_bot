@@ -15,7 +15,7 @@ class DialogManager(object):
         self.task_sub = rospy.Subscriber("task_out", FeedbackMsg,
                                          self.taskOutCb)
         self.task_pub = rospy.Publisher("task_in", TaskMsg,
-                                           queue_size=10)
+                                        queue_size=10)
 
         # Sends instructions to rule manager node
         self.perm_pub = rospy.Publisher("perm_input", PredicateMsg,
@@ -109,6 +109,12 @@ class DialogManager(object):
         if msg.success:
             return
 
+        # Warn if the action is allowed but is inconsistent with rules
+        if msg.allowed == True and msg.failtype == "rule":
+            out = "Warning: action allowed but inconsistent with rules"
+            self.text_pub.publish(out)
+            return
+        
         # Print text error messages
         if msg.failtype == "error":
             if msg.error == CallActionResponse._ACT_KILLED:
