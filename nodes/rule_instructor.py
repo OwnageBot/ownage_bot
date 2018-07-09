@@ -1,6 +1,8 @@
 #!/usr/bin/env python
+import os
 import rospy
 import random
+import csv
 from collections import defaultdict
 from std_srvs.srv import *
 from geometry_msgs.msg import Point
@@ -12,13 +14,14 @@ class RuleInstructor(object):
     """Automatically teaches rules by example or direct instruction."""
 
     def __init__(self):
-        # Learning mode (by rule, permission, or script)
-        self.mode = rospy.get_param("~mode", "by_perm")
-
         # Various rates
         self.pub_rate = rospy.Rate(rospy.get_param("~pub_rate", 10))
         self.iter_wait = rospy.get_param("~iter_wait", 1.0)
 
+        # Path to save results
+        self.results_path = rospy.get_param("~results_path",
+                                            os.getcwd() + "/results.csv")
+        
         # Which set of objects to evaluate ('all', 'train' or 'test')
         self.eval_set = rospy.get_param("~eval_set", "all")
         
@@ -81,14 +84,7 @@ class RuleInstructor(object):
             except rospy.ROSException:
                 # Fail silently for unavailable services
                 pass
-        
-    def loadInstructions(self):
-        """Load instructions (should be called after introducing agents)."""
-        if self.mode == "by_script":
-            self.loadScript()
-        else:
-            self.loadRules()
-        
+                
     def loadRules(self):
         """Loads rules from parameter server."""
         rule_strs = rospy.get_param("~rules", [])
@@ -291,10 +287,7 @@ class RuleInstructor(object):
                 sum([metrics[act][k] for act in acts]) / len(acts)
 
         # Print metrics
-        print "\t".join(["action"] + [h[:3] for h in headers])
-        for row in metrics.keys():
-            print "\t".join([row] + [str(metrics[row][k])[:4]
-                                     for k in headers])
+        self.printResults(headers, metrics, topleft="action")
                                         
         return metrics
 
@@ -379,10 +372,7 @@ class RuleInstructor(object):
                 sum([metrics[a.id][k] for a in agents]) / len(agents)
 
         # Print metrics
-        print "\t".join(["owner"] + [h[:3] for h in headers])
-        for row in metrics.keys():
-            print "\t".join([str(row)] + [str(metrics[row][k])[:4]
-                                          for k in headers])
+        self.printResults(headers, metrics, topleft="owner")
 
         return metrics
 
@@ -427,12 +417,10 @@ class RuleInstructor(object):
 
         # Print averages
         print "== Overall performance after {} trials ==".format(n_iters)
-        print "\t".join(["action"] + [h[:3] for h in headers])
-        for row in avg_metrics.keys():
-            print "\t".join([str(row)] + [str(avg_metrics[row][k])[:4]
-                                          for k in headers])
-            
-        return avg_metrics
+        self.printResults(headers, avg_metrics, topleft="action")
+
+        # Save averages
+        self.saveResults(headers, avg_metrics, "action", n_iters)
 
     def testOwnerInference(self, n_iters):
         """Test ownership inference by providing permissions."""
@@ -471,12 +459,10 @@ class RuleInstructor(object):
 
         # Print averages
         print "== Overall performance after {} trials ==".format(n_iters)
-        print "\t".join(["owner"] + [h[:3] for h in headers])
-        for row in avg_metrics.keys():
-            print "\t".join([str(row)] + [str(avg_metrics[row][k])[:4]
-                                          for k in headers])
-            
-        return avg_metrics
+        self.printResults(headers, avg_metrics, topleft="owner")
+
+        # Save averages
+        self.saveResults(headers, avg_metrics, "owner", n_iters)
 
     def testOwnerPrediction(self, n_iters):
         """Test ownership prediction by providing owners and permissions."""
@@ -520,13 +506,29 @@ class RuleInstructor(object):
 
         # Print averages
         print "== Overall accuracy after {} trials ==".format(n_iters)
-        print "\t".join(["owner"] + [h[:3] for h in headers])
-        for row in avg_metrics.keys():
-            print "\t".join([str(row)] + [str(avg_metrics[row][k])[:4]
+        self.printResults(headers, avg_metrics, topleft="owner")
+
+        # Save averages
+        self.saveResults(headers, avg_metrics, "owner", n_iters)
+
+    def printResults(self, headers, metrics, topleft=""):
+        """Print results to screen."""
+        print "\t".join([topleft] + [h[:3] for h in headers])
+        for row in metrics.keys():
+            print "\t".join([str(row)] + [str(metrics[row][k])[:4]
                                           for k in headers])
+
+    def saveResults(self, headers, metrics, topleft="", n_iters=0):
+        """Save results to results path."""
+        with open(self.results_path, 'wb') as f:
+            print "Saving to {}".format(self.results_path)
+            writer = csv.writer(f)
+            if n_iters > 0:
+                writer.writerow(["trials", n_iters])
+            writer.writerow([topleft] + headers)
+            for row in metrics.keys():
+                writer.writerow([row] + [metrics[row][k] for k in headers])
             
-        return avg_metrics
-    
 if __name__ == '__main__':
     rospy.init_node('rule_instructor')
     rule_instructor = RuleInstructor()

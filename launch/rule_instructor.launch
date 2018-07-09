@@ -1,5 +1,4 @@
 <launch>
-  <arg name="mode" default="by_perm"/>
   <arg name="test_mode" default="rules"/>
   <arg name="eval_set" default="all"/>
   <arg name="online" default="false"/>
@@ -15,12 +14,13 @@
   <arg name="own_dev" default="0.0"/>
   <arg name="rule_path" default = "$(find ownage_bot)/rulesets/rules.yaml"/>
   <arg name="script_path" default = "$(find ownage_bot)/rulesets/script.yaml"/>
+  <arg name="results_path" default = "$(find ownage_bot)/results.csv"/>
   
   <!-- Rule instructor node-->
   <node pkg="ownage_bot" type="rule_instructor.py" ns="ownage_bot"
 	output="screen" name="rule_instructor">
-    <!-- Whether to teach by example, rules, or script -->
-    <param name="mode" type="string" value="$(arg mode)" />
+    <!-- Path to store evaluation results -->
+    <param name="results_path" type="string" value="$(arg results_path)" />
     <!-- Test learning for 'rules', owner 'inference' or 'prediction' -->
     <param name="test_mode" type="string" value="$(arg test_mode)" />
     <!-- Evaluate 'all' objects, 'train' set or 'test' set -->
