@@ -144,10 +144,12 @@ class RuleManager(object):
         metrics = self.evalRuleSet(self.rule_db[action.name],
                                    self.perm_db[action.name])
         if metrics.accuracy < self.rule_acc_thresh:
+            # Refresh permission targets before updating rules
+            self.refreshTargets(action.name)
             # Update rules to accomodate all unexplained permissions
             self.accomPerm(action.name, tgt, msg.truth)
-            for k, v in self.unexplained_db[action.name].iteritems():
-                self.accomPerm(action.name, k, v)
+            for t, v in self.unexplained_db[action.name].iteritems():
+                self.accomPerm(action.name, t, v)
             self.unexplained_db[action.name].clear()
         else:
             # Add to database of unexplained permissions
@@ -162,6 +164,8 @@ class RuleManager(object):
         action = actions.db[msg.action]
         rule = Rule.fromMsg(msg)
 
+        # Refresh permission targets before updating rules
+        self.refreshTargets(action.name)
         # Accomdate the given rule
         self.accomRule(rule, msg.truth)
         
@@ -399,7 +403,7 @@ class RuleManager(object):
         n_true = sum(perm_set.values())
         n_false = n_perms - n_true
         tp, tn, fp, fn = 0.0, 0.0, 0.0, 0.0
-        for tgt, truth in perm_set.items():
+        for tgt, truth in perm_set.iteritems():
             predict = Rule.evaluateOr(rule_set, tgt)
             tpi, tni = min(truth, predict), min(1-truth, 1-predict)
             fpi, fni = max(0, (1-truth)-tni), max(0, truth-tpi)
@@ -410,7 +414,14 @@ class RuleManager(object):
         acc = guard_div((tp + tn), n_perms, 1)
         m_est = 0 # (tp + self.m_param * n_true/n_false) / (tp + fp)
         return RuleMetrics(tp, tn, fp, fn, prec, rec, acc, m_est)
-            
+
+    def refreshTargets(self, act_name):
+        """Refresh permission target properties for specified action."""
+        new_perms = dict()
+        for tgt, val in self.perm_db[act_name].iteritems():
+            new_perms[tgt.refresh()] = val
+        self.perm_db[act_name] = new_perms
+    
 if __name__ == '__main__':
     rospy.init_node('rule_manager')
     rule_manager = RuleManager()
