@@ -334,6 +334,9 @@ class OwnershipTracker(ObjectTracker):
             # Only predict ownership for specified objects (if unclaimed)
             if obj_ids is not None:
                 test = [o for o in test if o.id in obj_ids]
+            # Skip if there's nothing to predict for
+            if len(test) == 0:
+                continue
                                       
             # Predict new probabilities
             K_test = self.perceptKern(test, train, agent_id=a_id)
