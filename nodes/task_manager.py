@@ -15,11 +15,16 @@ class TaskManager(object):
     def __init__(self):
         # Duration in seconds between action updates
         self.update_latency = rospy.get_param("~task_update", 0.5)
-        # Duration in seconds to pause upon forbidden action
-        self.forbid_pause = rospy.get_param("~forbid_pause", 1.5)
-        # No pauses if running in simulation
-        if rospy.get_param("simulation", False):
+        if rospy.get_param("simulation", True):
+            # Simulated delay before each action to allow for feedback
+            self.action_pause = rospy.get_param("~action_pause", 0.2)
+            # No forbid pauses if running in simulation
             self.forbid_pause = 0.0
+        else:
+            # Duration in seconds to pause upon forbidden action
+            self.forbid_pause = rospy.get_param("~forbid_pause", 1.5)
+            # No action delay if not running in simulation
+            self.action_pause = 0.0
 
         # Decision threshold for whether an action is allowed or forbidden
         self.decision_thresh = rospy.get_param("~decision_thresh", 0.5)
@@ -29,6 +34,11 @@ class TaskManager(object):
         self.cur_action = actions.Empty
         self.cur_target = None
 
+        # Flag for whether an action is being executed
+        self.ongoing = False
+        # Flag for interruption of current action
+        self.interrupt = False
+        
         # Queue of action-target pairs
         self.q_lock = threading.Lock()
         self.action_queue = Queue.Queue()
@@ -74,21 +84,22 @@ class TaskManager(object):
         """Handles incoming tasks."""
         if msg.interrupt:
             # Cancel current action and clear action queue on interrupt
-            self.cur_task = tasks.Idle
-            actions.Cancel.call()
             self.q_lock.acquire()
+            if self.ongoing:
+                self.interrupt = True
+                actions.Cancel.call()
+            self.cur_task = tasks.Idle
             while not self.action_queue.empty():
                 self.action_queue.get(False)
             self.q_lock.release()
         elif msg.skip:
             # Skip current action and go to next queued action
-            task = self.cur_task
-            self.cur_task = tasks.Idle
-            actions.Cancel.call()
             self.q_lock.acquire()
-            rospy.sleep(self.forbid_pause)
+            if self.ongoing:
+                self.interrupt = True
+                actions.Cancel.call()
+                rospy.sleep(self.forbid_pause)
             self.q_lock.release()
-            self.cur_task = task
             return
         if msg.oneshot:
             # Construct one-shot task if necessary
@@ -158,9 +169,13 @@ class TaskManager(object):
         
         # Keep performing requested tasks/actions
         while not rospy.is_shutdown():
+            # Reset flags
+            self.ongoing = False
+            self.interrupt = False
             # Get next action-target pair
             try:
                 action, tgt = self.action_queue.get(block=True, timeout=0.5)
+                self.ongoing = True
             except Queue.Empty:
                 continue
             if isinstance(tgt, Object):
@@ -189,8 +204,8 @@ class TaskManager(object):
             if self.checkRules(action, tgt, violations):
                 feedback.failtype = "rule"
                 feedback.violations = [r.toMsg() for r in violations]
+                # Make sure permission does not override the rule
                 if perm != False:
-                    # Make sure permission doesn't override the rule
                     self.task_out_pub.publish(feedback)
                     rospy.sleep(self.forbid_pause)
                     continue
@@ -200,6 +215,14 @@ class TaskManager(object):
                 self.task_out_pub.publish(feedback)
                 rospy.sleep(self.forbid_pause)
                 continue
+            # Pause to allow for feedback in response to current action
+            rospy.sleep(self.action_pause)
+            # Check if action has been interrupted
+            if self.interrupt:
+                feedback.failtype = "error"
+                feedback.error = CallActionResponse._ACT_KILLED
+                self.task_out_pub.publish(feedback)
+                continue                
             # Call action if all checks pass
             feedback.allowed = True
             self.task_out_pub.publish(feedback)                
@@ -213,7 +236,7 @@ class TaskManager(object):
             # Send successful feedback message on success
             if action != actions.Cancel:
                 feedback.success = True
-                self.task_out_pub.publish(feedback)                
+                self.task_out_pub.publish(feedback)
 
 if __name__ == '__main__':
     rospy.init_node('task_manager')
