@@ -107,21 +107,21 @@ class WorldSimulator(object):
         gripped_id = self.gripped[arm]
         gripped_obj = self.object_db.get(gripped_id, None)
 
-        if req.action == "home":
+        if req.action == CallActionRequest._ACTION_GOHOME:
             if gripped_id >= 0:
                 gripped_obj.position = copy(self.home_pos)
-        elif req.action == "release":
+        elif req.action == CallActionRequest._ACTION_RELEASE:
             if gripped_id >= 0:
                 gripped_obj.position.z = self.ground_lvl
                 self.gripped[arm] = -1
-        elif req.action == "move":
+        elif req.action == CallActionRequest._ACTION_MOVETO:
             if gripped_id >= 0:
                 gripped_obj.position = copy(req.location)
-        elif req.action == "find":
+        elif req.action == CallActionRequest._ACTION_FIND:
             if req_id not in self.object_db:
                 resp.success = False
                 resp.response = "Object {} does not exist".format(req_id)
-        elif req.action == "get":
+        elif req.action == CallActionRequest._ACTION_PICKUP:
             if gripped_id >= 0:
                 resp.success = False
                 resp.response = "An object is already being held"
@@ -132,25 +132,25 @@ class WorldSimulator(object):
             else:
                 resp.success = False
                 resp.response = "Object {} does not exist".format(req_id)
-        elif req.action == "put":
+        elif req.action == CallActionRequest._ACTION_PUTDOWN:
             if gripped_id >= 0:
                 gripped_obj.position.z = self.ground_lvl
                 self.gripped[arm] = -1
             else:
                 resp.success = False
                 resp.response = "No object is currently being held"
-        elif req.action == "offer":
+        elif req.action == CallActionRequest._ACTION_OFFER:
             if gripped_id >= 0:
                 gripped_obj.position = req.object.position
                 gripped_obj.position.z = self.arm_lvl
-        elif req.action == "replace":
+        elif req.action == CallActionRequest._ACTION_REPLACE:
             if gripped_id >= 0:
                 gripped_obj.position = copy(self.pick_loc[arm])
                 self.gripped[arm] = -1
             else:
                 resp.success = False
                 resp.response = "No object is currently being held"
-        elif req.action == "wait":
+        elif req.action == CallActionRequest._ACTION_WAIT:
             pass
 
         self.lock.release()

@@ -3,7 +3,7 @@ import rospy
 from std_srvs.srv import Trigger
 from geometry_msgs.msg import Point
 from ownage_bot.msg import ObjectMsg
-from ownage_bot.srv import CallAction, CallActionResponse
+from ownage_bot.srv import CallAction, CallActionRequest, CallActionResponse
 from .objects import Object, Location
 
 _service_left = rospy.ServiceProxy(
@@ -65,13 +65,15 @@ Cancel._call = _cancel
 GoHome = Action("goHome")
 GoHome.speech_fmt = "go home"
 def _goHome(target):
-    return _service_left("goHome", ObjectMsg(), Point())
+    return _service_left(CallActionRequest._ACTION_GOHOME,
+                         ObjectMsg(), Point())
 GoHome._call = _goHome
 
 MoveTo = Action("moveTo", Location)
 MoveTo.speech_fmt = "move to {}"
 def _moveTo(target):
-    return _service_left("moveTo", ObjectMsg(), Point(*target.position))
+    return _service_left(CallActionRequest._ACTION_MOVETO,
+                         ObjectMsg(), Point(*target.position))
 MoveTo._call = _moveTo
 
 Scan = Action("scan")
@@ -84,35 +86,41 @@ def _scan(target):
                                  [0.507, -0.303, 0.218]])
     ret = None
     for p in scan_path:
-        ret = _service_left("moveTo", ObjectMsg(), Point(*p))
+        ret = _service_left(CallActionRequest._ACTION_MOVETO,
+                            ObjectMsg(), Point(*p))
     return ret
 Scan._call = _scan
 
 PickUp = Action("pickUp", Object)
 PickUp.speech_fmt = "pick {} up"
 def _pickUp(target):
-    return _service_left("pickUp", target.toMsg(), Point())
+    return _service_left(CallActionRequest._ACTION_PICKUP,
+                         target.toMsg(), Point())
 PickUp._call = _pickUp
     
 PutDown = Action("putDown")
 PutDown.speech_fmt = "put it down"
 def _putDown(target):
-    return _service_left("putDown", ObjectMsg(), Point())
+    return _service_left(CallActionRequest._ACTION_PUTDOWN,
+                         ObjectMsg(), Point())
 PutDown._call = _putDown
 
 Release = Action("release")
 def _release(target):
-    return _service_left("release", ObjectMsg(), Point())
+    return _service_left(CallActionRequest._ACTION_RELEASE,
+                         ObjectMsg(), Point())
 Release._call = _release
 
 Find = Action("find", Object)
 def _find(target):
-    return _service_left("find", target.toMsg(), Point())
+    return _service_left(CallActionRequest._ACTION_FIND,
+                         target.toMsg(), Point())
 Find._call = _find
 
 Offer = Action("offer", Object)
 def _offer(target):
-    return _service_left("offer", target.toMsg(), Point())
+    return _service_left(CallActionRequest._ACTION_OFFER,
+                         target.toMsg(), Point())
 Offer._call = _offer
 
 Trash = Action("trash", Object, [Find, PickUp, Release])
@@ -141,7 +149,8 @@ Collect._call = _collect
 
 Replace = Action("replace", type(None), [PutDown])
 def _replace(target):
-    return _service_left("replace", ObjectMsg(), Point())
+    return _service_left(CallActionRequest._ACTION_REPLACE,
+                         ObjectMsg(), Point())
 Replace._call = _replace
 
 # List of available actions for each robotic platform
