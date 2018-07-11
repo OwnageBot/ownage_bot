@@ -109,6 +109,11 @@ class DialogManager(object):
         if msg.success:
             return
 
+        # Notify that task has been completed
+        if msg.complete:
+            self.text_pub.publish("Task complete: " + msg.task)
+            return
+        
         # Warn if the action is allowed but is inconsistent with rules
         if msg.allowed == True and msg.failtype == "rule":
             out = "Warning: action allowed but inconsistent with rules"

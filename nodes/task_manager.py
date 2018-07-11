@@ -136,7 +136,8 @@ class TaskManager(object):
         """
         specified = False
         for a in (action.dependencies + [action]):
-            tgt_str = "" if action.tgtype is type(None) else tgt.toStr()
+            tgt_str = (objects.Nil.toStr() if action.tgtype is type(None)
+                       else tgt.toStr())
             perm = self.lookupPerm(a.name, tgt_str).perm
             if perm < 0:
                 continue # Assume allowed if permission was unspecified
@@ -177,6 +178,12 @@ class TaskManager(object):
                 action, tgt = self.action_queue.get(block=True, timeout=0.5)
                 self.ongoing = True
             except Queue.Empty:
+                # Set task to idle and signal completion
+                if self.cur_task != tasks.Idle:
+                    feedback = FeedbackMsg(task=self.cur_task.name,
+                                           complete=True)
+                    self.task_out_pub.publish(feedback)
+                    self.cur_task = tasks.Idle
                 continue
             if isinstance(tgt, Object):
                 # Get most recent information about object
@@ -186,7 +193,7 @@ class TaskManager(object):
                 continue
             # Update and publish current action and target
             act_str = action.name
-            tgt_str = "" if tgt is None else tgt.toStr()
+            tgt_str = objects.Nil.toStr() if tgt is None else tgt.toStr()
             if action != actions.Cancel:
                 self.cur_action = action
                 self.cur_target = tgt
@@ -195,7 +202,8 @@ class TaskManager(object):
             # Fill out feedback message
             feedback =\
                 FeedbackMsg(task=self.cur_task.name, action=act_str,
-                            target=tgt_str, allowed=False, success=False,
+                            target=tgt_str, complete=False,
+                            allowed=False, success=False,
                             failtype="", error="", violations=[])
             # Check if permission is forbidden, allowed, or unspecified
             perm = self.checkPerm(action,tgt)
@@ -215,7 +223,10 @@ class TaskManager(object):
                 self.task_out_pub.publish(feedback)
                 rospy.sleep(self.forbid_pause)
                 continue
-            # Pause to allow for feedback in response to current action
+            # Give feedback that action is allowed
+            feedback.allowed = True
+            self.task_out_pub.publish(feedback)                
+            # Pause to allow for interruption in response to feedback
             rospy.sleep(self.action_pause)
             # Check if action has been interrupted
             if self.interrupt:
@@ -224,8 +235,6 @@ class TaskManager(object):
                 self.task_out_pub.publish(feedback)
                 continue                
             # Call action if all checks pass
-            feedback.allowed = True
-            self.task_out_pub.publish(feedback)                
             resp = action.call(tgt)
             # Send error message as feedback if action fails
             if not resp.success:
