@@ -17,9 +17,9 @@ class TaskManager(object):
         self.update_latency = rospy.get_param("~task_update", 0.5)
         if rospy.get_param("simulation", True):
             # Simulated delay before each action to allow for feedback
-            self.action_pause = rospy.get_param("~action_pause", 0.2)
-            # No forbid pauses if running in simulation
-            self.forbid_pause = 0.0
+            self.action_pause = rospy.get_param("~action_pause", 0.3)
+            # Shorter forbid pauses if running in simulation
+            self.forbid_pause = rospy.get_param("~action_pause", 0.3)
         else:
             # Duration in seconds to pause upon forbidden action
             self.forbid_pause = rospy.get_param("~forbid_pause", 1.5)

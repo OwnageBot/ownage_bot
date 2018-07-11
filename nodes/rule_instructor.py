@@ -35,15 +35,31 @@ class RuleInstructor(object):
         self.own_mean = rospy.get_param("~own_mean", 1.0)
         # Half-range of ownership probability for the training examples
         self.own_dev = rospy.get_param("~own_dev", 0.0)
+
+        # Whether to give permissions as feedback in online mode
+        self.online_perms = rospy.get_param("~online_perms", True)
+        # Whether to give rules as feedback in online mode
+        self.online_rules = rospy.get_param("~online_rules", False)
+        # Whether to give owners as feedback in online mode
+        self.online_owners = rospy.get_param("~online_owners", True)
+        # Whether to cancel forbidden actions in online mode
+        self.online_skip = rospy.get_param("~online_skip", True)        
         
-        # Publishers
+        # Handle input and output from task manager node
+        self.task_sub = None
+        self.task_pub = rospy.Publisher("task_in", TaskMsg,
+                                        queue_size=10)
+        # Flag whether task is complete
+        self.task_done = False
+        
+        # Publish ownership, permission and rule data
         self.owner_pub = rospy.Publisher("owner_input", PredicateMsg,
                                          queue_size=10)
         self.perm_pub = rospy.Publisher("perm_input", PredicateMsg,
                                         queue_size=10)
         self.rule_pub = rospy.Publisher("rule_input", RuleMsg,
                                         queue_size=10)
-        
+
         # Servers
         self.listObjects = rospy.ServiceProxy("list_objects", ListObjects)
         self.listAgents = rospy.ServiceProxy("list_agents", ListAgents)
@@ -116,10 +132,88 @@ class RuleInstructor(object):
                 raise SyntaxError("Script was in the wrong syntax")
         self.script_msgs = script_msgs
         
-    def initOnline(self):
-        """Sets up subscribers for online instruction."""
-        pass
+    def initializeOnline(self):
+        """Register subscribers for online instruction."""
+        self.introduceAgents()
+        self.loadRules()
+        self.object_db = {m.id: Object.fromMsg(m) for m in
+                          self.simuObjects().objects}
+        self.agent_db = {m.id: Agent.fromMsg(m) for m in
+                         self.simuAgents().agents}
+        self.task_sub = rospy.Subscriber("task_out", FeedbackMsg,
+                                         self.onlineCb)
+        self.task_done = False
 
+    def shutdownOnline(self):
+        """Deregister subscribers for online instruction."""
+        self.task_sub.unregister()
+        self.task_sub = None
+        self.task_done = False
+        self.object_db.clear()
+        self.agent_db.clear()
+
+    def onlineCb(self, msg):
+        """Provides commands and permissions in response to actions."""
+        # Check if task is complete
+        if msg.complete:
+            self.task_done = True
+            return
+        # Give feedback if action allowed and ongoing, or forbidden by rules
+        allowed = msg.allowed and not msg.success and msg.failtype != "error"
+        forbidden = (msg.failtype == "rule")
+        if not allowed and not forbidden:
+            return
+        action = actions.db[msg.action]
+        if action.tgtype is type(None):
+            # Ignore actions without targets
+            return
+        rule_set = list(self.rule_db[action.name])
+        
+        target = action.tgtype.fromStr(msg.target)
+        if type(target) == Object:
+            # Lookup simulated object properties
+            target = self.object_db[target.id]
+        Object.use_inference = False
+        truth = Rule.evaluateOr(rule_set, target)
+        violations = sorted(rule_set, reverse=True,
+                            key=lambda r : r.evaluate(target))
+        owners_relevant = set()
+        if self.online_perms:
+            # Publish permission for action-target pair
+            perm = PredicateMsg(predicate=msg.action,
+                                bindings=[msg.target],
+                                truth=truth)
+            self.perm_pub.publish(perm)
+        if self.online_rules and truth > 0.5:
+            # Publish rules that were violated
+            for r in violations:
+                self.rule_pub.publish(r.toMsg())
+        if self.online_owners:
+            # Check for relevant owners
+            for r in violations:
+                for c in r.conditions:
+                    if c.name != predicates.OwnedBy.name:
+                        continue
+                    agents = c.bindings[1]
+                    if agents == objects.Any:
+                        owners_relevant.update(self.agent_db.keys())
+                    elif type(agents) == list:
+                        owners_relevant.update([a.id for a in agents])
+                    elif type(c.bindings[1]) == Agent:
+                        owners_relevant.add(agents.id)
+            # Publish ownership of the object
+            for a_id in owners_relevant:
+                p_owned = target.getOwnership(a_id)
+                ownedBy = PredicateMsg(predicate=predicates.OwnedBy.name,
+                                       bindings=[target.toStr(), str(a_id)],
+                                       negated=False, truth=p_owned)
+                self.owner_pub.publish(ownedBy)
+        if self.online_skip and truth > 0.5 and allowed:
+            # Skip the current action
+            task = TaskMsg(name="skip", oneshot=False,
+                           skip=True, interrupt=False, target="")
+            self.task_pub.publish(task)
+            
     def introduceAgents(self):
         """Looks up all simulated agents and introduces them to the tracker."""
         agents = self.simuAgents().agents
@@ -511,6 +605,72 @@ class RuleInstructor(object):
         # Save averages
         self.saveResults(headers, avg_metrics, "owner", n_iters)
 
+    def testOnlinePerformance(self, n_iters):
+        """Test online performance."""
+        # Enable ownership inference and extrapolation by default
+        self.toggleOwnerPrediction(def_infer=False, def_extra=False)
+        # Unfreeze rule and permission databases accordingly
+        self.freeze["rules"](False)
+        self.freeze["perms"](False)
+
+        # Set up task to perform
+        task = rospy.get_param("~online_task", "collectAll")
+        msg = TaskMsg(name=task, oneshot=False,
+                      skip=False, interrupt=True, target="")
+        
+        # Run trials
+        agents = self.simuAgents().agents
+        rule_metrics = defaultdict(lambda : defaultdict(float))
+        own_metrics = defaultdict(lambda : defaultdict(float))
+        for i in range(n_iters):
+            print "-- Trial {} --".format(i+1)
+            self.initializeOnline()
+            rospy.sleep(self.iter_wait/2.0)
+            self.task_pub.publish(msg)
+            while not rospy.is_shutdown():
+                rospy.sleep(self.iter_wait/2.0)
+                if self.task_done:
+                    break
+            metrics = self.evaluateRules(self.object_db.keys())
+            acts = self.rule_db.keys()
+            for act in acts:
+                for k, v in metrics[act].iteritems():
+                    rule_metrics[act][k] += metrics[act][k]
+            metrics = self.evaluateOwnership(self.object_db.keys())
+            for a in agents:
+                for k, v in metrics[a.id].iteritems():
+                    own_metrics[a.id][k] += metrics[a.id][k]
+            self.shutdownOnline()
+                    
+        # Compute averages
+        rule_headers = ["accuracy", "precision", "recall", "f1"]
+        for act in rule_metrics.keys():
+            for k in rule_metrics[act].keys():
+                rule_metrics[act][k] /= n_iters
+        for k in rule_headers:
+            rule_metrics["average"][k] =\
+                sum([rule_metrics[act][k] for act in acts]) / len(acts)
+        own_headers = ["accuracy", "precision", "recall", "f1",
+                       "p-accuracy", "p-precision", "p-recall", "p-f1"]
+        for a_id in own_metrics.keys():
+            for k in own_metrics[a_id].keys():
+                avg_metrics[a_id][k] /= n_iters
+        for k in own_headers:
+            own_metrics["average"][k] =\
+                sum([own_metrics[a.id][k] for a in agents]) / len(agents)
+
+        # Print averages
+        print "== Overall accuracy after {} trials ==".format(n_iters)
+        self.printResults(rule_headers, rule_metrics, topleft="action")
+        self.printResults(own_headers, own_metrics, topleft="owner")
+
+        # Save averages
+        self.saveResults(rule_headers, rule_metrics,
+                         topleft="action", n_iters=n_iters, append=False)
+        self.saveResults(own_headers, own_metrics,
+                         topleft="owner", n_iters=n_iters, append=True)
+
+        
     def printResults(self, headers, metrics, topleft=""):
         """Print results to screen."""
         print "\t".join([topleft] + [h[:3] for h in headers])
@@ -518,9 +678,10 @@ class RuleInstructor(object):
             print "\t".join([str(row)] + [str(metrics[row][k])[:4]
                                           for k in headers])
 
-    def saveResults(self, headers, metrics, topleft="", n_iters=0):
+    def saveResults(self, headers, metrics,
+                    topleft="", n_iters=0, append=False):
         """Save results to results path."""
-        with open(self.results_path, 'wb') as f:
+        with open(self.results_path, 'ab' if append else 'wb') as f:
             print "Saving to {}".format(self.results_path)
             writer = csv.writer(f)
             if n_iters > 0:
@@ -533,7 +694,7 @@ if __name__ == '__main__':
     rospy.init_node('rule_instructor')
     rule_instructor = RuleInstructor()
     if rospy.get_param("~online", False):
-        rule_instructor.initOnline()
+        rule_instructor.initializeOnline()
         rospy.spin()
     else:
         n_iters = rospy.get_param("~n_iters", 1)
@@ -544,4 +705,6 @@ if __name__ == '__main__':
             rule_instructor.testOwnerInference(n_iters)
         elif test_mode == "prediction":
             rule_instructor.testOwnerPrediction(n_iters)
+        elif test_mode == "online":
+            rule_instructor.testOnlinePerformance(n_iters)
             
