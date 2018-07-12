@@ -208,11 +208,13 @@ class RuleInstructor(object):
                                     bindings=[msg.target],
                                     truth=truth)
                 self.perm_pub.publish(perm)
+                rospy.sleep(0.05) # Delay to avoid overloading                
 
         if self.online_rules:
             # Publish rules that were violated
             for r in violations:
                 self.rule_pub.publish(r.toMsg())
+                rospy.sleep(0.05) # Delay to avoid overloading                
 
         if self.online_owners and incorrect:
             # Check for relevant owners if correction was required
@@ -235,7 +237,7 @@ class RuleInstructor(object):
                                        bindings=[target.toStr(), str(a_id)],
                                        negated=False, truth=p_owned)
                 self.owner_pub.publish(ownedBy)
-                rospy.sleep(0.01) # Delay to avoid overloading
+                rospy.sleep(0.05) # Delay to avoid overloading                
 
         if self.online_cancel:
             if allowed and violated:
