@@ -72,7 +72,8 @@ def _collectAll(action_queue, object_db=dict()):
                                     [0.62,0.29], [0.39,0.29]])
     # Determine uncollected objects
     uncollected = [oid for oid, obj in object_db.iteritems()
-                   if not objects.inArea(obj, Area(home_corners))]
+                   if not objects.inArea(obj, Area(home_corners))
+                   and not obj.is_avatar]
     # Determine objects queued to be collected
     queued = [o.id for a, o in act_list
               if a.name == actions.Collect.name]
@@ -114,7 +115,8 @@ def _trashAll(action_queue, object_db):
                                      [0.10,1.00], [0.10,0.70]])
     # Determine untrashed objects
     untrashed = [oid for oid, obj in object_db.iteritems()
-                 if not objects.inArea(obj, Area(trash_corners))]
+                 if not objects.inArea(obj, Area(trash_corners))
+                 and not obj.is_avatar]
     # Determine objects queued to be trashed
     queued = [o.id for a, o in act_list
               if a.name == actions.Trash.name]
