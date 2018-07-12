@@ -722,7 +722,9 @@ class RuleInstructor(object):
                          topleft="action", n_iters=n_iters, append=False)
         self.saveResults(own_headers, own_metrics,
                          topleft="owner", n_iters=n_iters, append=True)
-
+        with open(self.results_path, 'ab') as f:
+            writer = csv.writer(f)
+            writer.writerow(["errors", avg_error_frac])
         
     def printResults(self, headers, metrics, topleft=""):
         """Print results to screen."""
