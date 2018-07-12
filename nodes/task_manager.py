@@ -139,6 +139,7 @@ class TaskManager(object):
             tgt_str = (objects.Nil.toStr() if action.tgtype is type(None)
                        else tgt.toStr())
             perm = self.lookupPerm(a.name, tgt_str).perm
+            rospy.sleep(0.1) # Add delay so service call doesn't overload
             if perm < 0:
                 continue # Assume allowed if permission was unspecified
             specified = True
@@ -154,7 +155,14 @@ class TaskManager(object):
         for a in (action.dependencies + [action]):
             rule_set = self.lookupRules(a.name).rule_set
             rule_set = [Rule.fromMsg(r) for r in rule_set]
-            if Rule.evaluateOr(rule_set, tgt) >= self.decision_thresh:
+            # Check target types
+            if a.tgtype == type(tgt):
+                truth = Rule.evaluateOr(rule_set, tgt)
+            elif a.tgtype == type(None):
+                truth = Rule.evaluateOr(rule_set, None)
+            else:
+                continue
+            if truth >= self.decision_thresh:
                 # Return list of rules violated through optional argument
                 violations += sorted(rule_set, reverse=True,
                                      key=lambda r : r.evaluate(tgt))

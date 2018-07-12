@@ -158,39 +158,55 @@ class RuleInstructor(object):
         if msg.complete:
             self.task_done = True
             return
+
         # Give feedback if action allowed and ongoing, or forbidden by rules
         allowed = msg.allowed and not msg.success and msg.failtype != "error"
         forbidden = (msg.failtype == "rule")
         if not allowed and not forbidden:
             return
+
         action = actions.db[msg.action]
         if action.tgtype is type(None):
             # Ignore actions without targets
             return
-        rule_set = list(self.rule_db[action.name])
         
         target = action.tgtype.fromStr(msg.target)
         if type(target) == Object:
             # Lookup simulated object properties
             target = self.object_db[target.id]
         Object.use_inference = False
-        truth = Rule.evaluateOr(rule_set, target)
-        violations = sorted(rule_set, reverse=True,
-                            key=lambda r : r.evaluate(target))
-        owners_relevant = set()
+
+        # Evaluate rules for action and all its dependencies
+        perms, violations, all_rules = [], [], []
+        for a in (action.dependencies + [action]):
+            rule_set = list(self.rule_db.get(a.name, []))
+            # Check target types
+            if a.tgtype != type(target):
+                continue
+            truth = Rule.evaluateOr(rule_set, target)
+            perms.append((a.name, truth))
+            all_rules += rule_set
+            if truth > 0.5:
+                violations += sorted(rule_set, reverse=True,
+                                     key=lambda r : r.evaluate(target))
+
         if self.online_perms:
-            # Publish permission for action-target pair
-            perm = PredicateMsg(predicate=msg.action,
-                                bindings=[msg.target],
-                                truth=truth)
-            self.perm_pub.publish(perm)
-        if self.online_rules and truth > 0.5:
+            # Publish permissions for the action and all dependencies
+            for act_name, truth in perms:
+                perm = PredicateMsg(predicate=act_name,
+                                    bindings=[msg.target],
+                                    truth=truth)
+                self.perm_pub.publish(perm)
+
+        if self.online_rules:
             # Publish rules that were violated
             for r in violations:
                 self.rule_pub.publish(r.toMsg())
+
         if self.online_owners:
             # Check for relevant owners
-            for r in violations:
+            owners_relevant = set()
+            for r in all_rules:
                 for c in r.conditions:
                     if c.name != predicates.OwnedBy.name:
                         continue
@@ -203,11 +219,14 @@ class RuleInstructor(object):
                         owners_relevant.add(agents.id)
             # Publish ownership of the object
             for a_id in owners_relevant:
+                print target.toPrint()
+                print target.ownership
                 p_owned = target.getOwnership(a_id)
                 ownedBy = PredicateMsg(predicate=predicates.OwnedBy.name,
                                        bindings=[target.toStr(), str(a_id)],
                                        negated=False, truth=p_owned)
                 self.owner_pub.publish(ownedBy)
+
         if self.online_skip and truth > 0.5 and allowed:
             # Skip the current action
             task = TaskMsg(name="skip", oneshot=False,
@@ -514,6 +533,7 @@ class RuleInstructor(object):
         self.printResults(headers, avg_metrics, topleft="action")
 
         # Save averages
+        print "Saving to {}".format(self.results_path)
         self.saveResults(headers, avg_metrics, "action", n_iters)
 
     def testOwnerInference(self, n_iters):
@@ -556,6 +576,7 @@ class RuleInstructor(object):
         self.printResults(headers, avg_metrics, topleft="owner")
 
         # Save averages
+        print "Saving to {}".format(self.results_path)
         self.saveResults(headers, avg_metrics, "owner", n_iters)
 
     def testOwnerPrediction(self, n_iters):
@@ -603,6 +624,7 @@ class RuleInstructor(object):
         self.printResults(headers, avg_metrics, topleft="owner")
 
         # Save averages
+        print "Saving to {}".format(self.results_path)
         self.saveResults(headers, avg_metrics, "owner", n_iters)
 
     def testOnlinePerformance(self, n_iters):
@@ -666,6 +688,7 @@ class RuleInstructor(object):
         self.printResults(own_headers, own_metrics, topleft="owner")
 
         # Save averages
+        print "Saving to {}".format(self.results_path)
         self.saveResults(rule_headers, rule_metrics,
                          topleft="action", n_iters=n_iters, append=False)
         self.saveResults(own_headers, own_metrics,
@@ -683,7 +706,6 @@ class RuleInstructor(object):
                     topleft="", n_iters=0, append=False):
         """Save results to results path."""
         with open(self.results_path, 'ab' if append else 'wb') as f:
-            print "Saving to {}".format(self.results_path)
             writer = csv.writer(f)
             if n_iters > 0:
                 writer.writerow(["trials", n_iters])

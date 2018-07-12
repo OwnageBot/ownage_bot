@@ -40,9 +40,11 @@ class Rule(object):
     def evaluate(self, tgt, exclusions=set()):
         """Evaluates if target satisfies the predicates."""
         truth = 1.0
-        # Default to true if target is None (quick-fix)
-        if tgt == None:
+        # Check that target type is correct, or return true if None
+        if tgt is None:
             return truth
+        if type(tgt) != self.action.tgtype:
+            raise TypeError("Wrong target type.")
         # Iterate through all non-excluded predicates
         for p in self.conditions:
             if p not in exclusions:
