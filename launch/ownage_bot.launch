@@ -68,7 +68,8 @@
 	  name="world_display" if="$(arg simulation)">
       <param name="swap_xy" type="bool" value="false"/>
       <param name="flip_xy" type="bool" value="false"/>
-      <rosparam param="origin">[-1.0, -0.6]</rosparam>	    
+      <param name="scaling" type="int" value="160"/>
+      <rosparam param="origin">[-2.0, -1.2]</rosparam>
     </node>
     
     <!-- Object tracker node (actual) -->

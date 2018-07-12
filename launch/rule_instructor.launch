@@ -2,6 +2,11 @@
   <arg name="test_mode" default="rules"/>
   <arg name="eval_set" default="all"/>
   <arg name="online" default="false"/>
+  <arg name="online_perms" default="true"/>
+  <arg name="online_rules" default="false"/>
+  <arg name="online_owners" default="true"/>
+  <arg name="online_skip" default="true"/>
+  <arg name="online_task" default="collectAll"/>
   <arg name="n_iters" default="1"/>
   <arg name="disable_inference" default="-1"/>
   <arg name="disable_extrapolate" default="-1"/>
@@ -27,6 +32,16 @@
     <param name="eval_set" type="string" value="$(arg eval_set)" />
     <!-- Whether to use online instruction or batch instruction -->
     <param name="online" type="bool" value="$(arg online)" />
+    <!-- Whether to give permissions as online feedback -->
+    <param name="online_perms" type="bool" value="$(arg online_perms)" />
+    <!-- Whether to give rules as online feedback -->
+    <param name="online_rules" type="bool" value="$(arg online_rules)" />
+    <!-- Whether to give owners as online feedback -->
+    <param name="online_owners" type="bool" value="$(arg online_owners)" />
+    <!-- Whether to cancel/skip forbidden actions via online feedback -->
+    <param name="online_skip" type="bool" value="$(arg online_skip)" />
+    <!-- Name of task to perform when testing online performance -->
+    <param name="online_task" type="string" value="$(arg online_task)" />
     <!-- Number of training iterations for system evaluation -->
     <param name="n_iters" type="int" value="$(arg n_iters)" />
     <!-- Whether or not to disable ownership inference, -1 for default -->

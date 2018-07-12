@@ -624,6 +624,7 @@ class RuleInstructor(object):
         own_metrics = defaultdict(lambda : defaultdict(float))
         for i in range(n_iters):
             print "-- Trial {} --".format(i+1)
+            self.resetAll()
             self.initializeOnline()
             rospy.sleep(self.iter_wait/2.0)
             self.task_pub.publish(msg)
@@ -654,7 +655,7 @@ class RuleInstructor(object):
                        "p-accuracy", "p-precision", "p-recall", "p-f1"]
         for a_id in own_metrics.keys():
             for k in own_metrics[a_id].keys():
-                avg_metrics[a_id][k] /= n_iters
+                own_metrics[a_id][k] /= n_iters
         for k in own_headers:
             own_metrics["average"][k] =\
                 sum([own_metrics[a.id][k] for a in agents]) / len(agents)
