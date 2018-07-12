@@ -43,7 +43,7 @@ class RuleInstructor(object):
         # Whether to give owners as feedback in online mode
         self.online_owners = rospy.get_param("~online_owners", True)
         # Whether to cancel forbidden actions in online mode
-        self.online_skip = rospy.get_param("~online_skip", True)        
+        self.online_cancel = rospy.get_param("~online_cancel", True)        
         
         # Handle input and output from task manager node
         self.task_sub = None
@@ -178,6 +178,7 @@ class RuleInstructor(object):
 
         # Evaluate rules for action and all its dependencies
         perms, violations, all_rules = [], [], []
+        violated = False
         for a in (action.dependencies + [action]):
             rule_set = list(self.rule_db.get(a.name, []))
             # Check target types
@@ -186,7 +187,8 @@ class RuleInstructor(object):
             truth = Rule.evaluateOr(rule_set, target)
             perms.append((a.name, truth))
             all_rules += rule_set
-            if truth > 0.5:
+            if truth >= 0.5:
+                violated = True
                 violations += sorted(rule_set, reverse=True,
                                      key=lambda r : r.evaluate(target))
 
@@ -219,19 +221,24 @@ class RuleInstructor(object):
                         owners_relevant.add(agents.id)
             # Publish ownership of the object
             for a_id in owners_relevant:
-                print target.toPrint()
-                print target.ownership
                 p_owned = target.getOwnership(a_id)
                 ownedBy = PredicateMsg(predicate=predicates.OwnedBy.name,
                                        bindings=[target.toStr(), str(a_id)],
                                        negated=False, truth=p_owned)
                 self.owner_pub.publish(ownedBy)
+                rospy.sleep(0.01) # Delay to avoid overloading
 
-        if self.online_skip and truth > 0.5 and allowed:
-            # Skip the current action
-            task = TaskMsg(name="skip", oneshot=False,
-                           skip=True, interrupt=False, target="")
-            self.task_pub.publish(task)
+        if self.online_cancel:
+            if allowed and violated:
+                # Skip the current action
+                task = TaskMsg(name="skip", oneshot=False, interrupt=False,
+                               skip=True, force=False, target="")
+                self.task_pub.publish(task)
+            elif forbidden and not violated:
+                # Force through the current action
+                task = TaskMsg(name="force", oneshot=False, interrupt=False,
+                               skip=False, force=True, target="")
+                self.task_pub.publish(task)
             
     def introduceAgents(self):
         """Looks up all simulated agents and introduces them to the tracker."""
@@ -637,8 +644,8 @@ class RuleInstructor(object):
 
         # Set up task to perform
         task = rospy.get_param("~online_task", "collectAll")
-        msg = TaskMsg(name=task, oneshot=False,
-                      skip=False, interrupt=True, target="")
+        msg = TaskMsg(name=task, oneshot=False, interrupt=True,
+                      skip=False, force=False, target="")
         
         # Run trials
         agents = self.simuAgents().agents

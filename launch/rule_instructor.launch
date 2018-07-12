@@ -5,7 +5,7 @@
   <arg name="online_perms" default="true"/>
   <arg name="online_rules" default="false"/>
   <arg name="online_owners" default="true"/>
-  <arg name="online_skip" default="true"/>
+  <arg name="online_cancel" default="true"/>
   <arg name="online_task" default="collectAll"/>
   <arg name="n_iters" default="1"/>
   <arg name="disable_inference" default="-1"/>
@@ -38,8 +38,8 @@
     <param name="online_rules" type="bool" value="$(arg online_rules)" />
     <!-- Whether to give owners as online feedback -->
     <param name="online_owners" type="bool" value="$(arg online_owners)" />
-    <!-- Whether to cancel/skip forbidden actions via online feedback -->
-    <param name="online_skip" type="bool" value="$(arg online_skip)" />
+    <!-- Whether to cancel or force through actions via online feedback -->
+    <param name="online_cancel" type="bool" value="$(arg online_cancel)" />
     <!-- Name of task to perform when testing online performance -->
     <param name="online_task" type="string" value="$(arg online_task)" />
     <!-- Number of training iterations for system evaluation -->

@@ -101,6 +101,10 @@ class TaskManager(object):
                 rospy.sleep(self.forbid_pause)
             self.q_lock.release()
             return
+        if msg.force and self.ongoing:
+            # Set flag to override rules which forbid current action
+            self.override = True
+            return
         if msg.oneshot:
             # Construct one-shot task if necessary
             action = actions.db[msg.name]
@@ -179,8 +183,7 @@ class TaskManager(object):
         # Keep performing requested tasks/actions
         while not rospy.is_shutdown():
             # Reset flags
-            self.ongoing = False
-            self.interrupt = False
+            self.ongoing, self.interrupt, self.override = False, False, False
             # Get next action-target pair
             try:
                 action, tgt = self.action_queue.get(block=True, timeout=0.5)
@@ -224,7 +227,12 @@ class TaskManager(object):
                 if perm != False:
                     self.task_out_pub.publish(feedback)
                     rospy.sleep(self.forbid_pause)
-                    continue
+                    # Check to see that user has not overridden the rule
+                    if self.override:
+                        feedback.failtype = ""
+                        feedback.violations = []
+                    else:
+                        continue
             # Check if action is forbidden by permissions
             if perm == True:
                 feedback.failtype = "perm"
@@ -233,7 +241,8 @@ class TaskManager(object):
                 continue
             # Give feedback that action is allowed
             feedback.allowed = True
-            self.task_out_pub.publish(feedback)                
+            if not self.override:
+                self.task_out_pub.publish(feedback)                
             # Pause to allow for interruption in response to feedback
             rospy.sleep(self.action_pause)
             # Check if action has been interrupted

@@ -45,8 +45,8 @@ def asAction(s):
         if tgt is None:
             error = NO_CURRENT_TGT
             return None
-    msg = TaskMsg(name=name, oneshot=True,
-                  skip=False, interrupt=True, target=tgt)
+    msg = TaskMsg(name=name, oneshot=True, interrupt=True,
+                  skip=False, force=False, target=tgt)
     return msg
 
 def asTask(s):
@@ -61,14 +61,18 @@ def asTask(s):
         return None
     name = args[0]
     if name == "skip":
-        msg = TaskMsg(name=name, oneshot=False,
-                      skip=True, interrupt=False, target="")
+        msg = TaskMsg(name=name, oneshot=False, interrupt=False,
+                      skip=True, force=False, target="")
+        return msg
+    elif name == "force":
+        msg = TaskMsg(name=name, oneshot=False, interrupt=False,
+                      skip=False, force=True, target="")
         return msg
     elif name not in tasks.db:
         error = NO_TASK
         return None
-    msg = TaskMsg(name=name, oneshot=False,
-                  skip=False, interrupt=True, target="")
+    msg = TaskMsg(name=name, oneshot=False, interrupt=True,
+                  skip=False, force=False, target="")
     return msg
 
 def asPredicate(s, n_unbound=0):
