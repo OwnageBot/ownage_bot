@@ -97,6 +97,9 @@ def _collectAllCheck(action, obj):
     # Assume undone if action is not Collect
     if action.name != actions.Collect.name:
         return False
+    # Do not collect if object is avatar
+    if obj.is_avatar:
+        return True
     # Return true if object in home area
     return objects.inArea(obj, Area(home_corners))
 CollectAll._checkActionDone = _collectAllCheck
@@ -136,6 +139,9 @@ def _trashAllCheck(action, obj):
     # Assume undone if action is not Trash
     if action.name != actions.Trash.name:
         return False
+    # Do not trash if object is avatar
+    if obj.is_avatar:
+        return True
     # Return true if object in home area
     return objects.inArea(obj, objects.Area(trash_corners))
 TrashAll._checkActionDone = _trashAllCheck

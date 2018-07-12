@@ -44,13 +44,16 @@ class RuleInstructor(object):
         self.online_owners = rospy.get_param("~online_owners", True)
         # Whether to cancel forbidden actions in online mode
         self.online_cancel = rospy.get_param("~online_cancel", True)        
+
+        # Flag whether online task is complete
+        self.online_done = False
+        # Count of number of online errors
+        self.online_errors = 0
         
         # Handle input and output from task manager node
         self.task_sub = None
         self.task_pub = rospy.Publisher("task_in", TaskMsg,
                                         queue_size=10)
-        # Flag whether task is complete
-        self.task_done = False
         
         # Publish ownership, permission and rule data
         self.owner_pub = rospy.Publisher("owner_input", PredicateMsg,
@@ -142,13 +145,15 @@ class RuleInstructor(object):
                          self.simuAgents().agents}
         self.task_sub = rospy.Subscriber("task_out", FeedbackMsg,
                                          self.onlineCb)
-        self.task_done = False
+        self.online_done = False
+        self.online_errors = 0
 
     def shutdownOnline(self):
         """Deregister subscribers for online instruction."""
         self.task_sub.unregister()
         self.task_sub = None
-        self.task_done = False
+        self.online_done = False
+        self.online_errors = 0
         self.object_db.clear()
         self.agent_db.clear()
 
@@ -156,7 +161,7 @@ class RuleInstructor(object):
         """Provides commands and permissions in response to actions."""
         # Check if task is complete
         if msg.complete:
-            self.task_done = True
+            self.online_done = True
             return
 
         # Give feedback if action allowed and ongoing, or forbidden by rules
@@ -192,6 +197,10 @@ class RuleInstructor(object):
                 violations += sorted(rule_set, reverse=True,
                                      key=lambda r : r.evaluate(target))
 
+        # Update number of corrections so far
+        incorrect = (allowed and violated) or (forbidden and not violated)
+        self.online_errors += 1 if incorrect else 0
+                
         if self.online_perms:
             # Publish permissions for the action and all dependencies
             for act_name, truth in perms:
@@ -205,8 +214,8 @@ class RuleInstructor(object):
             for r in violations:
                 self.rule_pub.publish(r.toMsg())
 
-        if self.online_owners:
-            # Check for relevant owners
+        if self.online_owners and incorrect:
+            # Check for relevant owners if correction was required
             owners_relevant = set()
             for r in all_rules:
                 for c in r.conditions:
@@ -651,6 +660,7 @@ class RuleInstructor(object):
         agents = self.simuAgents().agents
         rule_metrics = defaultdict(lambda : defaultdict(float))
         own_metrics = defaultdict(lambda : defaultdict(float))
+        avg_error_frac = 0.0
         for i in range(n_iters):
             print "-- Trial {} --".format(i+1)
             self.resetAll()
@@ -659,8 +669,14 @@ class RuleInstructor(object):
             self.task_pub.publish(msg)
             while not rospy.is_shutdown():
                 rospy.sleep(self.iter_wait/2.0)
-                if self.task_done:
+                if self.online_done:
                     break
+            n_objects = len([o for o in self.object_db.itervalues() if
+                             not o.is_avatar])
+            error_frac = float(self.online_errors) / n_objects
+            avg_error_frac += error_frac
+            print "No. of online errors: {}".format(self.online_errors)
+            print "Online error fraction: {}".format(error_frac)
             metrics = self.evaluateRules(self.object_db.keys())
             acts = self.rule_db.keys()
             for act in acts:
@@ -673,6 +689,7 @@ class RuleInstructor(object):
             self.shutdownOnline()
                     
         # Compute averages
+        avg_error_frac /= n_iters
         rule_headers = ["accuracy", "precision", "recall", "f1"]
         for act in rule_metrics.keys():
             for k in rule_metrics[act].keys():
@@ -691,6 +708,7 @@ class RuleInstructor(object):
 
         # Print averages
         print "== Overall accuracy after {} trials ==".format(n_iters)
+        print "Online error fraction: {}".format(avg_error_frac)
         self.printResults(rule_headers, rule_metrics, topleft="action")
         self.printResults(own_headers, own_metrics, topleft="owner")
 
