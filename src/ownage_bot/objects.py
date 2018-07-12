@@ -50,7 +50,7 @@ class Object(object):
 
     _lookupObject = rospy.ServiceProxy("lookup_object", LookupObject)
     _listObjects = rospy.ServiceProxy("list_objects", ListObjects)
-    _universe_cache = []
+    _universe_cache = set()
     _last_cache_time = rospy.Time()
     _cache_latency = rospy.Duration(0.2)
 
@@ -206,7 +206,16 @@ class Object(object):
     @classmethod
     def fromID(cls, oid):
         """Convert ID to Object by looking up database."""
-        return cls.fromMsg(cls._lookupObject(oid).object)
+        try:
+            obj = cls.fromMsg(cls._lookupObject(oid).object)
+            cls._universe_cache.add(obj)
+            return obj
+        except:
+            for obj in cls._universe_cache:
+                if obj.id == oid:
+                    return obj
+            else:
+                return cls(id=oid)
 
     @classmethod
     def universe(cls):
@@ -217,13 +226,13 @@ class Object(object):
                 rospy.wait_for_service("list_objects",
                                        timeout=cls._cache_latency.to_sec())
                 resp = cls._listObjects()
-                cls._universe_cache =  [cls.fromMsg(m) for m in resp.objects]
-                cls._universe_cache.sort(key = lambda x : x.toStr())
+                cls._universe_cache =  set(cls.fromMsg(m) for m in
+                                           resp.objects)
                 cls._last_cache_time = rospy.Time.now()
-            except (rospy.ROSException, rospy.ServiceException):
+            except:
                 # Just return cache if service call could not be executed
                 rospy.logwarn("Service error, returning cache instead...")
-        return cls._universe_cache
+        return sorted(cls._universe_cache, key = lambda x : x.id)
     
 class Agent(object):
     """Represents an agent that can own and act on objects."""
@@ -318,7 +327,7 @@ class Agent(object):
                 cls._universe_cache =  [cls.fromMsg(m) for m in resp.agents]
                 cls._universe_cache.sort(key = lambda x : x.toStr())
                 cls._last_cache_time = rospy.Time.now()
-            except (rospy.ROSException, rospy.ServiceException):
+            except:
                 # Just return cache if service call could not be executed
                 rospy.logwarn("Service error, returning cache instead...")
         return cls._universe_cache

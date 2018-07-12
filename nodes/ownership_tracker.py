@@ -232,7 +232,8 @@ class OwnershipTracker(ObjectTracker):
         """Infer ownership from permissions and rules."""
         if obj_ids is None:
             obj_ids = self.object_db.keys()
-        obj_ids = [i for i in obj_ids if not self.object_db[i].is_avatar]
+        obj_ids = [i for i in obj_ids if i in self.object_db and
+                   not self.object_db[i].is_avatar]
         
         # Lookup rules in advance
         rule_db = dict()

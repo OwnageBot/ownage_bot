@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import rospy
+import threading
 from collections import namedtuple
 from std_srvs.srv import *
 from ownage_bot import *
@@ -32,6 +33,11 @@ class RuleManager(object):
         # Database of unexplained permissions
         self.unexplained_db = dict()
 
+        # Lock to ensure callbacks update permissions synchronously
+        self.perm_lock = threading.Lock()
+        # Lock to ensure callbacks update rules synchronously
+        self.rule_lock = threading.Lock()
+        
         # Certainty threshold to consider a permission 'covered'
         self.cover_thresh = rospy.get_param("~cover_thresh", 0.5)
         # Prior probability that permission is 'forbid'
@@ -71,15 +77,19 @@ class RuleManager(object):
 
     def resetPermsCb(self, req):
         """Clears the permission database."""
+        self.perm_lock.acquire()
         for a in actions.db.iterkeys():
             self.perm_db[a].clear()
             self.unexplained_db[a].clear()
+        self.perm_lock.release()
         return TriggerResponse(True, "")
 
     def resetRulesCb(self, req):
         """Clears the given rule and active rule databases."""
+        self.rule_lock.acquire()
         for a in actions.db.iterkeys():
             self.rule_db[a].clear()
+        self.rule_lock.release()
         return TriggerResponse(True, "")
 
     def freezePermsCb(self, req):
@@ -131,15 +141,19 @@ class RuleManager(object):
             raise TypeError("Action perm should have exactly one argument.")
         if (msg.bindings[0] == objects.Nil.toStr() and
             action.tgtype is type(None)):
+            self.perm_lock.acquire()
             self.perm_db[action.name][objects.Nil] = msg.truth
+            self.perm_lock.release()
             return
         
         tgt = action.tgtype.fromStr(msg.bindings[0])
         
+        self.perm_lock.acquire()
         # Overwrite old value if permission already exists
         self.perm_db[action.name][tgt] = msg.truth
         # Do nothing if rule database is frozen
         if self.freeze_rules:
+            self.perm_lock.release()
             return
 
         # Check if accuracy is low enough to warrant a rule update
@@ -149,13 +163,16 @@ class RuleManager(object):
             # Refresh permission targets before updating rules
             self.refreshTargets(action.name)
             # Update rules to accomodate all unexplained permissions
+            self.rule_lock.acquire()
             self.accomPerm(action.name, tgt, msg.truth)
             for t, v in self.unexplained_db[action.name].iteritems():
                 self.accomPerm(action.name, t, v)
+            self.rule_lock.release()
             self.unexplained_db[action.name].clear()
         else:
             # Add to database of unexplained permissions
             self.unexplained_db[action.name][tgt] = msg.truth
+        self.perm_lock.release()
 
     def ruleInputCb(self, msg):
         """Updates given rule database, adjusts active rule database."""
@@ -169,7 +186,9 @@ class RuleManager(object):
         # Refresh permission targets before updating rules
         self.refreshTargets(action.name)
         # Accomdate the given rule
+        self.rule_lock.acquire()
         self.accomRule(rule, msg.truth)
+        self.rule_lock.release()
         
     def accomPerm(self, act_name, tgt, truth):
         """Tries to accommodate the new permission by modifying rule base."""

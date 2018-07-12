@@ -664,8 +664,10 @@ class RuleInstructor(object):
         for i in range(n_iters):
             print "-- Trial {} --".format(i+1)
             self.resetAll()
+            rospy.sleep(self.iter_wait/4.0)
             self.initializeOnline()
-            rospy.sleep(self.iter_wait/2.0)
+            rospy.sleep(self.iter_wait/4.0)
+            self.online_done = False
             self.task_pub.publish(msg)
             while not rospy.is_shutdown():
                 rospy.sleep(self.iter_wait/2.0)

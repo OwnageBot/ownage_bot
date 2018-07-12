@@ -17,9 +17,9 @@ class TaskManager(object):
         self.update_latency = rospy.get_param("~task_update", 0.5)
         if rospy.get_param("simulation", True):
             # Simulated delay before each action to allow for feedback
-            self.action_pause = rospy.get_param("~action_pause", 0.3)
+            self.action_pause = rospy.get_param("~action_pause", 0.5)
             # Shorter forbid pauses if running in simulation
-            self.forbid_pause = rospy.get_param("~action_pause", 0.3)
+            self.forbid_pause = rospy.get_param("~action_pause", 0.5)
         else:
             # Duration in seconds to pause upon forbidden action
             self.forbid_pause = rospy.get_param("~forbid_pause", 1.5)
@@ -142,8 +142,13 @@ class TaskManager(object):
         for a in (action.dependencies + [action]):
             tgt_str = (objects.Nil.toStr() if action.tgtype is type(None)
                        else tgt.toStr())
-            perm = self.lookupPerm(a.name, tgt_str).perm
-            rospy.sleep(0.1) # Add delay so service call doesn't overload
+            try:
+                perm = self.lookupPerm(a.name, tgt_str).perm
+                rospy.sleep(0.02)
+            except rospy.ServiceException:
+                # Fail silently and assume allowed
+                rospy.logwarn("Could not lookup permissions")
+                continue
             if perm < 0:
                 continue # Assume allowed if permission was unspecified
             specified = True
@@ -157,7 +162,13 @@ class TaskManager(object):
     def checkRules(self, action, tgt, violations=[]):
         """Returns true if rules forbid action on target."""
         for a in (action.dependencies + [action]):
-            rule_set = self.lookupRules(a.name).rule_set
+            try:
+                rule_set = self.lookupRules(a.name).rule_set
+                rospy.sleep(0.02)
+            except rospy.ServiceException:
+                # Fail silently and assume allowed
+                rospy.logwarn("Could not lookup rules")
+                continue                
             rule_set = [Rule.fromMsg(r) for r in rule_set]
             # Check target types
             if a.tgtype == type(tgt):
