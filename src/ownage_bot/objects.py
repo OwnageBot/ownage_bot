@@ -100,7 +100,7 @@ class Object(object):
     def refresh(self):
         """Returns refresh copy of the object by looking up the database."""
         cls = self.__class__
-        return cls.fromMsg(cls._lookupObject(self.id).object)        
+        return cls.fromID(self.id)
     
     def copy(self):
         """Makes a copy of the Object."""

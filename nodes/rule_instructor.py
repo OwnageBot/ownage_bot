@@ -15,8 +15,8 @@ class RuleInstructor(object):
 
     def __init__(self):
         # Various rates
-        self.pub_rate = rospy.Rate(rospy.get_param("~pub_rate", 10))
-        self.iter_wait = rospy.get_param("~iter_wait", 1.0)
+        self.pub_rate = rospy.Rate(rospy.get_param("~pub_rate", 5.0))
+        self.iter_wait = rospy.get_param("~iter_wait", 1.5)
 
         # Path to save results
         self.results_path = rospy.get_param("~results_path",

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import math
 import random as r
+import numpy as np
 import threading
 from copy import copy
 import rospy
@@ -196,11 +197,9 @@ class WorldSimulator(object):
         color_names = rospy.get_param("blocks_world/color_names",
                                       ["none", "red", "green", "blue"])
         
-        # Last action times (how many seconds ago an action occurred)
-        t_last_owned = rospy.get_param("blocks_world/t_last_owned", 0)
-        t_last_owned = rospy.Duration(t_last_owned)
-        t_last_unowned = rospy.get_param("blocks_world/t_last_unowned", 60)
-        t_last_unowned = rospy.Duration(t_last_unowned)
+        # Avg interaction periods (how frequently objects are interacted with)
+        beta_owned = rospy.get_param("blocks_world/beta_owned", 10.0)
+        beta_unowned = rospy.get_param("blocks_world/beta_unowned", 1000.0)
         # Store scenario generation time
         t_now = rospy.Time.now()
 
@@ -279,13 +278,15 @@ class WorldSimulator(object):
                 col_id = r.choice(range(n_agents+1))
                 obj.color = color_names[col_id]
 
-            # Assign last interaction times
+            # Generate last interaction times according to exp. distribution
             if 'time' in cluster_vars:
                 for a_id in range(1, n_agents+1):
                     if a_id == c_id:
-                        obj.t_last_actions[a_id] = t_now - t_last_owned
+                        t_last_action = np.random.exponential(beta_owned)
                     else:
-                        obj.t_last_actions[a_id] = t_now - t_last_unowned
+                        t_last_action = np.random.exponential(beta_unowned)
+                    t_last_action = rospy.Duration(t_last_action)
+                    obj.t_last_actions[a_id] = t_now - t_last_action
 
             # Assign ownership if not unowned
             if c_id > 0:
