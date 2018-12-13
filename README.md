@@ -2,6 +2,8 @@
 
 A robotic system that learns the rules and relations of ownership based on interaction with objects and agents in its environment. Capable of ownership prediction through perceptual heuristics, ownership inference through Bayesian logic, and norm learning through incremental rule induction.
 
+Pre-print (accepted AAAI 2019): [That's Mine! Learning Ownership Relations and Norms for Robots](https://arxiv.org/abs/1812.02576)
+
 Developed primarily at the [Yale Social Robotics Lab](https://scazlab.yale.edu/).
 
 ## Table of Contents
